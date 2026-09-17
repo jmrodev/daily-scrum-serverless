@@ -476,18 +476,18 @@
         <div class="meta-tags" id="modalMetaTags"></div>
 
         <div style="margin-bottom: 14px;">
-          <label for="modalAns1">1. ¿Qué hiciste ayer?</label>
-          <textarea id="modalAns1" placeholder="Avances concretos..."></textarea>
+          <label for="modalAns1">1. ¿Qué hiciste? (Tareas realizadas)</label>
+          <textarea id="modalAns1" placeholder="Detalle de lo que completaste..."></textarea>
         </div>
 
         <div style="margin-bottom: 14px;">
-          <label for="modalAns2">2. ¿Qué vas a hacer hoy?</label>
-          <textarea id="modalAns2" placeholder="Foco del día..."></textarea>
+          <label for="modalAns2">2. ¿Con qué sigues? (Próximo paso / Foco)</label>
+          <textarea id="modalAns2" placeholder="En qué vas a trabajar..."></textarea>
         </div>
 
         <div style="margin-bottom: 14px;">
           <label for="modalAns3">3. ¿Bloqueos o Impedimentos?</label>
-          <textarea id="modalAns3" placeholder="Ninguno / Descripción..."></textarea>
+          <textarea id="modalAns3" placeholder="Ninguno / Describí el impedimento..."></textarea>
         </div>
 
         <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 18px;">
@@ -1015,8 +1015,8 @@
                     <button class="btn-action danger" onclick="deleteScrumEntry('${project}', '${week}', '${day}', '${m.name}')" title="Eliminar">🗑️</button>
                   </div>
                 </div>
-                <div class="scrum-line"><span class="lbl">Ayer:</span> ${ans1}</div>
-                <div class="scrum-line"><span class="lbl">Hoy:</span> ${ans2}</div>
+                <div class="scrum-line"><span class="lbl">Hecho:</span> ${ans1}</div>
+                <div class="scrum-line"><span class="lbl">Sigue:</span> ${ans2}</div>
                 ${hasBlocker ? `<div class="scrum-line is-blocked"><span class="lbl">Bloqueo:</span> ${ans3}</div>` : ""}
               </div>
             `;
