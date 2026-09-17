@@ -10,9 +10,11 @@
       --primary-hover: #1d4ed8;
       --bg: #f8fafc;
       --surface: #ffffff;
+      --surface-alt: #f1f5f9;
       --text: #0f172a;
       --text-muted: #64748b;
       --border: #e2e8f0;
+      --border-dark: #cbd5e1;
       --success: #16a34a;
       --success-bg: #dcfce7;
       --error: #dc2626;
@@ -22,6 +24,26 @@
       --info-bg: #e0f2fe;
       --info-text: #0369a1;
       --radius: 10px;
+    }
+
+    [data-theme="dark"] {
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --bg: #0b0f19;
+      --surface: #1e293b;
+      --surface-alt: #0f172a;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --border-dark: #475569;
+      --success: #22c55e;
+      --success-bg: #064e3b;
+      --error: #ef4444;
+      --error-bg: #450a0a;
+      --warning: #f59e0b;
+      --warning-bg: #451a03;
+      --info-bg: #0c4a6e;
+      --info-text: #38bdf8;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -86,7 +108,7 @@
     .mode-badge.aws { background: var(--success-bg); color: var(--success); }
 
     .user-pill {
-      background: #f1f5f9;
+      background: var(--surface-alt);
       border: 1px solid var(--border);
       padding: 3px 8px;
       border-radius: 8px;
@@ -120,9 +142,9 @@
       transition: all 0.15s ease;
     }
     .tag-status.open { background: var(--success-bg); color: var(--success); }
-    .tag-status.open:hover { background: #bbf7d0; }
-    .tag-status.closed { background: #f1f5f9; color: #64748b; }
-    .tag-status.closed:hover { background: #e2e8f0; }
+    .tag-status.open:hover { filter: brightness(0.95); }
+    .tag-status.closed { background: var(--surface-alt); color: var(--text-muted); }
+    .tag-status.closed:hover { background: var(--border); }
 
     /* Main Board Card */
     .card {
@@ -166,14 +188,14 @@
       border-radius: 6px;
       font-size: 13px;
       color: var(--text);
-      background: #fff;
+      background: var(--surface);
       font-family: inherit;
     }
 
     input:focus, select:focus, textarea:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 255, 0.12);
+      box-shadow: 0 0 0 3px rgba(37, 99, 255, 0.18);
     }
 
     textarea { resize: vertical; min-height: 80px; width: 100%; }
@@ -194,8 +216,8 @@
     .btn:active { transform: scale(0.98); }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
-    .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-secondary { background: var(--surface-alt); color: var(--text); border: 1px solid var(--border-dark); }
+    .btn-secondary:hover { background: var(--border); }
     .btn-danger { background: var(--error); color: #fff; }
     .btn-danger:hover { background: #b91c1c; }
     .btn-sm { padding: 4px 8px; font-size: 12px; }
@@ -222,7 +244,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      background: #fff;
+      background: var(--surface);
     }
 
     th, td {
@@ -232,7 +254,7 @@
     }
 
     th {
-      background: #f8fafc;
+      background: var(--surface-alt);
       font-size: 12px;
       font-weight: 700;
       color: var(--text-muted);
@@ -246,8 +268,8 @@
     .member-cell-role { font-size: 11px; color: var(--text-muted); }
     .member-cell-self {
       display: inline-block;
-      background: #dbeafe;
-      color: #1d4ed8;
+      background: var(--info-bg);
+      color: var(--info-text);
       font-size: 9px;
       font-weight: 800;
       padding: 1px 4px;
@@ -270,14 +292,14 @@
     }
 
     .tag-clean {
-      color: #16a34a;
+      color: var(--success);
       font-size: 11px;
       font-weight: 700;
     }
 
     .tag-blocker {
-      color: #dc2626;
-      background: #fee2e2;
+      color: var(--error);
+      background: var(--error-bg);
       font-size: 10px;
       font-weight: 700;
       padding: 1px 5px;
@@ -298,35 +320,35 @@
       padding: 1px 3px;
       border-radius: 3px;
       line-height: 1;
-      color: #94a3b8;
+      color: var(--text-muted);
       transition: all 0.1s ease;
     }
     .btn-action:hover {
-      background: #f1f5f9;
-      color: #0f172a;
+      background: var(--surface-alt);
+      color: var(--text);
     }
     .btn-action.danger:hover {
-      background: #fee2e2;
-      color: #dc2626;
+      background: var(--error-bg);
+      color: var(--error);
     }
 
     .scrum-line {
       font-size: 12px;
       line-height: 1.35;
-      color: #0f172a;
+      color: var(--text);
       word-break: break-word;
     }
 
     .scrum-line .lbl {
       font-weight: 700;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 11px;
       margin-right: 3px;
     }
 
     .scrum-line.is-blocked {
-      color: #b91c1c;
-      background: #fef2f2;
+      color: var(--error);
+      background: var(--error-bg);
       padding: 2px 5px;
       border-radius: 4px;
       margin-top: 2px;
@@ -335,10 +357,10 @@
     .cell-empty-btn {
       width: 100%;
       height: 38px;
-      border: 1px dashed #cbd5e1;
+      border: 1px dashed var(--border-dark);
       border-radius: 6px;
       background: transparent;
-      color: #94a3b8;
+      color: var(--text-muted);
       cursor: pointer;
       font-size: 11px;
       font-weight: 600;
@@ -351,15 +373,16 @@
     .cell-empty-btn:hover {
       border-color: var(--primary);
       color: var(--primary);
-      background: #eff6ff;
+      background: var(--info-bg);
     }
 
     .cell-empty-readonly {
       width: 100%;
       height: 38px;
-      border: 1px dashed #e2e8f0;
+      border: 1px dashed var(--border);
       border-radius: 6px;
-      color: #cbd5e1;
+      color: var(--text-muted);
+      opacity: 0.6;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -372,7 +395,7 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.7);
       backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
@@ -386,11 +409,13 @@
     .modal-overlay.open { opacity: 1; visibility: visible; }
 
     .modal-box {
-      background: #fff;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: 12px;
       width: 100%;
       max-width: 580px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
       overflow: hidden;
       transform: translateY(12px);
       transition: transform 0.2s ease;
@@ -413,20 +438,20 @@
 
     .meta-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
     .tag {
-      background: #e2e8f0; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; color: #334155;
+      background: var(--surface-alt); border: 1px solid var(--border); padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--text);
     }
 
     .sub-section {
-      background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px;
+      background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px;
     }
     .sub-section h4 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 
     .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .chip {
-      background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--text);
     }
     .chip button {
-      background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 14px; line-height: 1; padding: 0;
+      background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; line-height: 1; padding: 0;
     }
     .chip button:hover { color: var(--error); }
 
@@ -441,13 +466,14 @@
       gap: 10px;
     }
     .toast {
-      background: #0f172a;
-      color: #fff;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 12px 20px;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
       display: flex;
       align-items: center;
       gap: 10px;
@@ -486,6 +512,10 @@
 
         <button id="btnResetMock" class="btn btn-secondary btn-sm" title="Restablecer datos demo">
           🔄 Reset Demo
+        </button>
+
+        <button id="btnThemeToggle" class="btn btn-secondary btn-sm" title="Alternar modo Claro / Oscuro" aria-label="Alternar tema">
+          🌙 Oscuro
         </button>
       </div>
     </header>
@@ -645,7 +675,7 @@
             <button type="button" class="btn-link" id="btnConfigGoogleId" style="font-size: 11px;">⚙️ Configurar Google Client ID</button>
           </div>
 
-          <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 12px;">
+          <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 12px;">
             <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
               Acceso Rápido Demo:
             </div>
@@ -782,6 +812,46 @@
     const STORAGE_KEY = "daily_scrum_api_url";
     const MOCK_STORAGE_KEY = "daily_scrum_mock_data";
     const AUTH_STORAGE_KEY = "daily_scrum_auth_session";
+    const THEME_STORAGE_KEY = "daily_scrum_theme";
+
+    // -------------------------------------------------------------
+    // Theme Manager (Dark / Light Mode)
+    // -------------------------------------------------------------
+    const btnThemeToggle = document.getElementById("btnThemeToggle");
+
+    const getPreferredTheme = () => {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === "dark" || saved === "light") return saved;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+    };
+
+    const applyTheme = (theme) => {
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      if (btnThemeToggle) {
+        btnThemeToggle.innerHTML = theme === "dark" ? "☀️ Claro" : "🌙 Oscuro";
+        btnThemeToggle.setAttribute("title", `Cambiar a modo ${theme === "dark" ? "claro" : "oscuro"}`);
+      }
+      if (typeof initGoogleIdentityServices === "function") {
+        initGoogleIdentityServices();
+      }
+    };
+
+    const toggleTheme = () => {
+      const current = document.documentElement.getAttribute("data-theme") || getPreferredTheme();
+      const next = current === "dark" ? "light" : "dark";
+      applyTheme(next);
+      showToast(`Modo ${next === "dark" ? "Oscuro" : "Claro"} activado`);
+    };
+
+    if (btnThemeToggle) {
+      btnThemeToggle.addEventListener("click", toggleTheme);
+    }
+
+    // Apply theme immediately
+    applyTheme(getPreferredTheme());
 
     const apiInput = document.getElementById("apiUrl");
     const modeBadge = document.getElementById("modeBadge");
@@ -1440,10 +1510,13 @@
             cancel_on_tap_outside: true,
           });
 
+          const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+          const googleTheme = isDark ? "filled_black" : "outline";
+
           if (containerLogin) {
             containerLogin.innerHTML = "";
             google.accounts.id.renderButton(containerLogin, {
-              theme: "outline",
+              theme: googleTheme,
               size: "large",
               type: "standard",
               shape: "rectangular",
@@ -1456,7 +1529,7 @@
           if (containerSignup) {
             containerSignup.innerHTML = "";
             google.accounts.id.renderButton(containerSignup, {
-              theme: "outline",
+              theme: googleTheme,
               size: "large",
               type: "standard",
               shape: "rectangular",
@@ -1668,7 +1741,7 @@
             `;
           } else {
             bannerContainer.innerHTML = `
-              <span style="font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 4px 8px; background: #f1f5f9; border-radius: 6px;" title="Pedile al Administrador que te asigne">
+              <span style="font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 4px 8px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px;" title="Pedile al Administrador que te asigne">
                 🔒 Proyecto cerrado (Asignación por Admin)
               </span>
             `;
