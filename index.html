@@ -1113,18 +1113,18 @@
     </div>
   </div>
 
-  <!-- Modal: Authentication (Login / Signup / Confirmation / OTP) -->
+  <!-- Modal: Authentication (Login / Signup / Confirmation) -->
   <div id="authModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 440px;">
       <div class="modal-header">
-        <h3 id="authModalTitle">🔑 Iniciar Sesión con Código</h3>
+        <h3 id="authModalTitle">🔑 Iniciar Sesión</h3>
         <button id="authModalClose" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- Quick Demo Login -->
+        <!-- Quick Demo Login (Only allowed users in local mock mode) -->
         <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
           <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
-            Acceso Rápido Demo:
+            Acceso Rápido Demo (Usuarios Habilitados):
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('marcelo')">👨‍💻 Marcelo (Dev)</button>
@@ -1133,107 +1133,79 @@
           </div>
         </div>
 
-        <!-- Passwordless OTP Form (Default) -->
-        <form id="otpForm" onsubmit="return false;">
+        <!-- Login Form (Email + Password) -->
+        <form id="loginForm" onsubmit="return false;">
           <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
             <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-            <span style="padding: 0 10px; font-weight: 600;">O CON CÓDIGO POR EMAIL (PASSWORDLESS)</span>
+            <span style="padding: 0 10px; font-weight: 600;">O CON EMAIL Y CONTRASEÑA</span>
             <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
           </div>
 
-          <!-- Step 1: Request Code -->
-          <div id="otpStepRequest">
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
-              Ingresá tu correo electrónico. Te enviaremos un código numérico de 6 dígitos para acceder al instante, sin recordar contraseñas.
-            </p>
-            <div style="margin-bottom: 14px;">
-              <label for="otpEmail">Correo Electrónico</label>
-              <input type="email" id="otpEmail" placeholder="usuario@empresa.com" style="width: 100%;" required />
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-              <button type="button" class="btn-link" onclick="switchAuthView('password')">O usar contraseña (Cognito)</button>
-              <button type="button" id="btnRequestOtp" class="btn btn-primary btn-sm">📨 Enviar Código</button>
-            </div>
-          </div>
-
-          <!-- Step 2: Verify Code -->
-          <div id="otpStepVerify" style="display: none;">
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-              Enviamos un código de 6 dígitos a <strong id="otpEmailDisplay" style="color: var(--text-main);"></strong>.
-            </p>
-            <div style="margin-bottom: 14px;">
-              <label for="otpCode">Código de Verificación (6 dígitos)</label>
-              <input type="text" id="otpCode" placeholder="123456" maxlength="6" style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 6px; font-weight: 800;" required />
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-              <button type="button" id="btnBackToOtpRequest" class="btn-link">↩️ Cambiar correo o reenviar</button>
-              <button type="button" id="btnVerifyOtp" class="btn btn-primary btn-sm">🚀 Ingresar</button>
-            </div>
-          </div>
-        </form>
-
-        <!-- Traditional Password Login Form -->
-        <form id="loginForm" style="display: none;" onsubmit="return false;">
-          <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
-            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-            <span style="padding: 0 10px; font-weight: 600;">INGRESO TRADICIONAL (COGNITO)</span>
-            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-          </div>
           <div style="margin-bottom: 12px;">
             <label for="loginEmail">Correo Electrónico</label>
-            <input type="email" id="loginEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
+            <input type="email" id="loginEmail" placeholder="usuario@empresa.com" style="width: 100%;" required />
           </div>
           <div style="margin-bottom: 16px;">
             <label for="loginPassword">Contraseña</label>
             <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%;" required />
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <button type="button" class="btn-link" onclick="switchAuthView('otp')">✨ Acceder con código por email</button>
-            <button type="button" id="btnSubmitLogin" class="btn btn-primary btn-sm">Ingresar</button>
-          </div>
-          <div style="margin-top: 10px; text-align: center;">
             <button type="button" class="btn-link" onclick="switchAuthView('signup')">¿No tenés cuenta? Registrate</button>
+            <button type="button" id="btnSubmitLogin" class="btn btn-primary btn-sm">Ingresar</button>
           </div>
         </form>
 
-        <!-- Signup Form -->
+        <!-- Signup Form (Requires Resend for Verification) -->
         <form id="signupForm" style="display: none;" onsubmit="return false;">
+          <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
+            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
+            <span style="padding: 0 10px; font-weight: 600;">CREAR CUENTA NUEVA</span>
+            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+            Ingresá tus datos para registrarte. Te enviaremos un código de verificación de 6 dígitos a tu correo vía <strong>Resend</strong> para activar la cuenta.
+          </p>
           <div style="margin-bottom: 12px;">
             <label for="signupName">Nombre de Integrante</label>
             <input type="text" id="signupName" placeholder="Ej: Juan" style="width: 100%;" required />
           </div>
           <div style="margin-bottom: 12px;">
             <label for="signupEmail">Correo Electrónico</label>
-            <input type="email" id="signupEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
+            <input type="email" id="signupEmail" placeholder="usuario@empresa.com" style="width: 100%;" required />
           </div>
           <div style="margin-bottom: 16px;">
             <label for="signupPassword">Contraseña (Mínimo 8 caracteres)</label>
             <input type="password" id="signupPassword" placeholder="••••••••" style="width: 100%;" required />
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <button type="button" class="btn-link" onclick="switchAuthView('otp')">Volver a Código por Email</button>
+            <button type="button" class="btn-link" onclick="switchAuthView('login')">¿Ya tenés cuenta? Ingresá</button>
             <button type="button" id="btnSubmitSignup" class="btn btn-primary btn-sm">Crear Cuenta</button>
           </div>
           <div style="margin-top: 12px; text-align: center;">
-            <button type="button" class="btn-link" onclick="switchAuthView('confirm')">¿Tenés un código de verificación?</button>
+            <button type="button" class="btn-link" onclick="switchAuthView('confirm')">¿Tenés un código de verificación pendiente?</button>
           </div>
         </form>
 
         <!-- Confirm Code Form -->
         <form id="confirmForm" style="display: none;" onsubmit="return false;">
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-            Ingresá el código de 6 dígitos que Amazon Cognito envió a tu correo.
+          <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
+            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
+            <span style="padding: 0 10px; font-weight: 600;">VERIFICAR Y ACTIVAR CUENTA</span>
+            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+            Ingresá el código de 6 dígitos que Resend envió a tu correo electrónico.
           </p>
           <div style="margin-bottom: 12px;">
             <label for="confirmEmail">Correo Electrónico</label>
-            <input type="email" id="confirmEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
+            <input type="email" id="confirmEmail" placeholder="usuario@empresa.com" style="width: 100%;" required />
           </div>
           <div style="margin-bottom: 16px;">
-            <label for="confirmCode">Código de Verificación</label>
-            <input type="text" id="confirmCode" placeholder="123456" style="width: 100%; letter-spacing: 2px; font-weight: bold;" required />
+            <label for="confirmCode">Código de Verificación (6 dígitos)</label>
+            <input type="text" id="confirmCode" placeholder="123456" maxlength="6" style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 6px; font-weight: 800;" required />
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <button type="button" class="btn-link" onclick="switchAuthView('otp')">Volver a Inicio</button>
+            <button type="button" class="btn-link" onclick="switchAuthView('login')">Volver a Ingresar</button>
             <button type="button" id="btnSubmitConfirm" class="btn btn-primary btn-sm">Verificar Cuenta</button>
           </div>
         </form>
@@ -1797,40 +1769,55 @@
 
       async signup(email, password, name) {
         const url = getCleanUrl();
-        if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
+        if (!url) throw new Error("El registro de nuevas cuentas requiere la conexión con AWS Lambda y Resend. Para pruebas en modo demo utilizá los 3 usuarios habilitados (Marcelo, Lucas o José).");
         const res = await fetch(`${url}/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, name }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al registrarse");
+        if (!res.ok) throw new Error(data.error || "Error al registrar cuenta");
         return data;
       },
 
       async confirm(email, code) {
         const url = getCleanUrl();
-        if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
+        if (!url) throw new Error("La verificación de cuentas requiere la conexión con AWS Lambda y Resend.");
         const res = await fetch(`${url}/auth/confirm`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, code }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al confirmar código");
+        if (!res.ok) throw new Error(data.error || "Error al confirmar código de verificación");
         return data;
       },
 
       async login(email, password) {
         const url = getCleanUrl();
-        if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
+        if (!url) {
+          const lower = email.toLowerCase();
+          if (lower.includes("marcelo")) {
+            return { user: { name: "Marcelo", email: "marcelo@gmail.com", role: "member", title: "Frontend Dev", is_admin: false } };
+          } else if (lower.includes("lucas")) {
+            return { user: { name: "Lucas", email: "lucas@empresa.com", role: "admin", title: "Tech Lead / Admin", is_admin: true } };
+          } else if (lower.includes("jose")) {
+            return { user: { name: "José", email: "jose@empresa.com", role: "member", title: "Backend Dev", is_admin: false } };
+          }
+          throw new Error("En modo local solo están habilitados los 3 usuarios demo: Marcelo (Dev), Lucas (Admin) o José (Dev).");
+        }
         const res = await fetch(`${url}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Credenciales inválidas");
+        if (!res.ok) {
+          const err = new Error(data.error || "Credenciales inválidas");
+          err.requires_confirmation = data.requires_confirmation;
+          err.email = data.email;
+          throw err;
+        }
         return data;
       },
 
@@ -2125,112 +2112,34 @@
     // -------------------------------------------------------------
     window.switchAuthView = (view) => {
       const title = document.getElementById("authModalTitle");
-      const otpForm = document.getElementById("otpForm");
       const loginForm = document.getElementById("loginForm");
       const signupForm = document.getElementById("signupForm");
       const confirmForm = document.getElementById("confirmForm");
 
-      otpForm.style.display = "none";
       loginForm.style.display = "none";
       signupForm.style.display = "none";
       confirmForm.style.display = "none";
 
       if (view === "signup") {
-        title.textContent = "📝 Crear Cuenta (Cognito)";
+        title.textContent = "📝 Crear Cuenta";
         signupForm.style.display = "block";
       } else if (view === "confirm") {
-        title.textContent = "✉️ Confirmar Cuenta (Cognito)";
+        title.textContent = "✉️ Verificar Cuenta";
         confirmForm.style.display = "block";
-      } else if (view === "password") {
-        title.textContent = "🔐 Iniciar con Contraseña";
-        loginForm.style.display = "block";
       } else {
-        title.textContent = "🔑 Iniciar Sesión con Código";
-        otpForm.style.display = "block";
+        title.textContent = "🔑 Iniciar Sesión";
+        loginForm.style.display = "block";
       }
     };
 
     btnLoginOpen.addEventListener("click", () => {
-      switchAuthView("otp");
+      switchAuthView("login");
       authModal.open();
     });
 
     btnSignupOpen.addEventListener("click", () => {
       switchAuthView("signup");
       authModal.open();
-    });
-
-    // -------------------------------------------------------------
-    // Passwordless Email OTP Handlers
-    // -------------------------------------------------------------
-    document.getElementById("btnRequestOtp").addEventListener("click", async () => {
-      const email = document.getElementById("otpEmail").value.trim();
-      if (!email || !email.includes("@")) {
-        return showToast("Ingresá un correo electrónico válido", "error");
-      }
-
-      const btn = document.getElementById("btnRequestOtp");
-      btn.disabled = true;
-      btn.textContent = "Generando código...";
-
-      try {
-        const res = await api.requestOtp(email);
-        document.getElementById("otpEmailDisplay").textContent = email;
-        document.getElementById("otpStepRequest").style.display = "none";
-        document.getElementById("otpStepVerify").style.display = "block";
-        const codeInput = document.getElementById("otpCode");
-        codeInput.value = "";
-        codeInput.focus();
-
-        if (res.sent) {
-          showToast(res.message || `Código enviado a ${email}`);
-        } else if (res.demo_code) {
-          showToast(`Modo demo: Tu código de acceso es ${res.demo_code}`, "info");
-        } else {
-          showToast(res.message, "info");
-        }
-      } catch (err) {
-        showToast(err.message, "error");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "📨 Enviar Código";
-      }
-    });
-
-    document.getElementById("btnVerifyOtp").addEventListener("click", async () => {
-      const email = document.getElementById("otpEmail").value.trim();
-      const code = document.getElementById("otpCode").value.trim();
-      if (!code || code.length !== 6) {
-        return showToast("Ingresá el código de 6 dígitos", "error");
-      }
-
-      const btn = document.getElementById("btnVerifyOtp");
-      btn.disabled = true;
-      btn.textContent = "Verificando...";
-
-      try {
-        const res = await api.verifyOtp(email, code);
-        setStoredAuth({
-          idToken: res.idToken || "mock-otp-token",
-          accessToken: res.accessToken || "mock-otp-token",
-          user: res.user,
-        });
-        authModal.close();
-        updateAuthUI();
-        await renderBoard();
-        showToast(`¡Bienvenido, ${res.user.name || email}!`);
-      } catch (err) {
-        showToast(err.message, "error");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "🚀 Ingresar";
-      }
-    });
-
-    document.getElementById("btnBackToOtpRequest").addEventListener("click", () => {
-      document.getElementById("otpStepVerify").style.display = "none";
-      document.getElementById("otpStepRequest").style.display = "block";
-      document.getElementById("otpEmail").focus();
     });
 
     // Traditional Password Login Handler
@@ -2246,8 +2155,8 @@
       try {
         const data = await api.login(email, password);
         setStoredAuth({
-          idToken: data.idToken,
-          accessToken: data.accessToken,
+          idToken: data.idToken || "local-demo-token",
+          accessToken: data.accessToken || "local-demo-token",
           user: data.user,
         });
         authModal.close();
@@ -2255,6 +2164,10 @@
         await renderBoard();
         showToast(`¡Bienvenido, ${data.user.name || email}!`);
       } catch (err) {
+        if (err.requires_confirmation) {
+          document.getElementById("confirmEmail").value = err.email || email;
+          switchAuthView("confirm");
+        }
         showToast(err.message, "error");
       } finally {
         btn.disabled = false;
@@ -2267,6 +2180,7 @@
       const email = document.getElementById("signupEmail").value.trim();
       const password = document.getElementById("signupPassword").value;
       if (!name || !email || !password) return showToast("Completá todos los campos", "error");
+      if (password.length < 8) return showToast("La contraseña debe tener al menos 8 caracteres", "error");
 
       const btn = document.getElementById("btnSubmitSignup");
       btn.disabled = true;
@@ -2276,7 +2190,7 @@
         await api.signup(email, password, name);
         document.getElementById("confirmEmail").value = email;
         switchAuthView("confirm");
-        showToast("Cuenta creada. Revisá tu email para ver el código.");
+        showToast("Cuenta registrada. Revisá tu email para ver el código de verificación enviado por Resend.");
       } catch (err) {
         showToast(err.message, "error");
       } finally {
@@ -2289,6 +2203,7 @@
       const email = document.getElementById("confirmEmail").value.trim();
       const code = document.getElementById("confirmCode").value.trim();
       if (!email || !code) return showToast("Completá email y código", "error");
+      if (code.length !== 6) return showToast("El código debe tener 6 dígitos", "error");
 
       const btn = document.getElementById("btnSubmitConfirm");
       btn.disabled = true;
@@ -2298,7 +2213,7 @@
         await api.confirm(email, code);
         document.getElementById("loginEmail").value = email;
         switchAuthView("login");
-        showToast("¡Cuenta confirmada! Ahora podés iniciar sesión.");
+        showToast("¡Cuenta verificada exitosamente! Ya podés iniciar sesión con tu contraseña.");
       } catch (err) {
         showToast(err.message, "error");
       } finally {
