@@ -179,34 +179,54 @@ export const initAuthGateListeners = () => {
     });
   }
 
-  // Confirm Submit
+  // Confirm & Activate Submit
   const btnSubmitConfirm = document.getElementById("btnSubmitConfirm");
   if (btnSubmitConfirm) {
     btnSubmitConfirm.addEventListener("click", async () => {
       const email = document.getElementById("confirmEmail").value.trim();
       const code = document.getElementById("confirmCode").value.trim();
+      const password = document.getElementById("confirmPassword")?.value || "";
 
       if (!email || !code) {
         showToast("Ingresá el correo y el código de 6 dígitos.", "error");
         return;
       }
+      if (password && password.length < 8) {
+        showToast("La nueva contraseña debe tener al menos 8 caracteres.", "error");
+        return;
+      }
 
       btnSubmitConfirm.disabled = true;
-      btnSubmitConfirm.textContent = "Verificando...";
+      btnSubmitConfirm.textContent = "Activando...";
 
       try {
-        const res = await api.confirm(email, code);
-        showToast(res.message || "Cuenta verificada con éxito. Ya podés iniciar sesión.");
+        const res = await api.confirm(email, code, password);
+        const token = res.token || res.idToken || res.accessToken;
 
-        // Switch to login tab with email pre-filled
-        const loginEmailInput = document.getElementById("loginEmail");
-        if (loginEmailInput) loginEmailInput.value = email;
-        switchAuthTab("login");
+        if (token && res.user) {
+          saveStoredAuth({ ...res, token });
+          setCurrentUser({ ...res.user, token });
+          showToast(`¡Bienvenido/a, ${state.currentUser.name}! Tu cuenta está activada.`);
+
+          // Unlock App Shell immediately
+          document.getElementById("authGate").style.display = "none";
+          document.getElementById("appShell").style.display = "block";
+          updateHeaderUI();
+
+          if (typeof onAuthSuccessCallback === "function") {
+            onAuthSuccessCallback();
+          }
+        } else {
+          showToast(res.message || "Cuenta activada con éxito. Ya podés iniciar sesión.");
+          const loginEmailInput = document.getElementById("loginEmail");
+          if (loginEmailInput) loginEmailInput.value = email;
+          switchAuthTab("login");
+        }
       } catch (err) {
         showToast(err.message, "error");
       } finally {
         btnSubmitConfirm.disabled = false;
-        btnSubmitConfirm.textContent = "Verificar Cuenta";
+        btnSubmitConfirm.textContent = "Activar Cuenta y Entrar";
       }
     });
   }

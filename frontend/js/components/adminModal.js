@@ -97,13 +97,15 @@ export const loadMembersChipList = async () => {
   members.forEach((m) => {
     const chip = document.createElement("div");
     chip.className = "chip";
+    const roleBadge = m.is_admin ? '<span style="color: #0284c7; font-weight: 700; margin-left: 4px;">(Admin)</span>' : '';
+    const emailInfo = m.email ? `<small style="color: var(--text-muted); font-size: 11px; margin-left: 4px;">&lt;${escapeHtml(m.email)}&gt;</small>` : '';
     chip.innerHTML = `
-      <span>👤 <strong>${escapeHtml(m.name)}</strong> (${escapeHtml(m.role || "Dev")})</span>
+      <span>👤 <strong>${escapeHtml(m.name)}</strong> (${escapeHtml(m.role || "Dev")})${roleBadge}${emailInfo}</span>
       <button type="button" class="btn-edit-member" title="Editar integrante">✏️</button>
       <button type="button" class="btn-delete-member" title="Eliminar de este proyecto">×</button>
     `;
 
-    chip.querySelector(".btn-edit-member")?.addEventListener("click", () => editMemberAction(project, m.name, m.role, m.email));
+    chip.querySelector(".btn-edit-member")?.addEventListener("click", () => editMemberAction(project, m.name, m.role, m.email, m.is_admin));
     chip.querySelector(".btn-delete-member")?.addEventListener("click", () => deleteMemberAction(project, m.name));
 
     chipContainer.appendChild(chip);
@@ -153,21 +155,21 @@ const deleteProjectAction = async (name) => {
   }
 };
 
-const editMemberAction = async (project, oldName, oldRole, oldEmail) => {
+const editMemberAction = async (project, oldName, oldRole, oldEmail, oldIsAdmin = false) => {
   const res = await showPrompt({
     title: "Editar Integrante",
     label: "Nombre:",
     initialValue: oldName,
-    secondLabel: "Rol:",
+    secondLabel: "Rol en proyecto:",
     secondInitialValue: oldRole || "Developer",
   });
   if (!res || !res.value.trim()) return;
 
   try {
-    await api.updateMember(project, oldName, res.value.trim(), res.secondValue?.trim() || "Developer", oldEmail || "");
+    await api.updateMember(project, oldName, res.value.trim(), res.secondValue?.trim() || "Developer", oldEmail || "", oldIsAdmin);
     await loadMembersChipList();
     if (onRequestRefreshBoard) await onRequestRefreshBoard();
-    showToast(`Integrante actualizado.`);
+    showToast("Integrante actualizado.");
   } catch (err) {
     showToast(err.message, "error");
   }
@@ -239,24 +241,38 @@ export const initAdminModalListeners = () => {
     const nameInput = document.getElementById("newMemberName");
     const roleInput = document.getElementById("newMemberRole");
     const emailInput = document.getElementById("newMemberEmail");
+    const systemRoleSelect = document.getElementById("newMemberSystemRole");
 
     const name = nameInput?.value.trim();
     const role = roleInput?.value.trim() || "Developer";
     const email = emailInput?.value.trim() || "";
+    const systemRole = systemRoleSelect?.value || "member";
+    const isAdmin = systemRole === "admin";
 
     if (!project || !name) {
       showToast("Ingresá el nombre del integrante", "error");
       return;
     }
+    if (!email) {
+      showToast("El correo electrónico es obligatorio para enviar la invitación", "error");
+      return;
+    }
 
     try {
-      await api.createMember(project, name, role, email);
+      const res = await api.createMember(project, name, role, email, isAdmin);
       nameInput.value = "";
       roleInput.value = "";
       emailInput.value = "";
       await loadMembersChipList();
       if (onRequestRefreshBoard) await onRequestRefreshBoard();
-      showToast(`Integrante '${name}' agregado.`);
+
+      if (res?.invite_sent) {
+        showToast(`Integrante '${name}' agregado. Código de activación enviado a ${email}.`);
+      } else if (res?.invite_error) {
+        showToast(`Integrante agregado, pero falló el envío de correo (${res.invite_error}).`, "error");
+      } else {
+        showToast(`Integrante '${name}' agregado exitosamente.`);
+      }
     } catch (err) {
       showToast(err.message, "error");
     }

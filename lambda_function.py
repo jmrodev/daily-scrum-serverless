@@ -338,11 +338,12 @@ def handler(event, context):
                 "name": name,
             })
 
-        # POST /auth/confirm -> Confirm user registration code
+        # POST /auth/confirm -> Confirm user registration code or activate invited user
         elif path == "/auth/confirm" and method == "POST":
             body = parse_body(event)
             email = (body.get("email") or "").strip().lower()
             code = (body.get("code") or "").strip()
+            password = body.get("password") or ""
 
             if not email or not code:
                 return create_response(400, {"error": "Email y código de verificación son requeridos"})
@@ -355,20 +356,63 @@ def handler(event, context):
 
             now = int(time.time())
             if user_item.get("code_ttl", 0) < now:
-                return create_response(400, {"error": "El código de verificación ha expirado. Volvé a registrarte."})
+                return create_response(400, {"error": "El código de verificación ha expirado. Solicitá una nueva invitación o registrate nuevamente."})
 
             if user_item.get("verification_code") != code:
                 return create_response(400, {"error": "Código de verificación incorrecto. Revisá los 6 dígitos."})
 
-            table.update_item(
-                Key={"PK": f"USER#{email}", "SK": "PROFILE"},
-                UpdateExpression="SET #st = :st REMOVE verification_code, code_ttl",
-                ExpressionAttributeNames={"#st": "status"},
-                ExpressionAttributeValues={":st": "CONFIRMED"},
-            )
+            status = user_item.get("status")
+            if status == "FORCE_CHANGE_PASSWORD" or password:
+                if not password or len(password) < 8:
+                    return create_response(400, {"error": "La contraseña debe tener al menos 8 caracteres."})
+                pwd_hash = hash_password(password)
+                table.update_item(
+                    Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+                    UpdateExpression="SET #st = :st, password_hash = :ph REMOVE verification_code, code_ttl",
+                    ExpressionAttributeNames={"#st": "status"},
+                    ExpressionAttributeValues={":st": "CONFIRMED", ":ph": pwd_hash},
+                )
+            else:
+                table.update_item(
+                    Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+                    UpdateExpression="SET #st = :st REMOVE verification_code, code_ttl",
+                    ExpressionAttributeNames={"#st": "status"},
+                    ExpressionAttributeValues={":st": "CONFIRMED"},
+                )
+
+            # Mint token for immediate login upon confirmation / activation
+            groups = get_user_groups(email)
+            is_admin = "Admins" in groups
+            name = user_item.get("name") or email.split("@")[0].capitalize()
+            sub = str(uuid.uuid4())
+            payload = {
+                "sub": sub,
+                "email": email,
+                "name": name,
+                "cognito:groups": groups,
+                "groups": groups,
+                "is_admin": is_admin,
+                "role": "admin" if is_admin else "member",
+                "iat": now,
+                "exp": now + TOKEN_TTL_SECONDS,
+            }
+            try:
+                token = mint_token(payload)
+            except Exception:
+                token = None
 
             return create_response(200, {
-                "message": "¡Cuenta verificada exitosamente! Ya podés iniciar sesión con tu email y contraseña."
+                "message": "¡Cuenta activada y verificada exitosamente!",
+                "idToken": token,
+                "accessToken": token,
+                "user": {
+                    "email": email,
+                    "name": name,
+                    "groups": groups,
+                    "is_admin": is_admin,
+                    "role": "admin" if is_admin else "member",
+                    "sub": sub,
+                } if token else None,
             })
 
         # POST /auth/login -> Standard login with Email + Password
@@ -384,7 +428,14 @@ def handler(event, context):
             user_resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
             user_item = user_resp.get("Item")
 
-            if user_item and user_item.get("password_hash"):
+            if user_item:
+                if user_item.get("status") == "FORCE_CHANGE_PASSWORD" or not user_item.get("password_hash"):
+                    return create_response(403, {
+                        "error": "Tu cuenta requiere activación. Ingresá a 'Activar Cuenta' con el código de 6 dígitos que recibiste por correo y definí tu contraseña.",
+                        "requires_activation": True,
+                        "email": email,
+                    })
+
                 if user_item.get("status") == "PENDING_VERIFICATION":
                     return create_response(403, {
                         "error": "Tu cuenta aún no está confirmada. Ingresá el código enviado a tu correo.",
@@ -801,6 +852,7 @@ def handler(event, context):
                     "project": project,
                     "role": item.get("role", "Developer"),
                     "email": item.get("email", ""),
+                    "is_admin": bool(item.get("is_admin", False)),
                 }
                 for item in resp.get("Items", [])
             ]
@@ -817,10 +869,15 @@ def handler(event, context):
             )
             name = (body.get("name") or "").strip()
             role = (body.get("role") or "Developer").strip()
-            email = (body.get("email") or "").strip()
+            email = (body.get("email") or "").strip().lower()
+            system_role = (body.get("system_role") or "").strip().lower()
+            is_admin = bool(body.get("is_admin", False)) or system_role in ["admin", "admins"]
 
             if not project or not name:
                 return create_response(400, {"error": "Project and member name are required"})
+
+            if not email:
+                return create_response(400, {"error": "El correo electrónico es obligatorio para registrar al integrante."})
 
             # Check permissions: Admin OR self-assignment if allowed by project
             if user_claims and not user_claims["is_admin"]:
@@ -844,6 +901,79 @@ def handler(event, context):
                             "error": f"Forbidden: Self-assignment is not enabled for project '{project}'. An administrator must assign you."
                         },
                     )
+                is_admin = False
+
+            # Check if user already exists in USER#{email}
+            user_resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
+            user_item = user_resp.get("Item")
+            invite_email_sent = False
+            invite_email_error = None
+
+            now = int(time.time())
+            groups = ["Admins"] if is_admin else ["Members"]
+
+            if not user_item or user_item.get("status") in ["FORCE_CHANGE_PASSWORD", "PENDING_VERIFICATION"]:
+                code = f"{secrets.randbelow(900000) + 100000}"
+                ttl = now + 86400  # 24 hours validity
+
+                user_record = {
+                    "PK": f"USER#{email}",
+                    "SK": "PROFILE",
+                    "email": email,
+                    "name": name,
+                    "status": "FORCE_CHANGE_PASSWORD",
+                    "groups": groups,
+                    "verification_code": code,
+                    "code_ttl": ttl,
+                    "created_at": datetime.datetime.utcnow().isoformat(),
+                }
+                table.put_item(Item=user_record)
+
+                # Send invitation via Resend
+                api_key, from_email = get_resend_config()
+                if api_key:
+                    role_badge = "Administrador" if is_admin else "Integrante"
+                    subject = f"Invitación a Daily Scrum ({project}) - Activá tu cuenta"
+                    html = f"""
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+                      <h2 style="color: #0284c7; margin-top: 0; font-size: 20px;">¡Fuiste invitado a Daily Scrum!</h2>
+                      <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+                        Hola <strong>{name}</strong>, te han asignado al proyecto <strong>{project}</strong> como <strong>{role}</strong> (Rol del sistema: <em>{role_badge}</em>).
+                      </p>
+                      <p style="color: #334155; font-size: 14px;">
+                        Para activar tu cuenta y definir tu contraseña personal, usá el siguiente código de 6 dígitos:
+                      </p>
+                      <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 20px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
+                        {code}
+                      </div>
+                      <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">
+                        Ingresá a la plataforma, seleccioná <strong>Activar Cuenta</strong>, ingresá tu correo ({email}), este código y tu nueva contraseña.
+                      </p>
+                    </div>
+                    """
+                    sent, err_msg = send_resend_email(api_key, from_email, email, subject, html)
+                    invite_email_sent = sent
+                    if not sent:
+                        invite_email_error = err_msg
+            else:
+                # User exists and is confirmed. If admin explicitly updated role:
+                current_groups = list(user_item.get("groups") or [])
+                if is_admin and "Admins" not in current_groups:
+                    current_groups.append("Admins")
+                    table.update_item(
+                        Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+                        UpdateExpression="SET groups = :g",
+                        ExpressionAttributeValues={":g": current_groups},
+                    )
+                elif not is_admin and "Admins" in current_groups and (user_claims and user_claims.get("is_admin")):
+                    current_groups = [g for g in current_groups if g != "Admins"]
+                    if not current_groups:
+                        current_groups = ["Members"]
+                    table.update_item(
+                        Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+                        UpdateExpression="SET groups = :g",
+                        ExpressionAttributeValues={":g": current_groups},
+                    )
 
             item = {
                 "PK": f"PROJECT#{project}",
@@ -852,10 +982,16 @@ def handler(event, context):
                 "project": project,
                 "role": role,
                 "email": email,
+                "is_admin": is_admin,
                 "created_at": event.get("requestContext", {}).get("time", ""),
             }
             table.put_item(Item=item)
-            return create_response(201, {"message": f"Member '{name}' added to '{project}'", "member": item})
+            return create_response(201, {
+                "message": f"Member '{name}' added to '{project}'",
+                "member": item,
+                "invite_sent": invite_email_sent,
+                "invite_error": invite_email_error,
+            })
 
         # PUT /projects/{project}/members/{name} (Admin only)
         member_edit_match = re.match(r"^/projects/([^/]+)/members/([^/]+)$", path)
@@ -871,10 +1007,31 @@ def handler(event, context):
             body = parse_body(event)
             new_name = (body.get("newName") or old_name).strip()
             role = (body.get("role") or "Developer").strip()
-            email = (body.get("email") or "").strip()
+            email = (body.get("email") or "").strip().lower()
+            system_role = (body.get("system_role") or "").strip().lower()
+            has_is_admin = "is_admin" in body or bool(system_role)
+            is_admin = bool(body.get("is_admin", False)) or (system_role in ["admin", "admins"])
 
             if old_name != new_name:
                 table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{old_name}"})
+
+            # If role updated and email exists, update USER profile groups
+            if email and has_is_admin:
+                user_resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
+                user_item = user_resp.get("Item")
+                if user_item:
+                    current_groups = list(user_item.get("groups") or [])
+                    if is_admin and "Admins" not in current_groups:
+                        current_groups.append("Admins")
+                    elif not is_admin and "Admins" in current_groups:
+                        current_groups = [g for g in current_groups if g != "Admins"]
+                        if not current_groups:
+                            current_groups = ["Members"]
+                    table.update_item(
+                        Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+                        UpdateExpression="SET groups = :g",
+                        ExpressionAttributeValues={":g": current_groups},
+                    )
 
             item = {
                 "PK": f"PROJECT#{project}",
@@ -883,6 +1040,7 @@ def handler(event, context):
                 "project": project,
                 "role": role,
                 "email": email,
+                "is_admin": is_admin,
                 "updated_at": event.get("requestContext", {}).get("time", ""),
             }
             table.put_item(Item=item)

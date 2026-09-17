@@ -85,18 +85,25 @@
         <!-- Form: Confirm Account -->
         <form id="confirmForm" style="display: none;" onsubmit="return false;">
           <p class="auth-help-text">
-            Ingresá el código de 6 dígitos enviado a tu correo electrónico.
+            Ingresá el código de 6 dígitos enviado a tu correo electrónico y definí tu contraseña.
           </p>
           <div style="margin-bottom: 12px;">
             <label for="confirmEmail">Correo Electrónico</label>
-            <input type="email" id="confirmEmail" placeholder="usuario@empresa.com" style="width: 100%;" required />
+            <input type="email" id="confirmEmail" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="email" required />
           </div>
-          <div style="margin-bottom: 18px;">
-            <label for="confirmCode">Código de Verificación (6 dígitos)</label>
+          <div style="margin-bottom: 12px;">
+            <label for="confirmCode">Código de Activación (6 dígitos)</label>
             <input type="text" id="confirmCode" placeholder="123456" maxlength="6" style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 6px; font-weight: 800;" required />
           </div>
+          <div style="margin-bottom: 18px;">
+            <label for="confirmPassword">Nueva Contraseña (Mínimo 8 caracteres)</label>
+            <input type="password" id="confirmPassword" placeholder="••••••••" style="width: 100%;" autocomplete="new-password" />
+            <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 4px;">
+              Obligatorio para cuentas nuevas invitadas por un administrador.
+            </small>
+          </div>
           <button type="button" id="btnSubmitConfirm" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
-            Verificar y Activar Cuenta
+            Activar Cuenta y Entrar
           </button>
           <div style="text-align: center;">
             <button type="button" id="authLinkConfirmBackToLogin" class="btn-link">Volver a Iniciar Sesión</button>
@@ -400,11 +407,18 @@
             <label style="margin-bottom: 4px;">Proyecto:</label>
             <select id="manageProjectSelect" style="margin-bottom: 8px; width: 100%;"></select>
             <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-              <input type="text" id="newMemberName" placeholder="Nombre (ej: Juan)..." style="flex: 2; min-width: 140px;" />
-              <input type="text" id="newMemberRole" placeholder="Rol (ej: Frontend)..." style="flex: 1; min-width: 110px;" />
-              <input type="email" id="newMemberEmail" placeholder="Email (opcional)..." style="flex: 2; min-width: 140px;" />
-              <button type="button" id="btnAddMember" class="btn btn-primary btn-sm">Asignar</button>
+              <input type="text" id="newMemberName" placeholder="Nombre (ej: Juan)..." style="flex: 2; min-width: 130px;" />
+              <input type="text" id="newMemberRole" placeholder="Rol en proyecto (ej: Frontend)..." style="flex: 2; min-width: 130px;" />
+              <input type="email" id="newMemberEmail" placeholder="Email obligatorio..." style="flex: 2; min-width: 150px;" required />
+              <select id="newMemberSystemRole" style="flex: 1; min-width: 120px;" title="Rol de permisos en el sistema">
+                <option value="member">Integrante</option>
+                <option value="admin">Administrador</option>
+              </select>
+              <button type="button" id="btnAddMember" class="btn btn-primary btn-sm">Asignar e Invitar</button>
             </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+              💡 El email es obligatorio. Si el usuario no tiene cuenta, se le enviará automáticamente un código de 6 dígitos para que active su cuenta y defina su contraseña.
+            </p>
             <div id="membersChipList" class="chip-list"></div>
           </div>
         </div>

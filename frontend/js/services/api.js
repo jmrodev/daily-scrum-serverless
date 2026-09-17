@@ -61,12 +61,14 @@ export const api = {
     return data;
   },
 
-  async confirm(email, code) {
+  async confirm(email, code, password = "") {
     const url = getCleanUrl();
+    const payload = { email, code };
+    if (password) payload.password = password;
     const res = await fetch(`${url}/auth/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Código de verificación inválido");
@@ -157,22 +159,34 @@ export const api = {
     }
   },
 
-  async createMember(project, name, role, email = "") {
+  async createMember(project, name, role, email = "", isAdmin = false) {
     const url = getCleanUrl();
     const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
       method: "POST",
-      body: JSON.stringify({ name, role, email }),
+      body: JSON.stringify({
+        name,
+        role,
+        email,
+        is_admin: isAdmin,
+        system_role: isAdmin ? "admin" : "member",
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al agregar integrante");
     return data;
   },
 
-  async updateMember(project, oldName, newName, role, email = "") {
+  async updateMember(project, oldName, newName, role, email = "", isAdmin = false) {
     const url = getCleanUrl();
     const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
       method: "PUT",
-      body: JSON.stringify({ name: newName, role, email }),
+      body: JSON.stringify({
+        name: newName,
+        role,
+        email,
+        is_admin: isAdmin,
+        system_role: isAdmin ? "admin" : "member",
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al actualizar integrante");
