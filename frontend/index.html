@@ -19,6 +19,8 @@
       --error-bg: #fee2e2;
       --warning: #d97706;
       --warning-bg: #fef3c7;
+      --info-bg: #e0f2fe;
+      --info-text: #0369a1;
       --radius: 10px;
     }
 
@@ -83,6 +85,28 @@
     .mode-badge.mock { background: var(--warning-bg); color: var(--warning); }
     .mode-badge.aws { background: var(--success-bg); color: var(--success); }
 
+    .user-pill {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-badge {
+      background: var(--info-bg);
+      color: var(--info-text);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
     /* Main Board Card */
     .card {
       background: var(--surface);
@@ -132,7 +156,7 @@
     input:focus, select:focus, textarea:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 3px rgba(37, 99, 255, 0.12);
     }
 
     textarea { resize: vertical; min-height: 80px; width: 100%; }
@@ -158,6 +182,18 @@
     .btn-danger { background: var(--error); color: #fff; }
     .btn-danger:hover { background: #b91c1c; }
     .btn-sm { padding: 4px 8px; font-size: 12px; }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .btn-link:hover { color: var(--primary-hover); }
 
     /* Scrum Matrix Table */
     .table-container {
@@ -191,6 +227,16 @@
 
     .member-cell-name { font-weight: 700; font-size: 13px; color: var(--text); }
     .member-cell-role { font-size: 11px; color: var(--text-muted); }
+    .member-cell-self {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 4px;
+    }
 
     /* Minimalist Daily Scrum Entry */
     .scrum-entry {
@@ -290,10 +336,19 @@
       color: var(--primary);
       background: #eff6ff;
     }
-    .cell-empty-btn:hover {
-      border-color: var(--primary);
-      color: var(--primary);
-      background: #f0f7ff;
+
+    .cell-empty-readonly {
+      width: 100%;
+      height: 38px;
+      border: 1px dashed #e2e8f0;
+      border-radius: 6px;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      user-select: none;
+      cursor: default;
     }
 
     /* Modals */
@@ -396,9 +451,33 @@
       </div>
       <div class="top-controls">
         <span id="modeBadge" class="mode-badge mock">🧪 Modo Mock</span>
+
+        <!-- Mock Mode Role/Member Switcher -->
+        <div id="mockUserContainer" class="user-pill">
+          <label for="mockUserSelect" style="margin:0; font-size:11px; text-transform:none;">Simular Usuario:</label>
+          <select id="mockUserSelect" style="padding: 4px 8px; font-size: 12px; font-weight: 600;">
+            <option value="Paz|admin|Tech Lead">🛡️ Paz (Admin / Tech Lead)</option>
+            <option value="Juan|member|Frontend Dev">👨‍💻 Juan (Dev - Sabato)</option>
+            <option value="Marcelo|member|Cloud Architect">☁️ Marcelo (Dev - Sabato)</option>
+            <option value="Sofia|member|QA Engineer">👩‍🔬 Sofia (QA - Sabato)</option>
+            <option value="Lucas|member|Backend Dev">⚙️ Lucas (Dev - Core)</option>
+            <option value="Invitado|guest|Viewer">👁️ Invitado (Solo Lectura)</option>
+          </select>
+        </div>
+
+        <!-- AWS Cognito Auth State -->
+        <div id="awsAuthContainer" style="display: none; align-items: center; gap: 8px;">
+          <span id="authUserBadge" class="user-badge" style="display: none;"></span>
+          <button id="btnLoginOpen" class="btn btn-primary btn-sm">🔑 Iniciar Sesión</button>
+          <button id="btnSignupOpen" class="btn btn-secondary btn-sm">📝 Registrarse</button>
+          <button id="btnLogout" class="btn btn-secondary btn-sm" style="display: none;">🚪 Salir</button>
+        </div>
+
+        <!-- Admin Management Button (Gated) -->
         <button id="btnOpenManageModal" class="btn btn-secondary btn-sm">
           👥 Administrar Equipo
         </button>
+
         <button id="btnResetMock" class="btn btn-secondary btn-sm" title="Restablecer datos demo">
           🔄 Reset Demo
         </button>
@@ -501,11 +580,11 @@
     </div>
   </div>
 
-  <!-- Modal: Manage Projects & Members (CRUD) -->
+  <!-- Modal: Manage Projects & Members (CRUD - Admin Only) -->
   <div id="manageModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>👥 Gestión de Proyectos e Integrantes</h3>
+        <h3>👥 Gestión de Proyectos e Integrantes (Admin)</h3>
         <button id="manageModalClose" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -524,13 +603,83 @@
           <h4>👤 Integrantes</h4>
           <label style="margin-bottom: 4px;">Proyecto:</label>
           <select id="manageProjectSelect" style="margin-bottom: 8px; width: 100%;"></select>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" id="newMemberName" placeholder="Nombre..." style="flex: 2;" />
-            <input type="text" id="newMemberRole" placeholder="Rol..." style="flex: 1;" />
-            <button id="btnAddMember" class="btn btn-primary btn-sm">Agregar</button>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+            <input type="text" id="newMemberName" placeholder="Nombre (ej: Juan)..." style="flex: 2; min-width: 140px;" />
+            <input type="text" id="newMemberRole" placeholder="Rol (ej: Frontend)..." style="flex: 1; min-width: 110px;" />
+            <input type="email" id="newMemberEmail" placeholder="Email (opcional)..." style="flex: 2; min-width: 140px;" />
+            <button id="btnAddMember" class="btn btn-primary btn-sm">Asignar</button>
           </div>
           <div id="membersChipList" class="chip-list"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Authentication (Login / Signup / Confirmation) -->
+  <div id="authModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="authModalTitle">🔑 Iniciar Sesión</h3>
+        <button id="authModalClose" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="return false;">
+          <div style="margin-bottom: 12px;">
+            <label for="loginEmail">Correo Electrónico</label>
+            <input type="email" id="loginEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label for="loginPassword">Contraseña</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%;" required />
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <button type="button" class="btn-link" onclick="switchAuthView('signup')">¿No tenés cuenta? Registrate</button>
+            <button type="button" id="btnSubmitLogin" class="btn btn-primary btn-sm">Ingresar</button>
+          </div>
+        </form>
+
+        <!-- Signup Form -->
+        <form id="signupForm" style="display: none;" onsubmit="return false;">
+          <div style="margin-bottom: 12px;">
+            <label for="signupName">Nombre de Integrante</label>
+            <input type="text" id="signupName" placeholder="Ej: Juan" style="width: 100%;" required />
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label for="signupEmail">Correo Electrónico</label>
+            <input type="email" id="signupEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label for="signupPassword">Contraseña (Mínimo 8 caracteres)</label>
+            <input type="password" id="signupPassword" placeholder="••••••••" style="width: 100%;" required />
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <button type="button" class="btn-link" onclick="switchAuthView('login')">¿Ya tenés cuenta? Ingresá</button>
+            <button type="button" id="btnSubmitSignup" class="btn btn-primary btn-sm">Crear Cuenta</button>
+          </div>
+          <div style="margin-top: 12px; text-align: center;">
+            <button type="button" class="btn-link" onclick="switchAuthView('confirm')">¿Tenés un código de verificación?</button>
+          </div>
+        </form>
+
+        <!-- Confirm Code Form -->
+        <form id="confirmForm" style="display: none;" onsubmit="return false;">
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+            Ingresá el código de 6 dígitos que Amazon Cognito envió a tu correo.
+          </p>
+          <div style="margin-bottom: 12px;">
+            <label for="confirmEmail">Correo Electrónico</label>
+            <input type="email" id="confirmEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label for="confirmCode">Código de Verificación</label>
+            <input type="text" id="confirmCode" placeholder="123456" style="width: 100%; letter-spacing: 2px; font-weight: bold;" required />
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <button type="button" class="btn-link" onclick="switchAuthView('login')">Volver a Ingresar</button>
+            <button type="button" id="btnSubmitConfirm" class="btn btn-primary btn-sm">Verificar Cuenta</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -581,8 +730,26 @@
     const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
     const STORAGE_KEY = "daily_scrum_api_url";
     const MOCK_STORAGE_KEY = "daily_scrum_mock_data";
+    const AUTH_STORAGE_KEY = "daily_scrum_auth_session";
+
     const apiInput = document.getElementById("apiUrl");
     const modeBadge = document.getElementById("modeBadge");
+    const mockUserContainer = document.getElementById("mockUserContainer");
+    const mockUserSelect = document.getElementById("mockUserSelect");
+    const awsAuthContainer = document.getElementById("awsAuthContainer");
+    const authUserBadge = document.getElementById("authUserBadge");
+    const btnLoginOpen = document.getElementById("btnLoginOpen");
+    const btnSignupOpen = document.getElementById("btnSignupOpen");
+    const btnLogout = document.getElementById("btnLogout");
+    const btnOpenManageModal = document.getElementById("btnOpenManageModal");
+
+    // Current logged-in / active user state
+    let currentUser = {
+      name: "Paz",
+      role: "admin", // 'admin', 'member', 'guest'
+      title: "Tech Lead",
+      email: "paz@demo.com",
+    };
 
     // -------------------------------------------------------------
     // Utility: HTML Escape
@@ -609,7 +776,7 @@
       setTimeout(() => {
         toast.style.opacity = "0";
         setTimeout(() => toast.remove(), 200);
-      }, 3000);
+      }, 3200);
     };
 
     // -------------------------------------------------------------
@@ -694,17 +861,17 @@
       projects: ["Sabato", "Core", "Mobile"],
       members: {
         "Sabato": [
-          { name: "Paz", role: "Tech Lead" },
-          { name: "Juan", role: "Frontend Dev" },
-          { name: "Marcelo", role: "Cloud Architect" },
-          { name: "Sofia", role: "QA Engineer" }
+          { name: "Paz", role: "Tech Lead", email: "paz@demo.com" },
+          { name: "Juan", role: "Frontend Dev", email: "juan@demo.com" },
+          { name: "Marcelo", role: "Cloud Architect", email: "marcelo@demo.com" },
+          { name: "Sofia", role: "QA Engineer", email: "sofia@demo.com" }
         ],
         "Core": [
-          { name: "Lucas", role: "Backend Dev" },
-          { name: "Martin", role: "DevOps" }
+          { name: "Lucas", role: "Backend Dev", email: "lucas@demo.com" },
+          { name: "Martin", role: "DevOps", email: "martin@demo.com" }
         ],
         "Mobile": [
-          { name: "Mateo", role: "iOS Dev" }
+          { name: "Mateo", role: "iOS Dev", email: "mateo@demo.com" }
         ]
       },
       scrums: {
@@ -747,17 +914,49 @@
     const savedUrl = localStorage.getItem(STORAGE_KEY);
     if (savedUrl) apiInput.value = savedUrl;
 
+    const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
+
+    const getStoredAuth = () => {
+      try {
+        return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY));
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const setStoredAuth = (session) => {
+      if (session) {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    };
+
+    const getAuthHeaders = () => {
+      const auth = getStoredAuth();
+      const headers = { "Content-Type": "application/json" };
+      if (auth && auth.idToken) {
+        headers["Authorization"] = `Bearer ${auth.idToken}`;
+      }
+      return headers;
+    };
+
     const updateModeBadge = () => {
-      const url = apiInput.value.trim();
+      const url = getCleanUrl();
       if (url) {
         modeBadge.className = "mode-badge aws";
         modeBadge.textContent = "⚡ Conectado a AWS";
+        mockUserContainer.style.display = "none";
+        awsAuthContainer.style.display = "inline-flex";
+        refreshAWSAuthState();
       } else {
         modeBadge.className = "mode-badge mock";
         modeBadge.textContent = "🧪 Modo Mock";
+        mockUserContainer.style.display = "inline-flex";
+        awsAuthContainer.style.display = "none";
+        applyMockUser();
       }
     };
-    updateModeBadge();
 
     apiInput.addEventListener("input", () => {
       localStorage.setItem(STORAGE_KEY, apiInput.value.trim());
@@ -765,17 +964,116 @@
       initApp();
     });
 
-    const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
+    // -------------------------------------------------------------
+    // RBAC & Role Management
+    // -------------------------------------------------------------
+    const applyMockUser = () => {
+      const val = mockUserSelect.value;
+      const [name, role, title] = val.split("|");
+      currentUser = {
+        name,
+        role, // 'admin', 'member', 'guest'
+        title,
+        email: `${name.toLowerCase()}@demo.com`,
+      };
+      updateUIForRole();
+      renderBoard();
+    };
+
+    mockUserSelect.addEventListener("change", applyMockUser);
+
+    const updateUIForRole = () => {
+      if (currentUser.role === "admin") {
+        btnOpenManageModal.style.display = "inline-flex";
+      } else {
+        btnOpenManageModal.style.display = "none";
+      }
+    };
+
+    const refreshAWSAuthState = async () => {
+      const session = getStoredAuth();
+      if (session && session.user) {
+        currentUser = {
+          name: session.user.name || session.user.email.split("@")[0],
+          role: session.user.is_admin ? "admin" : "member",
+          title: session.user.is_admin ? "Administrador" : "Integrante",
+          email: session.user.email,
+        };
+        authUserBadge.style.display = "inline-flex";
+        authUserBadge.innerHTML = `👤 ${escapeHtml(currentUser.name)} (${escapeHtml(currentUser.title)})`;
+        btnLoginOpen.style.display = "none";
+        btnSignupOpen.style.display = "none";
+        btnLogout.style.display = "inline-flex";
+      } else {
+        currentUser = {
+          name: "Invitado",
+          role: "guest",
+          title: "Visitante",
+          email: "",
+        };
+        authUserBadge.style.display = "none";
+        btnLoginOpen.style.display = "inline-flex";
+        btnSignupOpen.style.display = "inline-flex";
+        btnLogout.style.display = "none";
+      }
+      updateUIForRole();
+    };
+
+    btnLogout.addEventListener("click", () => {
+      setStoredAuth(null);
+      refreshAWSAuthState();
+      renderBoard();
+      showToast("Sesión cerrada.");
+    });
 
     // -------------------------------------------------------------
     // Data Service
     // -------------------------------------------------------------
     const api = {
+      async signup(email, password, name) {
+        const url = getCleanUrl();
+        if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
+        const res = await fetch(`${url}/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, name }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al registrarse");
+        return data;
+      },
+
+      async confirm(email, code) {
+        const url = getCleanUrl();
+        if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
+        const res = await fetch(`${url}/auth/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al confirmar código");
+        return data;
+      },
+
+      async login(email, password) {
+        const url = getCleanUrl();
+        if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
+        const res = await fetch(`${url}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Credenciales inválidas");
+        return data;
+      },
+
       async getProjects() {
         const url = getCleanUrl();
         if (!url) return mockState.projects.map((p) => ({ name: p }));
         try {
-          const res = await fetch(`${url}/projects`);
+          const res = await fetch(`${url}/projects`, { headers: getAuthHeaders() });
           const data = await res.json();
           return data.projects || [];
         } catch (err) {
@@ -793,11 +1091,13 @@
           }
           return;
         }
-        await fetch(`${url}/projects`, {
+        const res = await fetch(`${url}/projects`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ name }),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al crear proyecto");
       },
 
       async updateProject(oldName, newName) {
@@ -810,11 +1110,13 @@
           saveMockState();
           return;
         }
-        await fetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
+        const res = await fetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ newName }),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al actualizar proyecto");
       },
 
       async deleteProject(name) {
@@ -825,14 +1127,21 @@
           saveMockState();
           return;
         }
-        await fetch(`${url}/projects/${encodeURIComponent(name)}`, { method: "DELETE" });
+        const res = await fetch(`${url}/projects/${encodeURIComponent(name)}`, {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al eliminar proyecto");
       },
 
       async getMembers(project) {
         const url = getCleanUrl();
         if (!url) return mockState.members[project] || [];
         try {
-          const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`);
+          const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
+            headers: getAuthHeaders(),
+          });
           const data = await res.json();
           return data.members || [];
         } catch (err) {
@@ -840,35 +1149,39 @@
         }
       },
 
-      async createMember(project, name, role) {
+      async createMember(project, name, role, email = "") {
         const url = getCleanUrl();
         if (!url) {
           if (!mockState.members[project]) mockState.members[project] = [];
-          mockState.members[project].push({ name, role });
+          mockState.members[project].push({ name, role, email });
           saveMockState();
           return;
         }
-        await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
+        const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ project, name, role }),
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ project, name, role, email }),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al asignar integrante");
       },
 
-      async updateMember(project, oldName, newName, role) {
+      async updateMember(project, oldName, newName, role, email = "") {
         const url = getCleanUrl();
         if (!url) {
           const list = mockState.members[project] || [];
           const m = list.find((x) => x.name === oldName);
-          if (m) { m.name = newName; m.role = role; }
+          if (m) { m.name = newName; m.role = role; if (email) m.email = email; }
           saveMockState();
           return;
         }
-        await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
+        const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newName, role }),
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ newName, role, email }),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al modificar integrante");
       },
 
       async deleteMember(project, name) {
@@ -880,9 +1193,12 @@
           }
           return;
         }
-        await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
+        const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
           method: "DELETE",
+          headers: getAuthHeaders(),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al eliminar integrante");
       },
 
       async getWeeklyScrums(project, week) {
@@ -898,7 +1214,9 @@
           return scrums;
         }
         try {
-          const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}`);
+          const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}`, {
+            headers: getAuthHeaders(),
+          });
           const data = await res.json();
           return data.scrums || [];
         } catch (err) {
@@ -914,11 +1232,13 @@
           saveMockState();
           return;
         }
-        await fetch(`${url}/scrums`, {
+        const res = await fetch(`${url}/scrums`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ project, week, day, member, answers }),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar Daily");
       },
 
       async deleteScrum(project, week, day, member) {
@@ -929,11 +1249,13 @@
           saveMockState();
           return;
         }
-        await fetch(`${url}/scrums`, {
+        const res = await fetch(`${url}/scrums`, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ project, week, day, member }),
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al eliminar Daily");
       },
     };
 
@@ -952,12 +1274,121 @@
 
     const scrumModal = setupModal("scrumModal", "modalClose");
     const manageModal = setupModal("manageModal", "manageModalClose");
+    const authModal = setupModal("authModal", "authModalClose");
     document.getElementById("btnCancelScrum").addEventListener("click", scrumModal.close);
 
     let activeScrumContext = null;
 
     // -------------------------------------------------------------
-    // Render Board Matrix (Full-Text & Full-Width)
+    // Auth Modal Switching Logic
+    // -------------------------------------------------------------
+    window.switchAuthView = (view) => {
+      const title = document.getElementById("authModalTitle");
+      const loginForm = document.getElementById("loginForm");
+      const signupForm = document.getElementById("signupForm");
+      const confirmForm = document.getElementById("confirmForm");
+
+      loginForm.style.display = "none";
+      signupForm.style.display = "none";
+      confirmForm.style.display = "none";
+
+      if (view === "signup") {
+        title.textContent = "📝 Crear Cuenta de Integrante";
+        signupForm.style.display = "block";
+      } else if (view === "confirm") {
+        title.textContent = "✉️ Confirmar Código de Verificación";
+        confirmForm.style.display = "block";
+      } else {
+        title.textContent = "🔑 Iniciar Sesión";
+        loginForm.style.display = "block";
+      }
+    };
+
+    btnLoginOpen.addEventListener("click", () => {
+      switchAuthView("login");
+      authModal.open();
+    });
+
+    btnSignupOpen.addEventListener("click", () => {
+      switchAuthView("signup");
+      authModal.open();
+    });
+
+    document.getElementById("btnSubmitLogin").addEventListener("click", async () => {
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      if (!email || !password) return showToast("Completá email y contraseña", "error");
+
+      const btn = document.getElementById("btnSubmitLogin");
+      btn.disabled = true;
+      btn.textContent = "Ingresando...";
+
+      try {
+        const data = await api.login(email, password);
+        setStoredAuth({
+          idToken: data.idToken,
+          accessToken: data.accessToken,
+          user: data.user,
+        });
+        authModal.close();
+        refreshAWSAuthState();
+        await renderBoard();
+        showToast(`¡Bienvenido, ${data.user.name || email}!`);
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Ingresar";
+      }
+    });
+
+    document.getElementById("btnSubmitSignup").addEventListener("click", async () => {
+      const name = document.getElementById("signupName").value.trim();
+      const email = document.getElementById("signupEmail").value.trim();
+      const password = document.getElementById("signupPassword").value;
+      if (!name || !email || !password) return showToast("Completá todos los campos", "error");
+
+      const btn = document.getElementById("btnSubmitSignup");
+      btn.disabled = true;
+      btn.textContent = "Creando cuenta...";
+
+      try {
+        await api.signup(email, password, name);
+        document.getElementById("confirmEmail").value = email;
+        switchAuthView("confirm");
+        showToast("Cuenta creada. Revisá tu email para ver el código.");
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Crear Cuenta";
+      }
+    });
+
+    document.getElementById("btnSubmitConfirm").addEventListener("click", async () => {
+      const email = document.getElementById("confirmEmail").value.trim();
+      const code = document.getElementById("confirmCode").value.trim();
+      if (!email || !code) return showToast("Completá email y código", "error");
+
+      const btn = document.getElementById("btnSubmitConfirm");
+      btn.disabled = true;
+      btn.textContent = "Verificando...";
+
+      try {
+        await api.confirm(email, code);
+        document.getElementById("loginEmail").value = email;
+        switchAuthView("login");
+        showToast("¡Cuenta confirmada! Ahora podés iniciar sesión.");
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Verificar Cuenta";
+      }
+    });
+
+    // -------------------------------------------------------------
+    // Render Board Matrix (Full-Text, Full-Width, Role-Protected)
     // -------------------------------------------------------------
     const renderBoard = async () => {
       const project = document.getElementById("boardProject").value;
@@ -973,8 +1404,9 @@
       ]);
 
       if (members.length === 0) {
+        const canAdd = currentUser.role === "admin";
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 32px; color:#64748b;">
-          No hay integrantes en este proyecto. <button class="btn btn-secondary btn-sm" onclick="openManageWithProject('${project}')">Agregar Integrantes</button>
+          No hay integrantes en este proyecto. ${canAdd ? `<button class="btn btn-secondary btn-sm" onclick="openManageWithProject('${project}')">Asignar Integrantes</button>` : ''}
         </td></tr>`;
         return;
       }
@@ -988,9 +1420,16 @@
       members.forEach((m) => {
         const tr = document.createElement("tr");
 
+        // RBAC: Check if current logged-in / simulated user can edit this member's row
+        const isSelf = currentUser.name && (m.name.toLowerCase() === currentUser.name.toLowerCase());
+        const canEditThisRow = (currentUser.role === "admin") || isSelf;
+
         const memberTd = document.createElement("td");
         memberTd.innerHTML = `
-          <div class="member-cell-name">👤 ${escapeHtml(m.name)}</div>
+          <div class="member-cell-name">
+            👤 ${escapeHtml(m.name)}
+            ${isSelf ? '<span class="member-cell-self">TÚ</span>' : ''}
+          </div>
           <div class="member-cell-role">${escapeHtml(m.role || "Developer")}</div>
         `;
         tr.appendChild(memberTd);
@@ -1010,10 +1449,12 @@
               <div class="scrum-entry">
                 <div class="scrum-top-bar">
                   ${hasBlocker ? '<span class="tag-blocker">🚨 Bloqueo</span>' : '<span class="tag-clean">✓</span>'}
-                  <div class="actions-mini">
-                    <button class="btn-action" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', true)" title="Editar">✏️</button>
-                    <button class="btn-action danger" onclick="deleteScrumEntry('${project}', '${week}', '${day}', '${m.name}')" title="Eliminar">🗑️</button>
-                  </div>
+                  ${canEditThisRow ? `
+                    <div class="actions-mini">
+                      <button class="btn-action" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', true)" title="Editar">✏️</button>
+                      <button class="btn-action danger" onclick="deleteScrumEntry('${project}', '${week}', '${day}', '${m.name}')" title="Eliminar">🗑️</button>
+                    </div>
+                  ` : ''}
                 </div>
                 <div class="scrum-line"><span class="lbl">Hecho:</span> ${ans1}</div>
                 <div class="scrum-line"><span class="lbl">Sigue:</span> ${ans2}</div>
@@ -1021,11 +1462,18 @@
               </div>
             `;
           } else {
-            dayTd.innerHTML = `
-              <button class="cell-empty-btn" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', false)">
-                <span>+ Cargar</span>
-              </button>
-            `;
+            // Empty cell
+            if (canEditThisRow) {
+              dayTd.innerHTML = `
+                <button class="cell-empty-btn" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', false)">
+                  <span>+ Cargar</span>
+                </button>
+              `;
+            } else {
+              dayTd.innerHTML = `
+                <div class="cell-empty-readonly" title="Solo editable por ${escapeHtml(m.name)}">—</div>
+              `;
+            }
           }
           tr.appendChild(dayTd);
         });
@@ -1038,6 +1486,13 @@
     // Scrum Modal (View / Edit / Delete)
     // -------------------------------------------------------------
     window.openScrumModal = async (project, week, day, member, isEdit) => {
+      // Permission check guard
+      const isSelf = currentUser.name && (member.toLowerCase() === currentUser.name.toLowerCase());
+      if (currentUser.role !== "admin" && !isSelf) {
+        showToast(`Solo podés cargar o editar tu propia Daily Scrum (${currentUser.name})`, "error");
+        return;
+      }
+
       activeScrumContext = { project, week, day, member, isEdit };
       document.getElementById("modalTitle").textContent = isEdit ? "✏️ Editar Daily Scrum" : "📝 Registrar Daily Scrum";
       document.getElementById("modalMetaTags").innerHTML = `
@@ -1083,12 +1538,17 @@
       saveBtn.disabled = true;
       saveBtn.textContent = "Guardando...";
 
-      await api.saveScrum(project, week, day, member, answers);
-      saveBtn.disabled = false;
-      saveBtn.textContent = "💾 Guardar";
-      scrumModal.close();
-      await renderBoard();
-      showToast(`Daily guardada para ${member} (${day}).`);
+      try {
+        await api.saveScrum(project, week, day, member, answers);
+        scrumModal.close();
+        await renderBoard();
+        showToast(`Daily guardada para ${member} (${day}).`);
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "💾 Guardar";
+      }
     });
 
     document.getElementById("btnDeleteScrum").addEventListener("click", async () => {
@@ -1097,29 +1557,51 @@
       const ok = await showConfirm("Eliminar Daily", `¿Eliminar la Daily de ${member} del ${day}?`);
       if (!ok) return;
 
-      await api.deleteScrum(project, week, day, member);
-      scrumModal.close();
-      await renderBoard();
-      showToast(`Daily eliminada.`);
+      try {
+        await api.deleteScrum(project, week, day, member);
+        scrumModal.close();
+        await renderBoard();
+        showToast(`Daily eliminada.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     });
 
     window.deleteScrumEntry = async (project, week, day, member) => {
+      const isSelf = currentUser.name && (member.toLowerCase() === currentUser.name.toLowerCase());
+      if (currentUser.role !== "admin" && !isSelf) {
+        showToast(`Solo podés eliminar tu propia Daily Scrum`, "error");
+        return;
+      }
       const ok = await showConfirm("Eliminar Daily", `¿Eliminar la Daily de ${member} del ${day}?`);
       if (!ok) return;
-      await api.deleteScrum(project, week, day, member);
-      await renderBoard();
-      showToast(`Daily eliminada.`);
+
+      try {
+        await api.deleteScrum(project, week, day, member);
+        await renderBoard();
+        showToast(`Daily eliminada.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     // -------------------------------------------------------------
-    // Management Modal (CRUD)
+    // Management Modal (CRUD - Admin Only)
     // -------------------------------------------------------------
     document.getElementById("btnOpenManageModal").addEventListener("click", () => {
+      if (currentUser.role !== "admin") {
+        showToast("Se requieren privilegios de Administrador.", "error");
+        return;
+      }
       manageModal.open();
       loadManageModal();
     });
 
     window.openManageWithProject = (project) => {
+      if (currentUser.role !== "admin") {
+        showToast("Se requieren privilegios de Administrador.", "error");
+        return;
+      }
       manageModal.open();
       loadManageModal(project);
     };
@@ -1169,7 +1651,7 @@
         chip.className = "chip";
         chip.innerHTML = `
           👤 ${escapeHtml(m.name)} (${escapeHtml(m.role || "Dev")})
-          <button onclick="editMemberPrompt('${project}', '${m.name}', '${m.role || ''}')" title="Editar">✏️</button>
+          <button onclick="editMemberPrompt('${project}', '${m.name}', '${m.role || ''}', '${m.email || ''}')" title="Editar">✏️</button>
           <button onclick="deleteMemberAction('${project}', '${m.name}')" title="Eliminar">🗑️</button>
         `;
         chips.appendChild(chip);
@@ -1182,11 +1664,15 @@
       const input = document.getElementById("newProjectName");
       const name = input.value.trim();
       if (!name) return;
-      await api.createProject(name);
-      input.value = "";
-      await loadManageModal(name);
-      await initProjectSelectors();
-      showToast(`Proyecto '${name}' creado.`);
+      try {
+        await api.createProject(name);
+        input.value = "";
+        await loadManageModal(name);
+        await initProjectSelectors();
+        showToast(`Proyecto '${name}' creado.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     });
 
     window.editProjectPrompt = async (name) => {
@@ -1196,38 +1682,54 @@
         initialValue: name,
       });
       if (!result || !result.value || result.value === name) return;
-      await api.updateProject(name, result.value);
-      await loadManageModal(result.value);
-      await initProjectSelectors();
-      showToast(`Proyecto renombrado a '${result.value}'.`);
+      try {
+        await api.updateProject(name, result.value);
+        await loadManageModal(result.value);
+        await initProjectSelectors();
+        showToast(`Proyecto renombrado a '${result.value}'.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     window.deleteProjectAction = async (name) => {
       const ok = await showConfirm("Eliminar Proyecto", `¿Eliminar el proyecto '${name}' y todas sus dailies asociadas?`);
       if (!ok) return;
-      await api.deleteProject(name);
-      await loadManageModal();
-      await initProjectSelectors();
-      showToast(`Proyecto '${name}' eliminado.`);
+      try {
+        await api.deleteProject(name);
+        await loadManageModal();
+        await initProjectSelectors();
+        showToast(`Proyecto '${name}' eliminado.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     document.getElementById("btnAddMember").addEventListener("click", async () => {
       const project = document.getElementById("manageProjectSelect").value;
       const nameInput = document.getElementById("newMemberName");
       const roleInput = document.getElementById("newMemberRole");
+      const emailInput = document.getElementById("newMemberEmail");
+
       const name = nameInput.value.trim();
       const role = roleInput.value.trim() || "Developer";
+      const email = emailInput.value.trim();
 
       if (!name || !project) return;
-      await api.createMember(project, name, role);
-      nameInput.value = "";
-      roleInput.value = "";
-      await loadMembersChipList();
-      await renderBoard();
-      showToast(`Integrante '${name}' agregado a '${project}'.`);
+      try {
+        await api.createMember(project, name, role, email);
+        nameInput.value = "";
+        roleInput.value = "";
+        emailInput.value = "";
+        await loadMembersChipList();
+        await renderBoard();
+        showToast(`Integrante '${name}' asignado a '${project}'.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     });
 
-    window.editMemberPrompt = async (project, oldName, oldRole) => {
+    window.editMemberPrompt = async (project, oldName, oldRole, oldEmail) => {
       const result = await showPrompt({
         title: "Editar Integrante",
         label: "Nombre:",
@@ -1236,19 +1738,27 @@
         initialSecondValue: oldRole || "Developer",
       });
       if (!result || !result.value) return;
-      await api.updateMember(project, oldName, result.value, result.secondValue || "Developer");
-      await loadMembersChipList();
-      await renderBoard();
-      showToast(`Integrante actualizado.`);
+      try {
+        await api.updateMember(project, oldName, result.value, result.secondValue || "Developer", oldEmail);
+        await loadMembersChipList();
+        await renderBoard();
+        showToast(`Integrante actualizado.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     window.deleteMemberAction = async (project, name) => {
       const ok = await showConfirm("Eliminar Integrante", `¿Eliminar a '${name}' del proyecto '${project}'?`);
       if (!ok) return;
-      await api.deleteMember(project, name);
-      await loadMembersChipList();
-      await renderBoard();
-      showToast(`Integrante '${name}' eliminado.`);
+      try {
+        await api.deleteMember(project, name);
+        await loadMembersChipList();
+        await renderBoard();
+        showToast(`Integrante '${name}' eliminado.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     // -------------------------------------------------------------
@@ -1277,6 +1787,7 @@
     document.getElementById("btnRefreshBoard").addEventListener("click", renderBoard);
 
     const initApp = async () => {
+      updateModeBadge();
       await initProjectSelectors();
     };
 
