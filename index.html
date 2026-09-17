@@ -1,122 +1,500 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Scrum Serverless</title>
   <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --error: #dc2626;
+      --error-bg: #fee2e2;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 0 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       line-height: 1.5;
-      color: #222;
+      padding: 32px 16px;
     }
-    h1, h2 { color: #111; }
-    .card {
-      border: 1px solid #e0e0e0;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 24px;
-      background: #fafafa;
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
     }
-    label { display: block; margin-top: 12px; font-weight: 600; }
-    input, textarea, button {
-      width: 100%;
-      padding: 8px 12px;
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 15px;
       margin-top: 4px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
-      font-size: 14px;
     }
-    textarea { resize: vertical; min-height: 60px; }
-    button {
-      margin-top: 16px;
-      background: #0066cc;
-      color: white;
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 540px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
       font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      color: var(--text);
+      background: #fff;
+      transition: border-color 0.15s ease;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
       cursor: pointer;
       border: none;
+      transition: background 0.15s ease, transform 0.05s ease;
+      gap: 8px;
     }
-    button:hover { background: #0052a3; }
-    .status {
-      margin-top: 12px;
-      padding: 10px;
-      border-radius: 4px;
+
+    .btn:active { transform: scale(0.99); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+    }
+    .btn-secondary:hover { background: #e2e8f0; }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .status-msg {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
       display: none;
     }
-    .status.success { display: block; background: #e6f4ea; color: #137333; }
-    .status.error { display: block; background: #fce8e6; color: #c5221f; }
+    .status-msg.success { display: block; background: var(--success-bg); color: var(--success); }
+    .status-msg.error { display: block; background: var(--error-bg); color: var(--error); }
+
+    /* Modal Backdrop and Box */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-box {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 540px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+      transform: translateY(12px);
+      transition: transform 0.2s ease;
+    }
+
+    .modal-overlay.open .modal-box {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      padding: 24px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .meta-tag-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .meta-tag {
+      background: #e2e8f0;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .q-card {
+      background: #f8fafc;
+      border-left: 4px solid var(--primary);
+      border-radius: 4px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+
+    .q-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .q-card-answer {
+      font-size: 14px;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
-  <h1>Daily Scrum</h1>
+  <div class="container">
+    <header>
+      <h1>Daily Scrum Serverless</h1>
+      <p>Arquitectura 100% permanente en AWS Free Tier</p>
+    </header>
 
-  <!-- Configuration -->
-  <div class="card">
-    <label for="apiUrl">Lambda Function URL</label>
-    <input type="text" id="apiUrl" placeholder="https://xxxxxx.lambda-url.us-east-1.on.aws/" />
+    <!-- Config Card -->
+    <div class="card">
+      <div class="card-title">⚙️ Conexión Backend</div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="apiUrl">Lambda Function URL</label>
+        <input type="text" id="apiUrl" placeholder="https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.lambda-url.us-east-1.on.aws/" />
+      </div>
+    </div>
+
+    <!-- Register Form Card -->
+    <div class="card">
+      <div class="card-title">📝 Registrar Daily Scrum</div>
+      
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="postProject">Proyecto</label>
+          <select id="postProject">
+            <option value="Sabato">Sabato</option>
+            <option value="Core">Core</option>
+            <option value="Mobile">Mobile</option>
+            <option value="DevOps">DevOps</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="postWeek">Semana</label>
+          <select id="postWeek">
+            <option value="WEEK 1">Semana 1</option>
+            <option value="WEEK 2">Semana 2</option>
+            <option value="WEEK 3">Semana 3</option>
+            <option value="WEEK 4">Semana 4</option>
+            <option value="WEEK 5">Semana 5</option>
+            <option value="WEEK 6">Semana 6</option>
+            <option value="WEEK 7">Semana 7</option>
+            <option value="WEEK 8">Semana 8</option>
+            <option value="WEEK 9" selected>Semana 9</option>
+            <option value="WEEK 10">Semana 10</option>
+            <option value="WEEK 11">Semana 11</option>
+            <option value="WEEK 12">Semana 12</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="postDay">Día de la Semana</label>
+          <select id="postDay">
+            <option value="Lunes" selected>Lunes</option>
+            <option value="Martes">Martes</option>
+            <option value="Miercoles">Miércoles</option>
+            <option value="Jueves">Jueves</option>
+            <option value="Viernes">Viernes</option>
+            <option value="Sabado">Sábado</option>
+            <option value="Domingo">Domingo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="postMember">Integrante</label>
+          <select id="postMember">
+            <option value="Paz" selected>Paz</option>
+            <option value="Juan">Juan</option>
+            <option value="Marcelo">Marcelo</option>
+            <option value="Sofia">Sofía</option>
+            <option value="Lucas">Lucas</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ans1">1. ¿Qué hiciste ayer?</label>
+        <textarea id="ans1" placeholder="Detallá los avances completados..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="ans2">2. ¿Qué vas a hacer hoy?</label>
+        <textarea id="ans2" placeholder="Detallá el foco de hoy..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="ans3">3. ¿Hay algún bloqueo o impedimento?</label>
+        <textarea id="ans3" placeholder="Ninguno / Describí el impedimento..."></textarea>
+      </div>
+
+      <button id="btnSubmit" class="btn btn-primary">
+        <span>Guardar en AWS DynamoDB</span>
+      </button>
+      <div id="postStatus" class="status-msg"></div>
+    </div>
+
+    <!-- Query Card -->
+    <div class="card">
+      <div class="card-title">🔍 Consultar Respuestas</div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="getProject">Proyecto</label>
+          <select id="getProject">
+            <option value="Sabato">Sabato</option>
+            <option value="Core">Core</option>
+            <option value="Mobile">Mobile</option>
+            <option value="DevOps">DevOps</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="getWeek">Semana</label>
+          <select id="getWeek">
+            <option value="WEEK 1">Semana 1</option>
+            <option value="WEEK 2">Semana 2</option>
+            <option value="WEEK 3">Semana 3</option>
+            <option value="WEEK 4">Semana 4</option>
+            <option value="WEEK 5">Semana 5</option>
+            <option value="WEEK 6">Semana 6</option>
+            <option value="WEEK 7">Semana 7</option>
+            <option value="WEEK 8">Semana 8</option>
+            <option value="WEEK 9" selected>Semana 9</option>
+            <option value="WEEK 10">Semana 10</option>
+            <option value="WEEK 11">Semana 11</option>
+            <option value="WEEK 12">Semana 12</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="getDay">Día</label>
+          <select id="getDay">
+            <option value="Lunes" selected>Lunes</option>
+            <option value="Martes">Martes</option>
+            <option value="Miercoles">Miércoles</option>
+            <option value="Jueves">Jueves</option>
+            <option value="Viernes">Viernes</option>
+            <option value="Sabado">Sábado</option>
+            <option value="Domingo">Domingo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="getMember">Integrante</label>
+          <select id="getMember">
+            <option value="Paz" selected>Paz</option>
+            <option value="Juan">Juan</option>
+            <option value="Marcelo">Marcelo</option>
+            <option value="Sofia">Sofía</option>
+            <option value="Lucas">Lucas</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="btnLoad" class="btn btn-secondary">
+        <span>Abrir y Ver en Modal</span>
+      </button>
+      <div id="getStatus" class="status-msg"></div>
+    </div>
   </div>
 
-  <!-- Register Form -->
-  <div class="card">
-    <h2>Registrar Daily (POST a AWS)</h2>
-    <label>Proyecto</label>
-    <input type="text" id="postProject" value="Sabato" />
+  <!-- Modal for Results -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalTitle">Daily Scrum Cargada</h3>
+        <button id="modalCloseBtn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="meta-tag-group" id="modalTags"></div>
 
-    <label>Semana</label>
-    <input type="text" id="postWeek" value="WEEK 9" />
+        <div class="q-card">
+          <div class="q-card-title">1. ¿Qué hiciste ayer?</div>
+          <div class="q-card-answer" id="modalAns1">-</div>
+        </div>
 
-    <label>Día</label>
-    <input type="text" id="postDay" value="Lunes" />
+        <div class="q-card">
+          <div class="q-card-title">2. ¿Qué vas a hacer hoy?</div>
+          <div class="q-card-answer" id="modalAns2">-</div>
+        </div>
 
-    <label>Integrante</label>
-    <input type="text" id="postMember" value="Paz" />
-
-    <label>1. ¿Qué hiciste ayer?</label>
-    <textarea id="ans1" placeholder="Avances en frontend..."></textarea>
-
-    <label>2. ¿Qué vas a hacer hoy?</label>
-    <textarea id="ans2" placeholder="Inicio integración..."></textarea>
-
-    <label>3. ¿Hay algún bloqueo?</label>
-    <textarea id="ans3" placeholder="Ninguno"></textarea>
-
-    <button id="btnSubmit">Guardar en AWS</button>
-    <div id="postStatus" class="status"></div>
-  </div>
-
-  <!-- Query / Render Data -->
-  <div class="card">
-    <h2>Consultar Daily (GET desde AWS)</h2>
-    <label>Proyecto</label>
-    <input type="text" id="getProject" value="Sabato" />
-
-    <label>Semana</label>
-    <input type="text" id="getWeek" value="WEEK 9" />
-
-    <label>Día</label>
-    <input type="text" id="getDay" value="Lunes" />
-
-    <label>Integrante</label>
-    <input type="text" id="getMember" value="Paz" />
-
-    <button id="btnLoad">Cargar Respuestas desde AWS</button>
-    <div id="getStatus" class="status"></div>
-    <div id="results" style="margin-top: 16px;"></div>
+        <div class="q-card">
+          <div class="q-card-title">3. ¿Bloqueos o Impedimentos?</div>
+          <div class="q-card-answer" id="modalAns3">-</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    const cleanUrl = (url) => url.trim().replace(/\/+$/, "");
+    const STORAGE_KEY = "daily_scrum_api_url";
+    const apiInput = document.getElementById("apiUrl");
 
-    // 1. Guardar en AWS (POST)
+    // Persist API URL in localStorage for convenience
+    const savedUrl = localStorage.getItem(STORAGE_KEY);
+    if (savedUrl) apiInput.value = savedUrl;
+    apiInput.addEventListener("input", () => {
+      localStorage.setItem(STORAGE_KEY, apiInput.value.trim());
+    });
+
+    const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
+
+    // Modal Controls
+    const modal = document.getElementById("modalOverlay");
+    const closeModal = () => modal.classList.remove("open");
+    const openModal = () => modal.classList.add("open");
+
+    document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeModal();
+    });
+
+    // 1. Submit POST
     document.getElementById("btnSubmit").addEventListener("click", async () => {
-      const url = cleanUrl(document.getElementById("apiUrl").value);
+      const url = getCleanUrl();
       const statusBox = document.getElementById("postStatus");
+      const submitBtn = document.getElementById("btnSubmit");
+
       if (!url) {
-        alert("Por favor ingresa la Lambda Function URL");
+        statusBox.className = "status-msg error";
+        statusBox.textContent = "⚠️ Ingresá tu Lambda Function URL arriba.";
         return;
       }
 
@@ -126,15 +504,16 @@
         day: document.getElementById("postDay").value,
         member: document.getElementById("postMember").value,
         answers: [
-          document.getElementById("ans1").value,
-          document.getElementById("ans2").value,
-          document.getElementById("ans3").value,
+          document.getElementById("ans1").value.trim() || "Sin respuesta",
+          document.getElementById("ans2").value.trim() || "Sin respuesta",
+          document.getElementById("ans3").value.trim() || "Ninguno",
         ],
       };
 
       try {
-        statusBox.className = "status";
-        statusBox.style.display = "none";
+        submitBtn.disabled = true;
+        submitBtn.querySelector("span").textContent = "Guardando en DynamoDB...";
+        statusBox.className = "status-msg";
 
         const res = await fetch(url, {
           method: "POST",
@@ -143,52 +522,69 @@
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al guardar");
+        if (!res.ok) throw new Error(data.error || "Error al registrar en AWS.");
 
-        statusBox.className = "status success";
+        statusBox.className = "status-msg success";
         statusBox.textContent = "✅ " + data.message;
       } catch (err) {
-        statusBox.className = "status error";
+        statusBox.className = "status-msg error";
         statusBox.textContent = "❌ " + err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.querySelector("span").textContent = "Guardar en AWS DynamoDB";
       }
     });
 
-    // 2. Consultar y Renderizar desde AWS (GET)
+    // 2. Load GET and Open Modal
     document.getElementById("btnLoad").addEventListener("click", async () => {
-      const url = cleanUrl(document.getElementById("apiUrl").value);
+      const url = getCleanUrl();
       const statusBox = document.getElementById("getStatus");
-      const resultsDiv = document.getElementById("results");
+      const loadBtn = document.getElementById("btnLoad");
 
       if (!url) {
-        alert("Por favor ingresa la Lambda Function URL");
+        statusBox.className = "status-msg error";
+        statusBox.textContent = "⚠️ Ingresá tu Lambda Function URL arriba.";
         return;
       }
 
-      const project = encodeURIComponent(document.getElementById("getProject").value);
-      const week = encodeURIComponent(document.getElementById("getWeek").value);
-      const day = encodeURIComponent(document.getElementById("getDay").value);
-      const member = encodeURIComponent(document.getElementById("getMember").value);
+      const project = document.getElementById("getProject").value;
+      const week = document.getElementById("getWeek").value;
+      const day = document.getElementById("getDay").value;
+      const member = document.getElementById("getMember").value;
 
       try {
-        statusBox.className = "status";
-        statusBox.style.display = "none";
-        resultsDiv.innerHTML = "";
+        loadBtn.disabled = true;
+        loadBtn.querySelector("span").textContent = "Consultando DynamoDB...";
+        statusBox.className = "status-msg";
 
-        const queryUrl = `${url}?project=${project}&week=${week}&day=${day}&member=${member}`;
+        const queryUrl = `${url}?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}&day=${encodeURIComponent(day)}&member=${encodeURIComponent(member)}`;
         const res = await fetch(queryUrl, { method: "GET" });
         const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error || "No se encontraron datos");
+        if (!res.ok) throw new Error(data.error || "No se encontró registro para estos datos.");
 
-        statusBox.className = "status success";
-        statusBox.textContent = "📥 " + data.message;
+        // Populate Modal Tags
+        document.getElementById("modalTags").innerHTML = `
+          <span class="meta-tag">📁 ${project}</span>
+          <span class="meta-tag">📅 ${week}</span>
+          <span class="meta-tag">🗓️ ${day}</span>
+          <span class="meta-tag">👤 ${member}</span>
+        `;
 
-        // Renderizar las respuestas traídas de DynamoDB
-        const listHtml = data.answers.map((ans, idx) => `<li><strong>Pregunta ${idx + 1}:</strong> ${ans}</li>`).join("");
-        resultsDiv.innerHTML = `<ul>${listHtml}</ul>`;
+        // Populate Modal Answers
+        const answers = data.answers || [];
+        document.getElementById("modalAns1").textContent = answers[0] || "Sin respuesta";
+        document.getElementById("modalAns2").textContent = answers[1] || "Sin respuesta";
+        document.getElementById("modalAns3").textContent = answers[2] || "Sin respuesta";
+
+        // Open Modal
+        openModal();
       } catch (err) {
-        statusBox.className = "status error";
+        statusBox.className = "status-msg error";
         statusBox.textContent = "❌ " + err.message;
+      } finally {
+        loadBtn.disabled = false;
+        loadBtn.querySelector("span").textContent = "Abrir y Ver en Modal";
       }
     });
   </script>
