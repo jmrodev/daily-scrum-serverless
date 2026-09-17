@@ -1085,37 +1085,100 @@
           </div>
           <div id="membersChipList" class="chip-list"></div>
         </div>
+
+        <!-- Resend Email OTP Configuration (Admin Only) -->
+        <div class="sub-section">
+          <h4>📧 Configuración de Email (Resend)</h4>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+            Configurá tu API Key de Resend para enviar códigos de acceso numéricos (OTP) por correo sin necesidad de contraseña.
+          </p>
+          <div style="margin-bottom: 8px;">
+            <label for="resendApiKey">API Key de Resend (re_...):</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="password" id="resendApiKey" placeholder="re_123456789..." style="flex: 1;" autocomplete="off" />
+              <button type="button" id="btnToggleResendKey" class="btn btn-secondary btn-sm" title="Mostrar/Ocultar clave">👁️</button>
+            </div>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <label for="resendFrom">Remitente (From):</label>
+            <input type="text" id="resendFrom" placeholder="Daily Scrum &lt;onboarding@resend.dev&gt;" style="width: 100%;" />
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <button type="button" id="btnSaveResendConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>
+            <button type="button" id="btnTestResendEmail" class="btn btn-secondary btn-sm">🧪 Probar Envío</button>
+            <span id="resendConfigStatus" style="font-size: 11px;"></span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Authentication (Login / Signup / Confirmation) -->
+  <!-- Modal: Authentication (Login / Signup / Confirmation / OTP) -->
   <div id="authModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 440px;">
       <div class="modal-header">
-        <h3 id="authModalTitle">🔑 Iniciar Sesión</h3>
+        <h3 id="authModalTitle">🔑 Iniciar Sesión con Código</h3>
         <button id="authModalClose" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- Login Form -->
-        <form id="loginForm" onsubmit="return false;">
-          <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
-            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
-              Acceso Rápido Demo:
-            </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('marcelo')">👨‍💻 Marcelo (Dev)</button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('lucas')">🛡️ Lucas (Admin)</button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('jose')">👨‍💻 José (Dev)</button>
-            </div>
+        <!-- Quick Demo Login -->
+        <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
+            Acceso Rápido Demo:
           </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('marcelo')">👨‍💻 Marcelo (Dev)</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('lucas')">🛡️ Lucas (Admin)</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('jose')">👨‍💻 José (Dev)</button>
+          </div>
+        </div>
 
+        <!-- Passwordless OTP Form (Default) -->
+        <form id="otpForm" onsubmit="return false;">
           <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
             <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-            <span style="padding: 0 10px; font-weight: 600;">O CON EMAIL Y CONTRASEÑA</span>
+            <span style="padding: 0 10px; font-weight: 600;">O CON CÓDIGO POR EMAIL (PASSWORDLESS)</span>
             <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
           </div>
 
+          <!-- Step 1: Request Code -->
+          <div id="otpStepRequest">
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+              Ingresá tu correo electrónico. Te enviaremos un código numérico de 6 dígitos para acceder al instante, sin recordar contraseñas.
+            </p>
+            <div style="margin-bottom: 14px;">
+              <label for="otpEmail">Correo Electrónico</label>
+              <input type="email" id="otpEmail" placeholder="usuario@empresa.com" style="width: 100%;" required />
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <button type="button" class="btn-link" onclick="switchAuthView('password')">O usar contraseña (Cognito)</button>
+              <button type="button" id="btnRequestOtp" class="btn btn-primary btn-sm">📨 Enviar Código</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Verify Code -->
+          <div id="otpStepVerify" style="display: none;">
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+              Enviamos un código de 6 dígitos a <strong id="otpEmailDisplay" style="color: var(--text-main);"></strong>.
+            </p>
+            <div style="margin-bottom: 14px;">
+              <label for="otpCode">Código de Verificación (6 dígitos)</label>
+              <input type="text" id="otpCode" placeholder="123456" maxlength="6" style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 6px; font-weight: 800;" required />
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <button type="button" id="btnBackToOtpRequest" class="btn-link">↩️ Cambiar correo o reenviar</button>
+              <button type="button" id="btnVerifyOtp" class="btn btn-primary btn-sm">🚀 Ingresar</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Traditional Password Login Form -->
+        <form id="loginForm" style="display: none;" onsubmit="return false;">
+          <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
+            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
+            <span style="padding: 0 10px; font-weight: 600;">INGRESO TRADICIONAL (COGNITO)</span>
+            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
+          </div>
           <div style="margin-bottom: 12px;">
             <label for="loginEmail">Correo Electrónico</label>
             <input type="email" id="loginEmail" placeholder="usuario@ejemplo.com" style="width: 100%;" required />
@@ -1125,8 +1188,11 @@
             <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%;" required />
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <button type="button" class="btn-link" onclick="switchAuthView('signup')">¿No tenés cuenta? Registrate</button>
+            <button type="button" class="btn-link" onclick="switchAuthView('otp')">✨ Acceder con código por email</button>
             <button type="button" id="btnSubmitLogin" class="btn btn-primary btn-sm">Ingresar</button>
+          </div>
+          <div style="margin-top: 10px; text-align: center;">
+            <button type="button" class="btn-link" onclick="switchAuthView('signup')">¿No tenés cuenta? Registrate</button>
           </div>
         </form>
 
@@ -1145,7 +1211,7 @@
             <input type="password" id="signupPassword" placeholder="••••••••" style="width: 100%;" required />
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <button type="button" class="btn-link" onclick="switchAuthView('login')">¿Ya tenés cuenta? Ingresá</button>
+            <button type="button" class="btn-link" onclick="switchAuthView('otp')">Volver a Código por Email</button>
             <button type="button" id="btnSubmitSignup" class="btn btn-primary btn-sm">Crear Cuenta</button>
           </div>
           <div style="margin-top: 12px; text-align: center;">
@@ -1167,7 +1233,7 @@
             <input type="text" id="confirmCode" placeholder="123456" style="width: 100%; letter-spacing: 2px; font-weight: bold;" required />
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <button type="button" class="btn-link" onclick="switchAuthView('login')">Volver a Ingresar</button>
+            <button type="button" class="btn-link" onclick="switchAuthView('otp')">Volver a Inicio</button>
             <button type="button" id="btnSubmitConfirm" class="btn btn-primary btn-sm">Verificar Cuenta</button>
           </div>
         </form>
@@ -1594,6 +1660,141 @@
     // Data Service
     // -------------------------------------------------------------
     const api = {
+      async requestOtp(email) {
+        const url = getCleanUrl();
+        if (!url) {
+          const code = Math.floor(100000 + Math.random() * 900000).toString();
+          sessionStorage.setItem("mock_otp_" + email.toLowerCase(), JSON.stringify({
+            code: code,
+            expires: Date.now() + 10 * 60 * 1000
+          }));
+
+          const stored = localStorage.getItem("daily_scrum_resend_config");
+          const cfg = stored ? JSON.parse(stored) : null;
+          if (cfg && cfg.apiKey) {
+            try {
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${cfg.apiKey}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  from: cfg.fromEmail || "Daily Scrum <onboarding@resend.dev>",
+                  to: [email],
+                  subject: `${code} es tu código de acceso a Daily Scrum`,
+                  html: `<p>Tu código de acceso OTP es: <strong>${code}</strong> (válido por 10 minutos).</p>`
+                })
+              });
+              return { message: `Código enviado a ${email} vía Resend.`, sent: true };
+            } catch (err) {
+              return { message: "Código generado. (Fallo CORS directo; usá el código en pantalla)", sent: false, demo_code: code };
+            }
+          }
+          return { message: "Código generado (Modo Mock sin Resend).", sent: false, demo_code: code };
+        }
+
+        const res = await fetch(`${url}/auth/otp/request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al solicitar código OTP");
+        return data;
+      },
+
+      async verifyOtp(email, code) {
+        const url = getCleanUrl();
+        if (!url) {
+          const stored = sessionStorage.getItem("mock_otp_" + email.toLowerCase());
+          if (!stored) throw new Error("Código no encontrado o expirado. Solicitá uno nuevo.");
+          const parsed = JSON.parse(stored);
+          if (Date.now() > parsed.expires) {
+            sessionStorage.removeItem("mock_otp_" + email.toLowerCase());
+            throw new Error("El código expiró. Solicitá uno nuevo.");
+          }
+          if (parsed.code !== code.trim()) {
+            throw new Error("Código incorrecto. Verificá los 6 dígitos.");
+          }
+          sessionStorage.removeItem("mock_otp_" + email.toLowerCase());
+
+          const isAdmin = email.toLowerCase().includes("lucas") || email.toLowerCase().includes("admin");
+          const name = email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1);
+          return {
+            message: "Login exitoso",
+            user: {
+              email: email,
+              name: name,
+              role: isAdmin ? "admin" : "member",
+              is_admin: isAdmin,
+              title: isAdmin ? "Admin / Tech Lead" : "Team Member",
+            }
+          };
+        }
+
+        const res = await fetch(`${url}/auth/otp/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al verificar código OTP");
+        return data;
+      },
+
+      async getResendConfig() {
+        const url = getCleanUrl();
+        if (!url) {
+          const stored = localStorage.getItem("daily_scrum_resend_config");
+          return stored ? JSON.parse(stored) : { configured: false, apiKey: "", fromEmail: "Daily Scrum <onboarding@resend.dev>" };
+        }
+        const res = await fetch(`${url}/admin/config/resend`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al obtener configuración de Resend");
+        return data;
+      },
+
+      async saveResendConfig(apiKey, fromEmail) {
+        const url = getCleanUrl();
+        if (!url) {
+          localStorage.setItem("daily_scrum_resend_config", JSON.stringify({
+            configured: !!apiKey,
+            apiKey: apiKey,
+            fromEmail: fromEmail || "Daily Scrum <onboarding@resend.dev>"
+          }));
+          return { message: "Configuración guardada en almacenamiento local (Modo Mock)." };
+        }
+        const res = await fetch(`${url}/admin/config/resend`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ apiKey, fromEmail }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar configuración de Resend");
+        return data;
+      },
+
+      async testResendEmail(toEmail) {
+        const url = getCleanUrl();
+        if (!url) {
+          const stored = localStorage.getItem("daily_scrum_resend_config");
+          const cfg = stored ? JSON.parse(stored) : null;
+          if (!cfg || !cfg.apiKey) {
+            throw new Error("No hay API Key configurada. Ingresá una antes de probar.");
+          }
+          return { message: `Simulación de prueba: email listo para enviarse a ${toEmail} con remitente ${cfg.fromEmail}` };
+        }
+        const res = await fetch(`${url}/admin/config/resend/test`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ toEmail }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al enviar email de prueba");
+        return data;
+      },
+
       async signup(email, password, name) {
         const url = getCleanUrl();
         if (!url) throw new Error("Solo disponible en modo AWS con Lambda conectada");
@@ -1924,28 +2125,33 @@
     // -------------------------------------------------------------
     window.switchAuthView = (view) => {
       const title = document.getElementById("authModalTitle");
+      const otpForm = document.getElementById("otpForm");
       const loginForm = document.getElementById("loginForm");
       const signupForm = document.getElementById("signupForm");
       const confirmForm = document.getElementById("confirmForm");
 
+      otpForm.style.display = "none";
       loginForm.style.display = "none";
       signupForm.style.display = "none";
       confirmForm.style.display = "none";
 
       if (view === "signup") {
-        title.textContent = "📝 Crear Cuenta de Integrante";
+        title.textContent = "📝 Crear Cuenta (Cognito)";
         signupForm.style.display = "block";
       } else if (view === "confirm") {
-        title.textContent = "✉️ Confirmar Código de Verificación";
+        title.textContent = "✉️ Confirmar Cuenta (Cognito)";
         confirmForm.style.display = "block";
-      } else {
-        title.textContent = "🔑 Iniciar Sesión";
+      } else if (view === "password") {
+        title.textContent = "🔐 Iniciar con Contraseña";
         loginForm.style.display = "block";
+      } else {
+        title.textContent = "🔑 Iniciar Sesión con Código";
+        otpForm.style.display = "block";
       }
     };
 
     btnLoginOpen.addEventListener("click", () => {
-      switchAuthView("login");
+      switchAuthView("otp");
       authModal.open();
     });
 
@@ -1954,6 +2160,80 @@
       authModal.open();
     });
 
+    // -------------------------------------------------------------
+    // Passwordless Email OTP Handlers
+    // -------------------------------------------------------------
+    document.getElementById("btnRequestOtp").addEventListener("click", async () => {
+      const email = document.getElementById("otpEmail").value.trim();
+      if (!email || !email.includes("@")) {
+        return showToast("Ingresá un correo electrónico válido", "error");
+      }
+
+      const btn = document.getElementById("btnRequestOtp");
+      btn.disabled = true;
+      btn.textContent = "Generando código...";
+
+      try {
+        const res = await api.requestOtp(email);
+        document.getElementById("otpEmailDisplay").textContent = email;
+        document.getElementById("otpStepRequest").style.display = "none";
+        document.getElementById("otpStepVerify").style.display = "block";
+        const codeInput = document.getElementById("otpCode");
+        codeInput.value = "";
+        codeInput.focus();
+
+        if (res.sent) {
+          showToast(res.message || `Código enviado a ${email}`);
+        } else if (res.demo_code) {
+          showToast(`Modo demo: Tu código de acceso es ${res.demo_code}`, "info");
+        } else {
+          showToast(res.message, "info");
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "📨 Enviar Código";
+      }
+    });
+
+    document.getElementById("btnVerifyOtp").addEventListener("click", async () => {
+      const email = document.getElementById("otpEmail").value.trim();
+      const code = document.getElementById("otpCode").value.trim();
+      if (!code || code.length !== 6) {
+        return showToast("Ingresá el código de 6 dígitos", "error");
+      }
+
+      const btn = document.getElementById("btnVerifyOtp");
+      btn.disabled = true;
+      btn.textContent = "Verificando...";
+
+      try {
+        const res = await api.verifyOtp(email, code);
+        setStoredAuth({
+          idToken: res.idToken || "mock-otp-token",
+          accessToken: res.accessToken || "mock-otp-token",
+          user: res.user,
+        });
+        authModal.close();
+        updateAuthUI();
+        await renderBoard();
+        showToast(`¡Bienvenido, ${res.user.name || email}!`);
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🚀 Ingresar";
+      }
+    });
+
+    document.getElementById("btnBackToOtpRequest").addEventListener("click", () => {
+      document.getElementById("otpStepVerify").style.display = "none";
+      document.getElementById("otpStepRequest").style.display = "block";
+      document.getElementById("otpEmail").focus();
+    });
+
+    // Traditional Password Login Handler
     document.getElementById("btnSubmitLogin").addEventListener("click", async () => {
       const email = document.getElementById("loginEmail").value.trim();
       const password = document.getElementById("loginPassword").value;
@@ -2681,6 +2961,7 @@
       });
 
       loadMembersChipList();
+      loadResendConfigUI();
     };
 
     const loadMembersChipList = async () => {
@@ -2706,6 +2987,83 @@
         chips.appendChild(chip);
       });
     };
+
+    const loadResendConfigUI = async () => {
+      const apiKeyInput = document.getElementById("resendApiKey");
+      const fromInput = document.getElementById("resendFrom");
+      const statusSpan = document.getElementById("resendConfigStatus");
+
+      try {
+        const config = await api.getResendConfig();
+        if (config.configured || config.hasKey || config.apiKey) {
+          apiKeyInput.value = config.apiKey || config.apiKeyMasked || "";
+          statusSpan.innerHTML = "🟢 <strong style='color:var(--success, #10b981);'>Configurado</strong>";
+        } else {
+          apiKeyInput.value = "";
+          statusSpan.innerHTML = "⚪ <span style='color:var(--text-muted);'>Sin configurar (Modo demo)</span>";
+        }
+        if (config.fromEmail) {
+          fromInput.value = config.fromEmail;
+        } else {
+          fromInput.value = "Daily Scrum <onboarding@resend.dev>";
+        }
+      } catch (err) {
+        statusSpan.innerHTML = "⚠️ <span style='color:var(--error, #ef4444);'>Error al cargar</span>";
+      }
+    };
+
+    document.getElementById("btnToggleResendKey").addEventListener("click", () => {
+      const input = document.getElementById("resendApiKey");
+      const btn = document.getElementById("btnToggleResendKey");
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btn.textContent = "👁️";
+      }
+    });
+
+    document.getElementById("btnSaveResendConfig").addEventListener("click", async () => {
+      const apiKey = document.getElementById("resendApiKey").value.trim();
+      const fromEmail = document.getElementById("resendFrom").value.trim();
+      const btn = document.getElementById("btnSaveResendConfig");
+
+      btn.disabled = true;
+      btn.textContent = "Guardando...";
+
+      try {
+        const res = await api.saveResendConfig(apiKey, fromEmail);
+        await loadResendConfigUI();
+        showToast(res.message || "Configuración de Resend guardada.");
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "💾 Guardar Configuración";
+      }
+    });
+
+    document.getElementById("btnTestResendEmail").addEventListener("click", async () => {
+      const targetEmail = currentUser.email || prompt("Ingresá el email al que querés enviar la prueba:");
+      if (!targetEmail || !targetEmail.includes("@")) {
+        return showToast("Se requiere un correo válido para la prueba.", "error");
+      }
+
+      const btn = document.getElementById("btnTestResendEmail");
+      btn.disabled = true;
+      btn.textContent = "Enviando prueba...";
+
+      try {
+        const res = await api.testResendEmail(targetEmail);
+        showToast(res.message || `Prueba enviada a ${targetEmail}`);
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🧪 Probar Envío";
+      }
+    });
 
     document.getElementById("manageProjectSelect").addEventListener("change", loadMembersChipList);
 
