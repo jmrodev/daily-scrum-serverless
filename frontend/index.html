@@ -619,6 +619,25 @@
       font-weight: 600;
       font-size: 11px;
     }
+    .btn-claim-task {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--surface);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 6px;
+      transition: all 0.15s ease;
+    }
+    .btn-claim-task:hover {
+      background: var(--primary);
+      color: #fff;
+    }
     .priority-badge {
       font-size: 10px;
       font-weight: 800;
@@ -950,12 +969,12 @@
           </div>
           <select id="modalBlockedTaskSelect" style="width: 100%; margin-bottom: 8px; font-size: 12px;">
             <option value="">🟢 No agregar otro bloqueo</option>
-            <option value="__NEW__">➕ Crear nueva tarea bloqueada en Kanban</option>
+            <option value="__NEW__">➕ Crear tarea en 'Por Hacer' (para que alguien la elija y me destrabe)</option>
           </select>
           <div id="modalNewBlockedTaskTitleContainer" style="margin-bottom: 8px; display: none;">
-            <input type="text" id="modalNewBlockedTaskTitle" placeholder="Título de la nueva tarea que nace bloqueada..." style="width: 100%; font-size: 12px;" />
+            <input type="text" id="modalNewBlockedTaskTitle" placeholder="Título de la tarea requerida (se creará en 'Por Hacer' sin asignar)..." style="width: 100%; font-size: 12px;" />
           </div>
-          <textarea id="modalAns3" placeholder="Motivo o detalle del nuevo bloqueo (o 'Ninguno')..."></textarea>
+          <textarea id="modalAns3" placeholder="¿Por qué te bloquea o qué se necesita hacer? (o 'Ninguno')..."></textarea>
         </div>
 
         <div style="margin-top: 10px; margin-bottom: 14px; padding: 8px 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px;">
@@ -2434,10 +2453,14 @@
         const t = tasks.find((x) => x.id === taskId);
         if (!t) return;
 
-        t.status = "DOING";
-        t.blocker = "";
+        if (t.assignee && t.assignee.toLowerCase() === member.toLowerCase()) {
+          t.status = "DOING";
+          t.blocker = "";
+        } else if (t.blocker) {
+          t.blocker = t.blocker.replace(new RegExp(`Bloquea a ${member}:?.*`, "i"), "").trim();
+        }
         await api.saveTask(t);
-        showToast(`Tarea '${t.title}' destrabada (pasa a En Progreso).`);
+        showToast(`Bloqueo de '${t.title}' resuelto.`);
 
         // Refresh active blocked list in modal
         await refreshModalBlockedTasks(project, member);
@@ -2445,7 +2468,8 @@
         // Update modalAns3 with remaining active blockers
         const updatedTasks = await api.getTasks(project);
         const remainingBlocked = (updatedTasks || []).filter(
-          (x) => x.assignee && x.assignee.toLowerCase() === member.toLowerCase() && x.status === "BLOCKED"
+          (x) => (x.assignee && x.assignee.toLowerCase() === member.toLowerCase() && x.status === "BLOCKED") ||
+                 (x.blocker && x.blocker.toLowerCase().includes(`bloquea a ${member.toLowerCase()}`) && x.status !== "DONE")
         );
         const ans3 = document.getElementById("modalAns3");
         if (ans3) {
@@ -2470,10 +2494,11 @@
       if (newBlockedTitleContainer) newBlockedTitleContainer.style.display = "none";
       if (newBlockedTitleInput) newBlockedTitleInput.value = "";
 
+      let allProjectTasks = [];
       let memberTasks = [];
       try {
-        const tasks = await api.getTasks(project);
-        memberTasks = (tasks || []).filter(
+        allProjectTasks = await api.getTasks(project);
+        memberTasks = (allProjectTasks || []).filter(
           (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
         );
       } catch (err) {
@@ -2481,19 +2506,22 @@
       }
 
       const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED");
+      const waitingOnOtherTasks = (allProjectTasks || []).filter(
+        (t) => t.blocker && t.blocker.toLowerCase().includes(`bloquea a ${member.toLowerCase()}`)
+      );
 
       if (container) {
-        if (blockedTasks.length === 0) {
+        if (blockedTasks.length === 0 && waitingOnOtherTasks.length === 0) {
           container.innerHTML = `
             <div style="padding: 6px 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; font-size: 11px; color: #10b981; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-              <span>✓</span> <span>No tenés tareas bloqueadas actualmente.</span>
+              <span>✓</span> <span>No tenés tareas bloqueadas ni dependencias pendientes.</span>
             </div>
           `;
         } else {
           let html = `
             <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
               <div style="font-size: 11px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 0.5px;">
-                🚨 Bloqueos Activos (${blockedTasks.length}) — No se liberan hasta resolverlos
+                🚨 Bloqueos Activos (${blockedTasks.length + waitingOnOtherTasks.length}) — No se liberan hasta resolverlos
               </div>
           `;
           blockedTasks.forEach((t) => {
@@ -2502,6 +2530,23 @@
                 <div style="overflow: hidden; text-overflow: ellipsis; padding-right: 8px;">
                   <strong style="color: var(--text-color);">${escapeHtml(t.title)}</strong>
                   <div style="font-size: 11px; color: #ef4444; margin-top: 1px;">Impedimento: ${escapeHtml(t.blocker || "Bloqueada")}</div>
+                </div>
+                <button type="button" class="btn-action" style="background: var(--surface); border: 1px solid var(--border); font-size: 11px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; cursor: pointer; color: #10b981;" onclick="resolveTaskBlocker('${escapeHtml(t.id)}')">
+                  ✅ Destrabar
+                </button>
+              </div>
+            `;
+          });
+          waitingOnOtherTasks.forEach((t) => {
+            const isDone = t.status === "DONE";
+            const statusLabel = getStatusLabel(t.status);
+            html += `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${isDone ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}; border: 1px solid ${isDone ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}; border-radius: 6px; font-size: 12px;">
+                <div style="overflow: hidden; text-overflow: ellipsis; padding-right: 8px;">
+                  <strong style="color: var(--text-color);">${isDone ? '🎉 [Resuelta]' : '⏳ [Esperando tarea]'} ${escapeHtml(t.title)}</strong>
+                  <div style="font-size: 11px; color: ${isDone ? '#10b981' : '#ef4444'}; margin-top: 1px;">
+                    ${t.assignee ? `Asignada a ${escapeHtml(t.assignee)} (${statusLabel})` : `Sin asignar en 'Por Hacer' (disponible para el equipo)`}
+                  </div>
                 </div>
                 <button type="button" class="btn-action" style="background: var(--surface); border: 1px solid var(--border); font-size: 11px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; cursor: pointer; color: #10b981;" onclick="resolveTaskBlocker('${escapeHtml(t.id)}')">
                   ✅ Destrabar
@@ -2521,12 +2566,12 @@
           const opt = document.createElement("option");
           opt.value = t.id;
           const statusIcon = t.status === "DOING" ? "⚡ [En Progreso]" : "📝 [Por Hacer]";
-          opt.textContent = `${statusIcon} ${t.title}`;
+          opt.textContent = `${statusIcon} Bloquear mi tarea: ${t.title}`;
           blockedSelect.appendChild(opt);
         });
         const newOpt = document.createElement("option");
         newOpt.value = "__NEW__";
-        newOpt.textContent = "➕ Crear nueva tarea bloqueada en Kanban";
+        newOpt.textContent = "➕ Crear tarea en 'Por Hacer' (para que alguien la elija y me destrabe)";
         blockedSelect.appendChild(newOpt);
         blockedSelect.value = "";
       }
@@ -2670,7 +2715,7 @@
 
       if (blockedTaskId === "__NEW__") {
         if (!newBlockedTitle) {
-          showToast("Ingresá el título de la nueva tarea que nace bloqueada", "error");
+          showToast("Ingresá el título de la tarea requerida para 'Por Hacer'", "error");
           return;
         }
       }
@@ -2687,10 +2732,15 @@
         blockerEntries.push(`[${t.title}] ${t.blocker || "Bloqueada"}`);
       });
 
-      // 2. Newly blocked task (if not already included)
+      // 1b. Existing team tasks that are blocking this member
+      (tasks || []).filter((t) => t.blocker && t.blocker.toLowerCase().includes(`bloquea a ${member.toLowerCase()}`) && t.status !== "DONE").forEach((t) => {
+        blockerEntries.push(`[Esperando: ${t.title}] ${t.blocker}`);
+      });
+
+      // 2. Newly requested task or newly blocked task
       if (blockedTaskId === "__NEW__" && newBlockedTitle) {
-        const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Bloqueada";
-        blockerEntries.push(`[${newBlockedTitle}] ${reason}`);
+        const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Requiere que alguien tome esta tarea en Kanban";
+        blockerEntries.push(`[Esperando: ${newBlockedTitle}] ${reason}`);
       } else if (blockedTaskId && blockedTaskId !== "") {
         const target = memberTasks.find((t) => t.id === blockedTaskId);
         if (target && target.status !== "BLOCKED") {
@@ -3256,6 +3306,7 @@
               <span class="kanban-assignee">
                 👤 ${escapeHtml(t.assignee || "Sin Asignar")}
                 ${isSelf ? '<span class="member-cell-self" style="font-size:8px;">TÚ</span>' : ''}
+                ${!t.assignee ? `<button type="button" class="btn-claim-task" onclick="claimTaskAction('${t.id}')" title="Asignarme esta tarea para resolverla">🙋‍♂️ Tomar</button>` : ''}
               </span>
               <div class="kanban-nav-btns">
                 ${canManageTask ? `
@@ -3268,6 +3319,33 @@
           colList.appendChild(card);
         });
       });
+    };
+
+    window.claimTaskAction = async (taskId) => {
+      if (!currentUser.name || currentUser.role === "guest") {
+        showToast("Iniciá sesión para asignarte esta tarea.", "info");
+        switchAuthView("login");
+        authModal.open();
+        return;
+      }
+      const project = document.getElementById("boardProject").value;
+      if (!project) return;
+      try {
+        const tasks = await api.getTasks(project);
+        const task = tasks.find((t) => t.id === taskId);
+        if (!task) return;
+
+        task.assignee = currentUser.name;
+        if (task.status === "TODO") {
+          task.status = "DOING";
+        }
+        await api.saveTask(task);
+        await syncKanbanToDaily(project, currentUser.name);
+        showToast(`¡Tomaste la tarea '${task.title}'! Pasa a 'En Progreso' asignada a vos.`);
+        await renderKanban();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     // -------------------------------------------------------------
@@ -3517,16 +3595,15 @@
       }
 
       // 3. Synchronize Blockers
-      // A new blocker creates a new task or blocks an existing task in Kanban.
-      // Existing blocked tasks remain blocked until explicitly resolved by the user.
+      // A new blocker that names something not existing creates an unassigned task in 'TODO' for someone to pick it up.
       if (explicitBlockedTaskId === "__NEW__" && explicitNewBlockedTitle) {
         await api.saveTask({
           project,
           title: explicitNewBlockedTitle,
-          assignee: member,
-          status: "BLOCKED",
+          assignee: "", // Sin Asignar para que alguien la elija
+          status: "TODO", // En 'Por Hacer'
           priority: "HIGH",
-          blocker: (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno") ? explicitBlockerReason : "Bloqueada",
+          blocker: (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno") ? `Bloquea a ${member}: ${explicitBlockerReason}` : `Bloquea a ${member}`,
         });
       } else if (explicitBlockedTaskId && explicitBlockedTaskId !== "") {
         const allTasks = await api.getTasks(project);
@@ -3535,6 +3612,37 @@
           taskToBlock.status = "BLOCKED";
           taskToBlock.blocker = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno") ? explicitBlockerReason : "Bloqueada";
           await api.saveTask(taskToBlock);
+        }
+      }
+
+      // Also check if blockerText names an impediment that doesn't exist as any task on the board
+      const allProjectTasks = await api.getTasks(project);
+      const blockerItems = splitItems(blockerText);
+      for (const bItem of blockerItems) {
+        let taskTitleToSearch = bItem;
+        const matchBracket = bItem.match(/\[(.*?)\]/);
+        if (matchBracket && matchBracket[1]) {
+          taskTitleToSearch = matchBracket[1].trim();
+        }
+        taskTitleToSearch = taskTitleToSearch.replace(/^(esperando\s*tarea:?|esperando:?|bloqueo:?)\s*/i, "").trim();
+
+        if (taskTitleToSearch && taskTitleToSearch.length > 2 && taskTitleToSearch.toLowerCase() !== (explicitNewBlockedTitle || "").toLowerCase()) {
+          const exists = (allProjectTasks || []).some((t) => {
+            const tTitle = (t.title || "").toLowerCase().trim();
+            const searchLower = taskTitleToSearch.toLowerCase().trim();
+            return tTitle === searchLower || tTitle.includes(searchLower) || searchLower.includes(tTitle);
+          });
+          if (!exists) {
+            const created = await api.saveTask({
+              project,
+              title: taskTitleToSearch,
+              assignee: "", // Sin asignar para que cualquiera la elija
+              status: "TODO", // En 'Por Hacer'
+              priority: "HIGH",
+              blocker: `Bloquea a ${member}: ${bItem}`,
+            });
+            if (created) allProjectTasks.push(created);
+          }
         }
       }
     };
