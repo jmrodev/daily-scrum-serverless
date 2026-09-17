@@ -1,6 +1,7 @@
 import base64
 import datetime
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -17,6 +18,10 @@ from botocore.exceptions import ClientError
 TABLE_NAME = os.environ.get("TABLE_NAME", "DailyScrum")
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 CLIENT_ID = os.environ.get("CLIENT_ID", "")
+# HMAC secret for server-minted session tokens. Injected via deploy.sh
+# (openssl rand -hex 32). Never shipped to the browser. Empty = misconfigured.
+TOKEN_SECRET = os.environ.get("TOKEN_SECRET", "")
+TOKEN_TTL_SECONDS = 86400 * 7  # 7 days, preserved to avoid session-churn change
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
@@ -45,9 +50,74 @@ def parse_body(event):
     return json.loads(raw_body) if isinstance(raw_body, str) else raw_body
 
 
+def _b64url_encode(data):
+    return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+
+
+def _b64url_decode(segment):
+    segment += "=" * ((4 - len(segment) % 4) % 4)
+    return base64.urlsafe_b64decode(segment.encode("utf-8"))
+
+
+def mint_token(payload):
+    """Mint an HMAC-SHA256 server token: b64(header).b64(payload).b64(sig).
+
+    PBKDF2 password hashing stays in hash_password/verify_password (100k rounds).
+    Fails closed (raises) when TOKEN_SECRET is not configured.
+    """
+    if not TOKEN_SECRET:
+        raise RuntimeError("TOKEN_SECRET is not configured on the server")
+    header_b64 = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode("utf-8"))
+    payload_b64 = _b64url_encode(json.dumps(payload).encode("utf-8"))
+    signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
+    sig = hmac.new(TOKEN_SECRET.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    return f"{header_b64}.{payload_b64}.{_b64url_encode(sig)}"
+
+
+def verify_token(token):
+    """Verify HMAC signature + expiry. Returns payload dict or None."""
+    if not token or not TOKEN_SECRET:
+        return None
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        header_b64, payload_b64, sig_b64 = parts
+        signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
+        expected = hmac.new(TOKEN_SECRET.encode("utf-8"), signing_input, hashlib.sha256).digest()
+        provided = _b64url_decode(sig_b64)
+        if not hmac.compare_digest(expected, provided):
+            return None
+        payload = json.loads(_b64url_decode(payload_b64).decode("utf-8"))
+        exp = payload.get("exp")
+        if exp and exp < time.time():
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def get_user_groups(email):
+    """Read canonical role groups from DDB USER# profile. Never derive from email."""
+    try:
+        resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
+        item = resp.get("Item") or {}
+        groups = item.get("groups") or []
+        if isinstance(groups, str):
+            groups = [groups]
+        return list(groups) if groups else ["Members"]
+    except Exception:
+        return ["Members"]
+
+
 def extract_user_claims(event):
-    """Extract and validate user claims from the Authorization: Bearer <token> header.
-    Decodes the JWT payload safely without external dependencies.
+    """Extract and verify user claims from Authorization: Bearer <token>.
+
+    Primary: HMAC server tokens minted by mint_token (signature + exp verified).
+    Fallback-only: Cognito IdP tokens (accepted by issuer shape when CLIENT_ID is
+    configured; RS256 cannot be verified with stdlib-only deps — see docs).
+    Legacy unsigned tokens (auth_sig / otp_signature suffix convention) are
+    rejected: their signatures never match TOKEN_SECRET.
     """
     headers = event.get("headers") or {}
     auth_header = headers.get("authorization") or headers.get("Authorization")
@@ -55,41 +125,63 @@ def extract_user_claims(event):
         return None
 
     token = auth_header[7:].strip()
-    try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return None
-        payload_b64 = parts[1]
-        payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
-        payload_bytes = base64.urlsafe_b64decode(payload_b64.encode("utf-8"))
-        claims = json.loads(payload_bytes.decode("utf-8"))
-
-        exp = claims.get("exp")
-        if exp and exp < time.time():
-            return None
-
-        email = (
-            claims.get("email")
-            or claims.get("cognito:username")
-            or claims.get("username")
-            or ""
-        )
-        name = claims.get("name") or claims.get("custom:name") or email.split("@")[0]
-        groups = claims.get("cognito:groups") or []
+    claims = verify_token(token)
+    if claims is not None:
+        email = claims.get("email") or ""
+        name = claims.get("name") or (email.split("@")[0] if email else "")
+        groups = claims.get("cognito:groups") or claims.get("groups") or []
         if isinstance(groups, str):
             groups = [groups]
-
-        is_admin = "Admins" in groups or claims.get("is_admin", False)
-
+        is_admin = bool(claims.get("is_admin", False)) or "Admins" in groups
         return {
             "email": email,
             "name": name,
             "groups": groups,
             "is_admin": is_admin,
+            "role": claims.get("role") or ("admin" if is_admin else "member"),
             "sub": claims.get("sub", ""),
         }
-    except Exception:
-        return None
+
+    # Fallback-only path: Cognito-minted token (USER_PASSWORD_AUTH via CLIENT_ID).
+    # Accepted by payload shape; admin derives ONLY from the cognito:groups claim.
+    if CLIENT_ID:
+        try:
+            parts = token.split(".")
+            if len(parts) != 3:
+                return None
+            payload = json.loads(_b64url_decode(parts[1]).decode("utf-8"))
+            iss = payload.get("iss") or ""
+            if "cognito-idp" not in iss:
+                return None
+            exp = payload.get("exp")
+            if exp and exp < time.time():
+                return None
+            email = payload.get("email") or payload.get("username") or ""
+            groups = payload.get("cognito:groups") or []
+            if isinstance(groups, str):
+                groups = [groups]
+            is_admin = "Admins" in groups
+            return {
+                "email": email,
+                "name": payload.get("name") or (email.split("@")[0] if email else ""),
+                "groups": groups,
+                "is_admin": is_admin,
+                "role": "admin" if is_admin else "member",
+                "sub": payload.get("sub", ""),
+            }
+        except Exception:
+            return None
+    return None
+
+
+def require_auth(event, admin_only=False):
+    """Gate helper: 401 without a valid Bearer, 403 for non-admin on admin routes."""
+    claims = extract_user_claims(event)
+    if not claims:
+        return None, create_response(401, {"error": "Unauthorized: valid session required"})
+    if admin_only and not claims.get("is_admin"):
+        return None, create_response(403, {"error": "Forbidden: administrators only"})
+    return claims, None
 
 
 def hash_password(password, salt=None):
@@ -218,6 +310,7 @@ def handler(event, context):
                 "name": name,
                 "password_hash": pwd_hash,
                 "status": "PENDING_VERIFICATION",
+                "groups": ["Members"],
                 "verification_code": code,
                 "code_ttl": ttl,
                 "created_at": datetime.datetime.utcnow().isoformat(),
@@ -305,24 +398,27 @@ def handler(event, context):
                 if not verify_password(password, user_item.get("password_hash")):
                     return create_response(401, {"error": "Contraseña incorrecta"})
 
-                is_admin = "admin" in email or "lucas" in email
+                # Role comes from DDB groups, never from the email address.
+                groups = get_user_groups(email)
+                is_admin = "Admins" in groups
                 name = user_item.get("name") or email.split("@")[0].capitalize()
                 now = int(time.time())
-                exp = now + (86400 * 7)
                 sub = str(uuid.uuid4())
                 payload = {
                     "sub": sub,
                     "email": email,
                     "name": name,
-                    "cognito:groups": ["Admins"] if is_admin else ["Members"],
+                    "cognito:groups": groups,
+                    "groups": groups,
                     "is_admin": is_admin,
                     "role": "admin" if is_admin else "member",
                     "iat": now,
-                    "exp": exp,
+                    "exp": now + TOKEN_TTL_SECONDS,
                 }
-                h_b64 = base64.urlsafe_b64encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode("utf-8")).decode("utf-8").rstrip("=")
-                p_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8").rstrip("=")
-                token = f"{h_b64}.{p_b64}.auth_sig"
+                try:
+                    token = mint_token(payload)
+                except RuntimeError:
+                    return create_response(500, {"error": "Server auth is misconfigured (TOKEN_SECRET)"})
 
                 return create_response(200, {
                     "message": "Login exitoso",
@@ -331,7 +427,7 @@ def handler(event, context):
                     "user": {
                         "email": email,
                         "name": name,
-                        "groups": ["Admins"] if is_admin else ["Members"],
+                        "groups": groups,
                         "is_admin": is_admin,
                         "role": "admin" if is_admin else "member",
                         "sub": sub,
@@ -452,33 +548,34 @@ def handler(event, context):
             # Consume OTP
             table.delete_item(Key={"PK": "AUTH#OTP", "SK": f"EMAIL#{email}"})
 
-            # Determine role & claims
-            is_admin = False
-            if "admin" in email or "lucas" in email:
-                is_admin = True
+            # Role comes from DDB groups, never from the email address.
+            groups = get_user_groups(email)
+            is_admin = "Admins" in groups
 
             user_name = email.split("@")[0].capitalize()
-            exp = now + (86400 * 7)
+            now = int(time.time())
             sub = str(uuid.uuid4())
             payload = {
                 "sub": sub,
                 "email": email,
                 "name": user_name,
-                "cognito:groups": ["Admins"] if is_admin else ["Members"],
+                "cognito:groups": groups,
+                "groups": groups,
                 "is_admin": is_admin,
                 "role": "admin" if is_admin else "member",
                 "iat": now,
-                "exp": exp,
+                "exp": now + TOKEN_TTL_SECONDS,
             }
 
-            h_b64 = base64.urlsafe_b64encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode("utf-8")).decode("utf-8").rstrip("=")
-            p_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8").rstrip("=")
-            token = f"{h_b64}.{p_b64}.otp_signature"
+            try:
+                token = mint_token(payload)
+            except RuntimeError:
+                return create_response(500, {"error": "Server auth is misconfigured (TOKEN_SECRET)"})
 
             claims = {
                 "email": email,
                 "name": user_name,
-                "groups": ["Admins"] if is_admin else ["Members"],
+                "groups": groups,
                 "is_admin": is_admin,
                 "role": "admin" if is_admin else "member",
                 "sub": sub,
@@ -535,6 +632,36 @@ def handler(event, context):
             table.put_item(Item=item)
             return create_response(200, {"message": "Configuración de Resend guardada exitosamente."})
 
+        # POST /admin/resend-config (Admin only, write-only alias of /admin/config/resend)
+        # The stored key is never echoed back in any response by design.
+        elif path == "/admin/resend-config" and method == "POST":
+            claims, err = require_auth(event, admin_only=True)
+            if err:
+                return err
+
+            body = parse_body(event)
+            api_key = (body.get("api_key") or body.get("apiKey") or "").strip()
+            from_email = (body.get("from_email") or body.get("fromEmail")
+                          or "Daily Scrum <onboarding@resend.dev>").strip()
+
+            existing_key, _ = get_resend_config()
+            if not api_key and existing_key:
+                api_key = existing_key
+
+            if not api_key:
+                return create_response(400, {"error": "Resend API Key es requerida."})
+
+            item = {
+                "PK": "CONFIG#SYSTEM",
+                "SK": "CONFIG#RESEND",
+                "api_key": api_key,
+                "from_email": from_email,
+                "updated_at": datetime.datetime.utcnow().isoformat(),
+                "updated_by": claims.get("email"),
+            }
+            table.put_item(Item=item)
+            return create_response(200, {"message": "Configuración de Resend guardada exitosamente."})
+
         # POST /admin/config/resend/test (Admin only)
         elif path == "/admin/config/resend/test" and method == "POST":
             if not user_claims or not user_claims.get("is_admin"):
@@ -567,8 +694,11 @@ def handler(event, context):
         # =====================================================================
         # 2. PROJECTS CRUD (Admin-Gated Modification)
         # =====================================================================
-        # GET /projects
+        # GET /projects (authenticated reads only)
         elif path == "/projects" and method == "GET":
+            _, err = require_auth(event)
+            if err:
+                return err
             resp = table.query(KeyConditionExpression=Key("PK").eq("META#PROJECTS"))
             projects = [
                 {
@@ -580,13 +710,11 @@ def handler(event, context):
             ]
             return create_response(200, {"projects": projects})
 
-        # POST /projects (Admin only when auth is active)
+        # POST /projects (Admin only)
         elif path == "/projects" and method == "POST":
-            if user_claims and not user_claims["is_admin"]:
-                return create_response(
-                    403,
-                    {"error": "Forbidden: Only administrators can create projects."},
-                )
+            _, err = require_auth(event, admin_only=True)
+            if err:
+                return err
 
             body = parse_body(event)
             name = (body.get("name") or "").strip()
@@ -606,11 +734,9 @@ def handler(event, context):
 
         # PUT /projects/{name} -> Rename project or toggle allow_self_assignment (Admin only)
         elif re.match(r"^/projects/[^/]+$", path) and method == "PUT":
-            if user_claims and not user_claims["is_admin"]:
-                return create_response(
-                    403,
-                    {"error": "Forbidden: Only administrators can rename projects."},
-                )
+            _, err = require_auth(event, admin_only=True)
+            if err:
+                return err
 
             old_name = urllib.parse.unquote(re.match(r"^/projects/([^/]+)$", path).group(1))
             body = parse_body(event)
@@ -642,11 +768,9 @@ def handler(event, context):
 
         # DELETE /projects/{name} (Admin only)
         elif (re.match(r"^/projects/[^/]+$", path) or path == "/projects") and method == "DELETE":
-            if user_claims and not user_claims["is_admin"]:
-                return create_response(
-                    403,
-                    {"error": "Forbidden: Only administrators can delete projects."},
-                )
+            _, err = require_auth(event, admin_only=True)
+            if err:
+                return err
 
             match = re.match(r"^/projects/([^/]+)$", path)
             name = urllib.parse.unquote(match.group(1)) if match else params.get("name")

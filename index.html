@@ -879,7 +879,7 @@
         <!-- Connection Settings Toggle/Input -->
         <div style="flex: 1; max-width: 380px; min-width: 240px;">
           <label for="apiUrl">Lambda Function URL (Vacío = Modo Demo)</label>
-          <input type="text" id="apiUrl" placeholder="https://xxxx.lambda-url.us-east-1.on.aws/" style="padding: 6px 10px; font-size: 12px; width: 100%;" />
+          <input type="text" id="apiUrl" value="https://2pa3hfii3cirygdrjnyjsit7ve0ybqgy.lambda-url.us-east-1.on.aws/" placeholder="https://xxxx.lambda-url.us-east-1.on.aws/" style="padding: 6px 10px; font-size: 12px; width: 100%;" />
         </div>
       </div>
 
@@ -1555,8 +1555,9 @@
     // -------------------------------------------------------------
     // API URL & Mode Indicator
     // -------------------------------------------------------------
+    const DEFAULT_API_URL = "https://2pa3hfii3cirygdrjnyjsit7ve0ybqgy.lambda-url.us-east-1.on.aws/";
     const savedUrl = localStorage.getItem(STORAGE_KEY);
-    if (savedUrl) apiInput.value = savedUrl;
+    apiInput.value = savedUrl !== null ? savedUrl : DEFAULT_API_URL;
 
     const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
 

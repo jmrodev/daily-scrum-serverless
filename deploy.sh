@@ -154,7 +154,13 @@ zip -j /tmp/daily_scrum_function.zip lambda_function.py
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
 
 echo "==> 8. Creating / Updating Lambda Function..."
-ENV_VARS="Variables={TABLE_NAME=$TABLE_NAME,USER_POOL_ID=$USER_POOL_ID,CLIENT_ID=$CLIENT_ID,AWS_REGION=$REGION}"
+EXISTING_TOKEN_SECRET=$(aws lambda get-function-configuration --function-name "$FUNCTION_NAME" --region "$REGION" --query "Environment.Variables.TOKEN_SECRET" --output text 2>/dev/null || true)
+if [ -n "$EXISTING_TOKEN_SECRET" ] && [ "$EXISTING_TOKEN_SECRET" != "None" ]; then
+    TOKEN_SECRET="$EXISTING_TOKEN_SECRET"
+else
+    TOKEN_SECRET="${TOKEN_SECRET:-$(openssl rand -hex 32)}"
+fi
+ENV_VARS="Variables={TABLE_NAME=$TABLE_NAME,USER_POOL_ID=$USER_POOL_ID,CLIENT_ID=$CLIENT_ID,TOKEN_SECRET=$TOKEN_SECRET}"
 
 if ! aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" >/dev/null 2>&1; then
     aws lambda create-function \
@@ -176,6 +182,9 @@ else
         --zip-file fileb:///tmp/daily_scrum_function.zip \
         --region "$REGION"
     
+    echo "Waiting for Lambda function code update to complete..."
+    aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME" --region "$REGION"
+    
     aws lambda update-function-configuration \
         --function-name "$FUNCTION_NAME" \
         --environment "$ENV_VARS" \
@@ -188,7 +197,7 @@ if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --regio
     aws lambda create-function-url-config \
         --function-name "$FUNCTION_NAME" \
         --auth-type NONE \
-        --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","PUT","DELETE","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+        --cors '{"AllowOrigins":["*"],"AllowMethods":["*"],"AllowHeaders":["Content-Type","Authorization"]}' \
         --region "$REGION"
 
     aws lambda add-permission \
@@ -197,12 +206,36 @@ if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --regio
         --action lambda:InvokeFunctionUrl \
         --principal "*" \
         --function-url-auth-type NONE \
-        --region "$REGION"
+        --region "$REGION" || true
+
+    aws lambda add-permission \
+        --function-name "$FUNCTION_NAME" \
+        --statement-id FunctionURLAllowInvoke \
+        --action lambda:InvokeFunction \
+        --principal "*" \
+        --invoked-via-function-url \
+        --region "$REGION" || true
 else
     aws lambda update-function-url-config \
         --function-name "$FUNCTION_NAME" \
-        --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","PUT","DELETE","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+        --cors '{"AllowOrigins":["*"],"AllowMethods":["*"],"AllowHeaders":["Content-Type","Authorization"]}' \
         --region "$REGION" >/dev/null || true
+
+    aws lambda add-permission \
+        --function-name "$FUNCTION_NAME" \
+        --statement-id FunctionURLAllowPublicAccess \
+        --action lambda:InvokeFunctionUrl \
+        --principal "*" \
+        --function-url-auth-type NONE \
+        --region "$REGION" 2>/dev/null || true
+
+    aws lambda add-permission \
+        --function-name "$FUNCTION_NAME" \
+        --statement-id FunctionURLAllowInvoke \
+        --action lambda:InvokeFunction \
+        --principal "*" \
+        --invoked-via-function-url \
+        --region "$REGION" 2>/dev/null || true
 fi
 
 URL=$(aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --query "FunctionUrl" --output text --region "$REGION")
