@@ -1,0 +1,299 @@
+/**
+ * Serverless Backend API Client
+ */
+import { getCleanUrl } from "../config.js";
+import { state } from "../state.js";
+
+export const getAuthHeaders = () => {
+  const headers = { "Content-Type": "application/json" };
+  if (state.currentUser && state.currentUser.token) {
+    headers["Authorization"] = `Bearer ${state.currentUser.token}`;
+  }
+  return headers;
+};
+
+export const api = {
+  // Authentication & Verification
+  async login(email, password) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Credenciales inválidas");
+    return data;
+  },
+
+  async signup(email, password, name) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, name }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al registrar cuenta");
+    return data;
+  },
+
+  async confirm(email, code) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/auth/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Código de verificación inválido");
+    return data;
+  },
+
+  async requestOtp(email) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/auth/otp/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al solicitar código OTP");
+    return data;
+  },
+
+  async verifyOtp(email, code) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al verificar código OTP");
+    return data;
+  },
+
+  // Projects CRUD
+  async getProjects() {
+    const url = getCleanUrl();
+    try {
+      const res = await fetch(`${url}/projects`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      return data.projects || [];
+    } catch (err) {
+      console.error("Error fetching projects:", err);
+      return [];
+    }
+  },
+
+  async createProject(name, allow_self_assignment = false) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/projects`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, allow_self_assignment }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al crear proyecto");
+    return data;
+  },
+
+  async updateProject(oldName, newName, allow_self_assignment) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name: newName, allow_self_assignment }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al actualizar proyecto");
+    return data;
+  },
+
+  async deleteProject(name) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/projects/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al eliminar proyecto");
+    return data;
+  },
+
+  // Members CRUD
+  async getMembers(project) {
+    const url = getCleanUrl();
+    try {
+      const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      return data.members || [];
+    } catch (err) {
+      console.error("Error fetching members:", err);
+      return [];
+    }
+  },
+
+  async createMember(project, name, role, email = "") {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, role, email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al agregar integrante");
+    return data;
+  },
+
+  async updateMember(project, oldName, newName, role, email = "") {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name: newName, role, email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al actualizar integrante");
+    return data;
+  },
+
+  async deleteMember(project, name) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al eliminar integrante");
+    return data;
+  },
+
+  // Scrums & Dynamic Weeks
+  async getWeeks(project) {
+    const url = getCleanUrl();
+    try {
+      const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      return data.weeks || [];
+    } catch (err) {
+      console.error("Error fetching weeks:", err);
+      return [];
+    }
+  },
+
+  async getWeeklyScrums(project, week) {
+    const url = getCleanUrl();
+    try {
+      const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      return data.scrums || [];
+    } catch (err) {
+      console.error("Error fetching weekly scrums:", err);
+      return [];
+    }
+  },
+
+  async saveScrum(project, week, day, member, answers) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/scrums`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ project, week, day, member, answers }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al guardar Daily Scrum");
+    return data;
+  },
+
+  async deleteScrum(project, week, day, member) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/scrums`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ project, week, day, member }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al eliminar Daily Scrum");
+    return data;
+  },
+
+  // Tasks & Kanban
+  async getTasks(project) {
+    const url = getCleanUrl();
+    try {
+      const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      return data.tasks || [];
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+      return [];
+    }
+  },
+
+  async saveTask(task) {
+    const url = getCleanUrl();
+    const method = task.id ? "PUT" : "POST";
+    const res = await fetch(`${url}/tasks`, {
+      method,
+      headers: getAuthHeaders(),
+      body: JSON.stringify(task),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al guardar tarea");
+    return data.task || task;
+  },
+
+  async deleteTask(project, taskId) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}&id=${encodeURIComponent(taskId)}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al eliminar tarea");
+    return data;
+  },
+
+  // Resend Email Admin Config
+  async getResendConfig() {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/admin/config/resend`, { headers: getAuthHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al obtener configuración de Resend");
+    return data;
+  },
+
+  async saveResendConfig(apiKey, fromEmail) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/admin/config/resend`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ apiKey, fromEmail }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al guardar configuración de Resend");
+    return data;
+  },
+
+  async testResendEmail(toEmail) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/admin/config/resend/test`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ toEmail }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al enviar email de prueba");
+    return data;
+  },
+};

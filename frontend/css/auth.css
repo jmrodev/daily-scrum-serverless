@@ -1,0 +1,114 @@
+/* Mandatory Auth Gate Styles */
+.auth-gate-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 85vh;
+  padding: 20px;
+}
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-card-header {
+  padding: 24px 24px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.auth-card-header h2 {
+  font-size: 20px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.auth-card-header p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.auth-theme-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.auth-nav-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.auth-tab-btn:hover {
+  color: var(--text);
+}
+
+.auth-tab-btn.active {
+  color: var(--primary);
+  background: var(--surface);
+  border-bottom: 2px solid var(--primary);
+}
+
+.auth-card-body {
+  padding: 20px 24px 24px;
+}
+
+.auth-help-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 14px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.auth-divider span:first-child,
+.auth-divider span:last-child {
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-divider span:nth-child(2) {
+  padding: 0 10px;
+  font-weight: 600;
+}

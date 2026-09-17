@@ -55,14 +55,37 @@ Many serverless architectures incur unexpected charges once initial 12-month pro
 .
 ├── deploy.sh              # Automated, idempotent AWS CLI deployment script
 ├── lambda_function.py     # Clean Python 3.11 handler using native boto3 & REST verbs
-├── index.html             # Static client-side frontend served by GitHub Pages
-├── frontend/
-│   └── index.html         # Mirror copy of the frontend
+├── index.html             # HTML5 Shell with mandatory Auth Gate (GitHub Pages)
+├── css/                   # Atomic Modular CSS
+│   ├── variables.css      # Design tokens & Light/Dark theme custom properties
+│   ├── base.css           # Global reset, typography, buttons, inputs & containers
+│   ├── auth.css           # Full-page Auth Gate card & login/signup tab styles
+│   ├── board.css          # Daily Scrum matrix table, day columns & blocker tags
+│   ├── kanban.css         # Kanban board columns, draggable cards & priority badges
+│   └── modals.css         # Modal dialog overlays, prompt/confirm dialogs & toasts
+├── js/                    # Native ES6+ JavaScript Modules (Zero-Build)
+│   ├── config.js          # Endpoint constants, storage keys & configuration
+│   ├── state.js           # Central shared state (currentUser, activeProject, activeWeek)
+│   ├── app.js             # Main orchestrator enforcing Auth Gate before data load
+│   ├── services/          # Network & Utility Services
+│   │   ├── api.js         # Unified REST client with Authorization bearer headers
+│   │   ├── dateUtils.js   # ISO week calculation & Spanish day name mappings
+│   │   └── domUtils.js    # Safe HTML escaping & modal lifecycle controllers
+│   └── components/        # Isolated Component Controllers
+│       ├── authGate.js    # Mandatory Auth Gate (Login / Signup / Confirm / Logout)
+│       ├── header.js      # App header, user badge, theme toggle & admin button
+│       ├── weekSelector.js# Dynamic week detection (DynamoDB + calendar + ➕ button)
+│       ├── dailyMatrix.js # Daily Scrum weekly table & bidirectional Kanban sync
+│       ├── kanbanBoard.js # 4-column Kanban flow, cards CRUD & drag-and-drop
+│       ├── adminModal.js  # Admin management modal (projects, members, resend, endpoint)
+│       └── uiFeedback.js  # Non-intrusive toasts, async confirm and prompt modals
+├── frontend/              # Synchronized mirror directory
 ├── docs/                  # Detailed architectural and technical specifications
 │   ├── architecture.md    # In-depth architectural trade-offs and zero-cost design
 │   ├── data-model.md      # DynamoDB single-table design and access patterns
 │   ├── backend.md         # Lambda handler implementation, CORS, and error handling
-│   ├── frontend.md        # Client-side component architecture and DOM updates
+│   ├── frontend.md        # Atomic frontend architecture & mandatory Auth Gate
+│   ├── api.md             # API specifications and endpoint reference
 │   └── deployment.md      # deploy.sh execution lifecycle and IAM security
 ├── .gitignore             # Ignores packages, zip files, and environments
 └── README.md              # Technical and operational documentation
@@ -74,9 +97,10 @@ Many serverless architectures incur unexpected charges once initial 12-month pro
 
 For deep technical specifications, refer to the guides in the [`docs/`](docs/) directory:
 * [**Architecture Deep-Dive**](docs/architecture.md): Trade-offs, extreme serverless patterns, and why API Gateway/SSR were avoided.
+* [**Frontend Architecture & Auth Gate**](docs/frontend.md): Atomic directory structure, zero-build ES modules, and the mandatory Auth Gate barrier.
 * [**DynamoDB Data Model**](docs/data-model.md): Primary key strategy (`PK`/`SK`), single-table design, and query complexity.
 * [**Backend Handler Reference**](docs/backend.md): Ingress payload v2 format, CORS preflight, base64 decoding, and status codes.
-* [**Frontend Reference**](docs/frontend.md): Client-Side Rendering (CSR), DOM lifecycle, and asynchronous fetch integration.
+* [**API Specifications**](docs/api.md): REST endpoints reference for authentication, projects, scrums, and tasks.
 * [**Deployment Lifecycle**](docs/deployment.md): Idempotency, IAM least-privilege scoping, and automated resource provisioning.
 
 ---
