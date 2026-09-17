@@ -772,8 +772,6 @@
       gap: 2px;
     }
   </style>
-  <!-- Google Identity Services (Sign-In with Google) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div class="container">
@@ -1101,17 +1099,7 @@
       <div class="modal-body">
         <!-- Login Form -->
         <form id="loginForm" onsubmit="return false;">
-          <!-- Google Identity Services (Real Google Sign-In) -->
-          <div id="googleBtnContainerLogin" style="margin-bottom: 8px; display: none; justify-content: center; min-height: 40px;"></div>
-          <button type="button" id="btnGoogleSignIn" class="btn btn-secondary" style="width: 100%; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
-            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
-            Continuar con Google (marcelo@gmail.com)
-          </button>
-          <div style="text-align: right; margin-bottom: 12px;">
-            <button type="button" class="btn-link" id="btnConfigGoogleId" style="font-size: 11px;">⚙️ Configurar Google Client ID</button>
-          </div>
-
-          <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 12px;">
+          <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
             <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
               Acceso Rápido Demo:
             </div>
@@ -1144,20 +1132,6 @@
 
         <!-- Signup Form -->
         <form id="signupForm" style="display: none;" onsubmit="return false;">
-          <!-- Google Identity Services (Real Google Sign-In) -->
-          <div id="googleBtnContainerSignup" style="margin-bottom: 8px; display: none; justify-content: center; min-height: 40px;"></div>
-          <button type="button" id="btnGoogleSignUp" class="btn btn-secondary" style="width: 100%; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
-            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
-            Registrarse con Google (marcelo@gmail.com)
-          </button>
-          <div style="text-align: right; margin-bottom: 12px;">
-            <button type="button" class="btn-link" id="btnConfigGoogleIdSignup" style="font-size: 11px;">⚙️ Configurar Google Client ID</button>
-          </div>
-          <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
-            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-            <span style="padding: 0 10px; font-weight: 600;">O CON EMAIL</span>
-            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-          </div>
           <div style="margin-bottom: 12px;">
             <label for="signupName">Nombre de Integrante</label>
             <input type="text" id="signupName" placeholder="Ej: Juan" style="width: 100%;" required />
@@ -1291,9 +1265,6 @@
       const current = document.documentElement.getAttribute("data-theme") || getPreferredTheme();
       const next = current === "dark" ? "light" : "dark";
       applyTheme(next);
-      if (typeof initGoogleIdentityServices === "function") {
-        initGoogleIdentityServices();
-      }
       showToast(`Modo ${next === "dark" ? "Oscuro" : "Claro"} activado`);
     };
 
@@ -1467,7 +1438,7 @@
       tasks: {
         "Sabato": [
           { id: "task-1", title: "Diseñar arquitectura Serverless en AWS Free Tier", assignee: "Lucas", status: "DONE", priority: "HIGH", blocker: "" },
-          { id: "task-2", title: "Integrar autenticación Google Identity Services", assignee: "Marcelo", status: "DONE", priority: "HIGH", blocker: "" },
+          { id: "task-2", title: "Integrar autenticación segura de usuarios", assignee: "Marcelo", status: "DONE", priority: "HIGH", blocker: "" },
           { id: "task-3", title: "Unificar tablero Kanban con matriz del Daily Scrum", assignee: "Marcelo", status: "DOING", priority: "HIGH", blocker: "" },
           { id: "task-4", title: "Optimización de cache y CORS preflight en CloudFront", assignee: "José", status: "BLOCKED", priority: "MEDIUM", blocker: "Esperando permisos IAM de CloudFront" },
           { id: "task-5", title: "Pruebas de autoasignación a proyectos abiertos", assignee: "Marcelo", status: "TODO", priority: "LOW", blocker: "" },
@@ -1973,174 +1944,15 @@
       }
     };
 
-    // -------------------------------------------------------------
-    // Google Identity Services (GIS) Integration
-    // -------------------------------------------------------------
-    const GOOGLE_CLIENT_KEY = "daily_scrum_google_client_id";
-
-    const handleGoogleCredentialResponse = (response) => {
-      try {
-        if (!response || !response.credential) {
-          throw new Error("No se recibió credencial de Google.");
-        }
-        // Decode base64url JWT payload
-        const base64Url = response.credential.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
-        const payload = JSON.parse(jsonPayload);
-
-        const email = payload.email || "";
-        const name = payload.given_name || payload.name || email.split("@")[0];
-        const picture = payload.picture || "";
-        const isAdmin = email.toLowerCase().includes("admin") || email === "lucas@empresa.com";
-
-        setStoredAuth({
-          idToken: response.credential,
-          user: {
-            name: name,
-            fullName: payload.name || name,
-            email: email,
-            picture: picture,
-            role: isAdmin ? "admin" : "member",
-            title: isAdmin ? "Admin / Tech Lead" : "Developer",
-            is_admin: isAdmin,
-          },
-        });
-
-        authModal.close();
-        updateAuthUI();
-        renderBoard();
-        showToast(`¡Sesión iniciada con Google (${name})!`);
-      } catch (err) {
-        console.error("Google Auth error:", err);
-        showToast("Error al procesar cuenta de Google: " + err.message, "error");
-      }
-    };
-
-    function initGoogleIdentityServices() {
-      const clientId = localStorage.getItem(GOOGLE_CLIENT_KEY);
-      const containerLogin = document.getElementById("googleBtnContainerLogin");
-      const containerSignup = document.getElementById("googleBtnContainerSignup");
-      const fallbackIn = document.getElementById("btnGoogleSignIn");
-      const fallbackUp = document.getElementById("btnGoogleSignUp");
-      const configIn = document.getElementById("btnConfigGoogleId");
-      const configUp = document.getElementById("btnConfigGoogleIdSignup");
-
-      if (clientId && window.google && window.google.accounts && window.google.accounts.id) {
-        try {
-          google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleGoogleCredentialResponse,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-          });
-
-          const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-          const googleTheme = isDark ? "filled_black" : "outline";
-
-          if (containerLogin) {
-            containerLogin.innerHTML = "";
-            google.accounts.id.renderButton(containerLogin, {
-              theme: googleTheme,
-              size: "large",
-              type: "standard",
-              shape: "rectangular",
-              text: "signin_with",
-              logo_alignment: "left",
-              width: 320,
-            });
-            containerLogin.style.display = "flex";
-          }
-          if (containerSignup) {
-            containerSignup.innerHTML = "";
-            google.accounts.id.renderButton(containerSignup, {
-              theme: googleTheme,
-              size: "large",
-              type: "standard",
-              shape: "rectangular",
-              text: "signup_with",
-              logo_alignment: "left",
-              width: 320,
-            });
-            containerSignup.style.display = "flex";
-          }
-          if (fallbackIn) fallbackIn.style.display = "none";
-          if (fallbackUp) fallbackUp.style.display = "none";
-          if (configIn) configIn.textContent = "⚙️ Cambiar Google Client ID";
-          if (configUp) configUp.textContent = "⚙️ Cambiar Google Client ID";
-          return;
-        } catch (e) {
-          console.warn("Error rendering Google button:", e);
-        }
-      }
-
-      if (containerLogin) containerLogin.style.display = "none";
-      if (containerSignup) containerSignup.style.display = "none";
-      if (fallbackIn) fallbackIn.style.display = "flex";
-      if (fallbackUp) fallbackUp.style.display = "flex";
-      if (configIn) configIn.textContent = "⚙️ Configurar Google Client ID";
-      if (configUp) configUp.textContent = "⚙️ Configurar Google Client ID";
-    };
-
-    const promptConfigureGoogleId = async () => {
-      const current = localStorage.getItem(GOOGLE_CLIENT_KEY) || "";
-      const res = await showPrompt(
-        "Google Client ID",
-        "Ingresá tu Google Client ID (OAuth 2.0 Web Client). Dejalo vacío para volver al modo demo:",
-        current
-      );
-      if (res === null) return;
-      const cleanVal = res.value.trim();
-      if (cleanVal) {
-        localStorage.setItem(GOOGLE_CLIENT_KEY, cleanVal);
-        showToast("Google Client ID guardado.");
-      } else {
-        localStorage.removeItem(GOOGLE_CLIENT_KEY);
-        showToast("Modo demo restaurado.");
-      }
-      initGoogleIdentityServices();
-    };
-
-    document.getElementById("btnConfigGoogleId")?.addEventListener("click", promptConfigureGoogleId);
-    document.getElementById("btnConfigGoogleIdSignup")?.addEventListener("click", promptConfigureGoogleId);
-
     btnLoginOpen.addEventListener("click", () => {
       switchAuthView("login");
       authModal.open();
-      initGoogleIdentityServices();
     });
 
     btnSignupOpen.addEventListener("click", () => {
       switchAuthView("signup");
       authModal.open();
-      initGoogleIdentityServices();
     });
-
-    const handleGoogleAuth = () => {
-      setStoredAuth({
-        user: {
-          name: "Marcelo",
-          role: "member",
-          title: "Frontend Dev",
-          email: "marcelo@gmail.com",
-          is_admin: false,
-        },
-      });
-      authModal.close();
-      showToast("¡Sesión iniciada con Google (marcelo@gmail.com)!");
-      updateAuthUI();
-      renderBoard();
-    };
-
-    const googleBtnIn = document.getElementById("btnGoogleSignIn");
-    const googleBtnUp = document.getElementById("btnGoogleSignUp");
-    if (googleBtnIn) googleBtnIn.addEventListener("click", handleGoogleAuth);
-    if (googleBtnUp) googleBtnUp.addEventListener("click", handleGoogleAuth);
 
     document.getElementById("btnSubmitLogin").addEventListener("click", async () => {
       const email = document.getElementById("loginEmail").value.trim();
@@ -3699,11 +3511,8 @@
 
     const initApp = async () => {
       updateModeBadge();
-      initGoogleIdentityServices();
       await initProjectSelectors();
     };
-
-    window.addEventListener("load", () => initGoogleIdentityServices());
 
     initApp();
   </script>
