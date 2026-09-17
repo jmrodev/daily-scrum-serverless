@@ -27,19 +27,20 @@ export const setCurrentUser = (user) => {
       token: null,
     };
   } else {
+    const token = user.token || user.idToken || user.accessToken || state.currentUser?.token || null;
     state.currentUser = {
       email: user.email || "",
       name: user.name || user.email?.split("@")[0] || "Usuario",
       role: user.role || (user.is_admin ? "admin" : "member"),
       title: user.title || (user.role === "admin" ? "Admin / Tech Lead" : "Team Member"),
       is_admin: !!(user.is_admin || user.role === "admin"),
-      token: user.token || null,
+      token: token,
     };
   }
 };
 
 export const isAuthenticated = () => {
-  return !!(state.currentUser && state.currentUser.email);
+  return !!(state.currentUser && state.currentUser.email && state.currentUser.token);
 };
 
 export const isAdmin = () => {

@@ -37,6 +37,18 @@ export const switchAuthTab = (tab) => {
   });
 };
 
+export const handleSessionExpired = () => {
+  clearStoredAuth();
+  setCurrentUser(null);
+  const authGateEl = document.getElementById("authGate");
+  const appShellEl = document.getElementById("appShell");
+  if (authGateEl) authGateEl.style.display = "flex";
+  if (appShellEl) appShellEl.style.display = "none";
+  updateHeaderUI();
+  switchAuthTab("login");
+  showToast("Sesión expirada o no autorizada. Por favor ingresá nuevamente.", "error");
+};
+
 export const enforceAuthGate = (onSuccess) => {
   onAuthSuccessCallback = onSuccess;
   const stored = getStoredAuth();
@@ -44,10 +56,11 @@ export const enforceAuthGate = (onSuccess) => {
   const authGateEl = document.getElementById("authGate");
   const appShellEl = document.getElementById("appShell");
 
-  if (stored && stored.user) {
+  const token = stored ? (stored.token || stored.idToken || stored.accessToken) : null;
+
+  if (stored && stored.user && token) {
     // Authenticated session exists
-    setCurrentUser(stored.user);
-    if (stored.token) state.currentUser.token = stored.token;
+    setCurrentUser({ ...stored.user, token });
 
     authGateEl.style.display = "none";
     appShellEl.style.display = "block";
@@ -57,12 +70,12 @@ export const enforceAuthGate = (onSuccess) => {
       onAuthSuccessCallback();
     }
   } else {
-    // Unauthenticated: Hard Gate
+    // Unauthenticated or invalid token: Hard Gate
+    clearStoredAuth();
     setCurrentUser(null);
     authGateEl.style.display = "flex";
     appShellEl.style.display = "none";
     updateHeaderUI();
-    // Zero data fetching triggered!
   }
 };
 
@@ -105,9 +118,9 @@ export const initAuthGateListeners = () => {
 
       try {
         const res = await api.login(email, password);
-        saveStoredAuth(res);
-        setCurrentUser(res.user);
-        if (res.token) state.currentUser.token = res.token;
+        const token = res.token || res.idToken || res.accessToken;
+        saveStoredAuth({ ...res, token });
+        setCurrentUser({ ...res.user, token });
 
         showToast(`¡Bienvenido/a, ${state.currentUser.name}!`);
 

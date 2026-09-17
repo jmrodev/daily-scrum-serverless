@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Scrum Board Serverless</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>" />
   <link rel="stylesheet" href="./css/variables.css" />
   <link rel="stylesheet" href="./css/base.css" />
   <link rel="stylesheet" href="./css/auth.css" />
@@ -415,21 +416,23 @@
             <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
               Configurá tu API Key de Resend para enviar códigos de verificación obligatorios al registrar usuarios.
             </p>
-            <div style="margin-bottom: 8px;">
-              <label for="resendApiKey">API Key de Resend (re_...):</label>
-              <div style="display: flex; gap: 6px;">
-                <input type="password" id="resendApiKey" placeholder="re_123456789..." style="flex: 1;" autocomplete="off" />
-                <button type="button" id="btnToggleResendKey" class="btn btn-secondary btn-sm" title="Mostrar/Ocultar clave">👁️</button>
+            <form onsubmit="return false;">
+              <div style="margin-bottom: 8px;">
+                <label for="resendApiKey">API Key de Resend (re_...):</label>
+                <div style="display: flex; gap: 6px;">
+                  <input type="password" id="resendApiKey" placeholder="re_123456789..." style="flex: 1;" autocomplete="off" />
+                  <button type="button" id="btnToggleResendKey" class="btn btn-secondary btn-sm" title="Mostrar/Ocultar clave">👁️</button>
+                </div>
               </div>
-            </div>
-            <div style="margin-bottom: 10px;">
-              <label for="resendFrom">Remitente (From):</label>
-              <input type="text" id="resendFrom" placeholder="Daily Scrum &lt;onboarding@resend.dev&gt;" style="width: 100%;" />
-            </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button type="button" id="btnSaveResendConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>
-              <button type="button" id="btnTestResendEmail" class="btn btn-secondary btn-sm">🧪 Probar Envío</button>
-            </div>
+              <div style="margin-bottom: 10px;">
+                <label for="resendFrom">Remitente (From):</label>
+                <input type="text" id="resendFrom" placeholder="Daily Scrum &lt;onboarding@resend.dev&gt;" style="width: 100%;" />
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button type="button" id="btnSaveResendConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>
+                <button type="button" id="btnTestResendEmail" class="btn btn-secondary btn-sm">🧪 Probar Envío</button>
+              </div>
+            </form>
           </div>
         </div>
 

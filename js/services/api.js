@@ -1,15 +1,38 @@
 /**
  * Serverless Backend API Client
  */
-import { getCleanUrl } from "../config.js";
-import { state } from "../state.js";
+import { getCleanUrl, AUTH_STORAGE_KEY } from "../config.js";
+import { state, setCurrentUser } from "../state.js";
+import { showToast } from "../components/uiFeedback.js";
+import { updateHeaderUI } from "../components/header.js";
 
 export const getAuthHeaders = () => {
   const headers = { "Content-Type": "application/json" };
-  if (state.currentUser && state.currentUser.token) {
-    headers["Authorization"] = `Bearer ${state.currentUser.token}`;
+  const token = state.currentUser?.token;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
+};
+
+export const handleUnauthorized = () => {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  setCurrentUser(null);
+  const authGateEl = document.getElementById("authGate");
+  const appShellEl = document.getElementById("appShell");
+  if (authGateEl) authGateEl.style.display = "flex";
+  if (appShellEl) appShellEl.style.display = "none";
+  updateHeaderUI();
+  showToast("Sesión expirada o no autorizada. Por favor ingresá nuevamente.", "error");
+};
+
+const authFetch = async (url, options = {}) => {
+  const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    handleUnauthorized();
+  }
+  return res;
 };
 
 export const api = {
@@ -78,7 +101,8 @@ export const api = {
   async getProjects() {
     const url = getCleanUrl();
     try {
-      const res = await fetch(`${url}/projects`, { headers: getAuthHeaders() });
+      const res = await authFetch(`${url}/projects`);
+      if (!res.ok) return [];
       const data = await res.json();
       return data.projects || [];
     } catch (err) {
@@ -89,9 +113,8 @@ export const api = {
 
   async createProject(name, allow_self_assignment = false) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/projects`, {
+    const res = await authFetch(`${url}/projects`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ name, allow_self_assignment }),
     });
     const data = await res.json();
@@ -101,9 +124,8 @@ export const api = {
 
   async updateProject(oldName, newName, allow_self_assignment) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
+    const res = await authFetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
       method: "PUT",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ name: newName, allow_self_assignment }),
     });
     const data = await res.json();
@@ -113,9 +135,8 @@ export const api = {
 
   async deleteProject(name) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/projects/${encodeURIComponent(name)}`, {
+    const res = await authFetch(`${url}/projects/${encodeURIComponent(name)}`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al eliminar proyecto");
@@ -126,9 +147,8 @@ export const api = {
   async getMembers(project) {
     const url = getCleanUrl();
     try {
-      const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members`);
+      if (!res.ok) return [];
       const data = await res.json();
       return data.members || [];
     } catch (err) {
@@ -139,9 +159,8 @@ export const api = {
 
   async createMember(project, name, role, email = "") {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
+    const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ name, role, email }),
     });
     const data = await res.json();
@@ -151,9 +170,8 @@ export const api = {
 
   async updateMember(project, oldName, newName, role, email = "") {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
+    const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
       method: "PUT",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ name: newName, role, email }),
     });
     const data = await res.json();
@@ -163,9 +181,8 @@ export const api = {
 
   async deleteMember(project, name) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
+    const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al eliminar integrante");
@@ -176,9 +193,8 @@ export const api = {
   async getWeeks(project) {
     const url = getCleanUrl();
     try {
-      const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await authFetch(`${url}/scrums?project=${encodeURIComponent(project)}`);
+      if (!res.ok) return [];
       const data = await res.json();
       return data.weeks || [];
     } catch (err) {
@@ -190,9 +206,8 @@ export const api = {
   async getWeeklyScrums(project, week) {
     const url = getCleanUrl();
     try {
-      const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await authFetch(`${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}`);
+      if (!res.ok) return [];
       const data = await res.json();
       return data.scrums || [];
     } catch (err) {
@@ -203,9 +218,8 @@ export const api = {
 
   async saveScrum(project, week, day, member, answers) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/scrums`, {
+    const res = await authFetch(`${url}/scrums`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ project, week, day, member, answers }),
     });
     const data = await res.json();
@@ -215,9 +229,8 @@ export const api = {
 
   async deleteScrum(project, week, day, member) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/scrums`, {
+    const res = await authFetch(`${url}/scrums`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ project, week, day, member }),
     });
     const data = await res.json();
@@ -229,9 +242,8 @@ export const api = {
   async getTasks(project) {
     const url = getCleanUrl();
     try {
-      const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await authFetch(`${url}/tasks?project=${encodeURIComponent(project)}`);
+      if (!res.ok) return [];
       const data = await res.json();
       return data.tasks || [];
     } catch (err) {
@@ -243,9 +255,8 @@ export const api = {
   async saveTask(task) {
     const url = getCleanUrl();
     const method = task.id ? "PUT" : "POST";
-    const res = await fetch(`${url}/tasks`, {
+    const res = await authFetch(`${url}/tasks`, {
       method,
-      headers: getAuthHeaders(),
       body: JSON.stringify(task),
     });
     const data = await res.json();
@@ -255,9 +266,8 @@ export const api = {
 
   async deleteTask(project, taskId) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}&id=${encodeURIComponent(taskId)}`, {
+    const res = await authFetch(`${url}/tasks?project=${encodeURIComponent(project)}&id=${encodeURIComponent(taskId)}`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al eliminar tarea");
@@ -267,7 +277,7 @@ export const api = {
   // Resend Email Admin Config
   async getResendConfig() {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/admin/config/resend`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${url}/admin/config/resend`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al obtener configuración de Resend");
     return data;
@@ -275,9 +285,8 @@ export const api = {
 
   async saveResendConfig(apiKey, fromEmail) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/admin/config/resend`, {
+    const res = await authFetch(`${url}/admin/config/resend`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ apiKey, fromEmail }),
     });
     const data = await res.json();
@@ -287,9 +296,8 @@ export const api = {
 
   async testResendEmail(toEmail) {
     const url = getCleanUrl();
-    const res = await fetch(`${url}/admin/config/resend/test`, {
+    const res = await authFetch(`${url}/admin/config/resend/test`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ toEmail }),
     });
     const data = await res.json();
