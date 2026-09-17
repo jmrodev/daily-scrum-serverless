@@ -1166,25 +1166,11 @@
         <button id="authModalClose" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- Quick Demo Login (Only allowed users in local mock mode) -->
-        <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
-          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
-            Acceso Rápido Demo (Usuarios Habilitados):
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('marcelo')">👨‍💻 Marcelo (Dev)</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('lucas')">🛡️ Lucas (Admin)</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('jose')">👨‍💻 José (Dev)</button>
-          </div>
-        </div>
-
         <!-- Login Form (Email + Password) -->
         <form id="loginForm" onsubmit="return false;">
-          <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
-            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-            <span style="padding: 0 10px; font-weight: 600;">O CON EMAIL Y CONTRASEÑA</span>
-            <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+            Ingresá con tu correo y contraseña registrados para acceder al sistema.
+          </p>
 
           <div style="margin-bottom: 12px;">
             <label for="loginEmail">Correo Electrónico</label>
