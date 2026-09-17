@@ -380,7 +380,14 @@ export const initKanbanListeners = () => {
       if (!ok) return;
 
       try {
+        const tasks = await api.getTasks(project);
+        const task = tasks.find((t) => t.id === id);
+        const assignee = task?.assignee;
+
         await api.deleteTask(project, id);
+        if (assignee) {
+          await syncKanbanToDaily(project, assignee);
+        }
         taskModalController.close();
         await renderKanban();
         showToast("Tarea eliminada.");

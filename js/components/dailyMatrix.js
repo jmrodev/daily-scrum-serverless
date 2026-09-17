@@ -298,9 +298,9 @@ export const openScrumModal = async (project, week, day, member, isEdit) => {
     const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker ? `[${t.title}] ${t.blocker}` : `[${t.title}] Bloqueada`);
 
     if (doneTasks.length > 0 || doingTasks.length > 0 || blockedTasks.length > 0) {
-      ans1.value = doneTasks.length > 0 ? doneTasks.join(", ") : "Sin respuesta";
-      ans2.value = doingTasks.length > 0 ? doingTasks.join(", ") : "Sin respuesta";
-      ans3.value = blockedTasks.length > 0 ? blockedTasks.join("; ") : "Ninguno";
+      ans1.value = doneTasks.length > 0 ? doneTasks.map((t) => `• ${t}`).join("\n") : "Sin respuesta";
+      ans2.value = doingTasks.length > 0 ? doingTasks.map((t) => `• ${t}`).join("\n") : "Sin respuesta";
+      ans3.value = blockedTasks.length > 0 ? blockedTasks.map((t) => `• ${t}`).join("\n") : "Ninguno";
       prefilledFromKanban = true;
     } else {
       ans1.value = "";
@@ -493,13 +493,28 @@ export const syncDailyToKanban = async (project, member, answers, explicitBlocke
 
   const splitItems = (text) => {
     if (!text) return [];
-    return text
-      .split(/[\n,;]+/)
+    // If text contains newlines or semicolons, treat them as intentional task delimiters and protect internal commas
+    const hasLineBreaksOrSemi = text.includes("\n") || text.includes(";");
+    const rawTokens = hasLineBreaksOrSemi
+      ? text.split(/[\n;]+/)
+      : text.split(",");
+
+    return rawTokens
       .map((s) => s.replace(/^[-*•\d.)\s]+/, "").trim())
       .filter((s) => {
         if (!s || s.length < 2) return false;
         const lower = s.toLowerCase();
-        return !["ninguno", "ninguna", "no", "nada", "sin respuesta", "sin novedades", "n/a", "none", "ok"].includes(lower);
+        return ![
+          "ninguno",
+          "ninguna",
+          "no",
+          "nada",
+          "sin respuesta",
+          "sin novedades",
+          "n/a",
+          "none",
+          "ok",
+        ].includes(lower);
       });
   };
 
@@ -512,12 +527,22 @@ export const syncDailyToKanban = async (project, member, answers, explicitBlocke
   );
 
   const findMatchingTask = (title) => {
-    const lower = title.toLowerCase();
-    return memberTasks.find((t) => {
-      const tLower = (t.title || "").toLowerCase();
-      return tLower === lower || tLower.includes(lower) || lower.includes(tLower);
-    });
+    const clean = title.trim().toLowerCase();
+    // 1. Exact match (case-insensitive)
+    const exact = memberTasks.find((t) => (t.title || "").trim().toLowerCase() === clean);
+    if (exact) return exact;
+
+    // 2. Strict substring match only if title has substantial length (>= 6 chars)
+    if (clean.length >= 6) {
+      return memberTasks.find((t) => {
+        const tLower = (t.title || "").trim().toLowerCase();
+        return tLower.length >= 6 && (tLower.includes(clean) || clean.includes(tLower));
+      });
+    }
+    return null;
   };
+
+  const savePromises = [];
 
   for (const item of doneItems) {
     const match = findMatchingTask(item);
@@ -525,17 +550,17 @@ export const syncDailyToKanban = async (project, member, answers, explicitBlocke
       if (match.status !== "DONE") {
         match.status = "DONE";
         match.blocker = "";
-        await api.saveTask(match);
+        savePromises.push(api.saveTask(match));
       }
     } else {
-      await api.saveTask({
+      savePromises.push(api.saveTask({
         project,
         title: item,
         assignee: member,
         status: "DONE",
         priority: "MEDIUM",
         blocker: "",
-      });
+      }));
     }
   }
 
@@ -544,39 +569,43 @@ export const syncDailyToKanban = async (project, member, answers, explicitBlocke
     if (match) {
       if (match.status !== "DOING" && match.status !== "BLOCKED") {
         match.status = "DOING";
-        await api.saveTask(match);
+        savePromises.push(api.saveTask(match));
       }
     } else {
-      await api.saveTask({
+      savePromises.push(api.saveTask({
         project,
         title: item,
         assignee: member,
         status: "DOING",
         priority: "HIGH",
         blocker: "",
-      });
+      }));
     }
   }
 
   if (explicitBlockedTaskId === "__NEW__" && explicitNewBlockedTitle) {
     const reason = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno")
       ? explicitBlockerReason : "Requiere que alguien tome esta tarea en Kanban";
-    await api.saveTask({
+    savePromises.push(api.saveTask({
       project,
       title: explicitNewBlockedTitle,
       assignee: "",
       status: "TODO",
       priority: "HIGH",
       blocker: `Bloquea a ${member}: ${reason}`,
-    });
+    }));
   } else if (explicitBlockedTaskId && explicitBlockedTaskId !== "") {
     const target = memberTasks.find((t) => t.id === explicitBlockedTaskId);
     if (target) {
       target.status = "BLOCKED";
       target.blocker = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno")
         ? explicitBlockerReason : "Bloqueada";
-      await api.saveTask(target);
+      savePromises.push(api.saveTask(target));
     }
+  }
+
+  if (savePromises.length > 0) {
+    await Promise.all(savePromises);
   }
 };
 
@@ -602,9 +631,9 @@ export const syncKanbanToDaily = async (project, member) => {
     (s) => s.member && s.member.toLowerCase() === member.toLowerCase() && s.day === today
   );
 
-  let ans1 = doneTitles.length > 0 ? doneTitles.join(", ") : "";
-  let ans2 = doingTitles.length > 0 ? doingTitles.join(", ") : "";
-  let ans3 = blockedTitles.length > 0 ? blockedTitles.join("; ") : "Ninguno";
+  let ans1 = doneTitles.length > 0 ? doneTitles.map((t) => `• ${t}`).join("\n") : "";
+  let ans2 = doingTitles.length > 0 ? doingTitles.map((t) => `• ${t}`).join("\n") : "";
+  let ans3 = blockedTitles.length > 0 ? blockedTitles.map((t) => `• ${t}`).join("\n") : "Ninguno";
 
   if (existingScrum && existingScrum.answers) {
     const prev1 = existingScrum.answers[0] || "";
