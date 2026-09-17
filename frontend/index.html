@@ -381,7 +381,7 @@
         <div class="tab-nav">
           <button type="button" class="tab-btn active" id="tabBtnProjects">📁 Proyectos</button>
           <button type="button" class="tab-btn" id="tabBtnMembers">👤 Integrantes</button>
-          <button type="button" class="tab-btn" id="tabBtnResend">📧 Email (Resend)</button>
+          <button type="button" class="tab-btn" id="tabBtnEmail">📧 Email (Gmail SMTP)</button>
           <button type="button" class="tab-btn" id="tabBtnEndpoint">⚙️ Endpoint Lambda</button>
         </div>
 
@@ -423,28 +423,35 @@
           </div>
         </div>
 
-        <!-- Tab 3: Resend Email Configuration -->
-        <div id="adminTabResend" class="admin-tab-content" style="display: none;">
+        <!-- Tab 3: Gmail SMTP Configuration -->
+        <div id="adminTabEmail" class="admin-tab-content" style="display: none;">
           <div class="sub-section">
-            <h4>📧 Configuración de Email (Resend)</h4>
+            <h4>📧 Configuración de Email (Gmail SMTP)</h4>
             <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
-              Configurá tu API Key de Resend para enviar códigos de verificación obligatorios al registrar usuarios.
+              Configurá tu cuenta de Gmail con una <strong>Contraseña de Aplicación de 16 caracteres</strong> (App Password) para despachar códigos de verificación y notificaciones sin límites de dominio.
             </p>
             <form onsubmit="return false;">
               <div style="margin-bottom: 8px;">
-                <label for="resendApiKey">API Key de Resend (re_...):</label>
+                <label for="gmailUser">Correo de Gmail:</label>
+                <input type="email" id="gmailUser" placeholder="tu-cuenta@gmail.com" style="width: 100%;" autocomplete="username email" />
+              </div>
+              <div style="margin-bottom: 8px;">
+                <label for="gmailAppPassword">Contraseña de Aplicación de Google (16 letras):</label>
                 <div style="display: flex; gap: 6px;">
-                  <input type="password" id="resendApiKey" placeholder="re_123456789..." style="flex: 1;" autocomplete="off" />
-                  <button type="button" id="btnToggleResendKey" class="btn btn-secondary btn-sm" title="Mostrar/Ocultar clave">👁️</button>
+                  <input type="password" id="gmailAppPassword" placeholder="xxxx xxxx xxxx xxxx" style="flex: 1;" autocomplete="new-password" />
+                  <button type="button" id="btnToggleGmailPassword" class="btn btn-secondary btn-sm" title="Mostrar/Ocultar clave">👁️</button>
                 </div>
+                <small style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 3px;">
+                  Generala en: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" style="color: var(--primary);">myaccount.google.com/apppasswords</a>
+                </small>
               </div>
               <div style="margin-bottom: 10px;">
-                <label for="resendFrom">Remitente (From):</label>
-                <input type="text" id="resendFrom" placeholder="Daily Scrum &lt;onboarding@resend.dev&gt;" style="width: 100%;" />
+                <label for="gmailSenderName">Nombre del Remitente:</label>
+                <input type="text" id="gmailSenderName" placeholder="Daily Scrum" style="width: 100%;" />
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                <button type="button" id="btnSaveResendConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>
-                <button type="button" id="btnTestResendEmail" class="btn btn-secondary btn-sm">🧪 Probar Envío</button>
+                <button type="button" id="btnSaveEmailConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>
+                <button type="button" id="btnTestEmail" class="btn btn-secondary btn-sm">🧪 Probar Envío</button>
               </div>
             </form>
           </div>

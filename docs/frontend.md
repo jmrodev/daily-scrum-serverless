@@ -41,7 +41,7 @@ This document details the client-side architecture, atomic directory structure, 
 │       ├── weekSelector.js    # Dynamic week detection (DynamoDB + calendar + ➕ button)
 │       ├── dailyMatrix.js     # Weekly Scrum table rendering, cell editing & Daily/Kanban sync
 │       ├── kanbanBoard.js     # Kanban flow (TODO, DOING, BLOCKED, DONE) & drag-and-drop
-│       ├── adminModal.js      # Admin management modal (projects, members, resend, endpoint)
+│       ├── adminModal.js      # Admin management modal (projects, members, email, endpoint)
 │       └── uiFeedback.js      # Non-intrusive toasts, async confirm and prompt modals
 └── frontend/                  # Synchronized mirror directory for hosting parity
 ```
@@ -77,7 +77,7 @@ flowchart TD
 1. `#appShell` (header, board filters, matrix table, kanban) is explicitly hidden (`display: none;`).
 2. `#authGate` is displayed as a centered card with three tabs:
    * **Iniciar Sesión:** Direct email and password login.
-   * **Crear Cuenta:** User registration requiring email verification via Resend.
+   * **Crear Cuenta:** User registration requiring email verification via Gmail SMTP.
    * **Activar Cuenta:** 6-digit confirmation code verification.
 3. **No Background Data Fetching:** `initProjectSelectors()`, `api.getProjects()`, and `api.getWeeklyScrums()` are NOT called until authentication succeeds.
 
@@ -116,7 +116,7 @@ flowchart TD
 * Gated to users with `role: "admin"` or `is_admin: true`.
 * **Proyectos:** Create, rename, delete, and toggle self-assignment permissions (`🔓 Abierto` / `🔒 Cerrado`).
 * **Integrantes:** Add, edit, or remove members and roles by project.
-* **Email (Resend):** Manage Resend API Key and sender email for account confirmation codes.
+* **Email (Gmail SMTP):** Manage Gmail address, App Password, and sender name for account confirmation codes.
 * **Endpoint Lambda:** Inspect and customize the backend AWS Lambda Function URL for the client.
 
 ### E. UI Feedback (`uiFeedback.js`)

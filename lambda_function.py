@@ -6,11 +6,14 @@ import json
 import os
 import re
 import secrets
+import smtplib
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
@@ -197,59 +200,66 @@ def verify_password(password, stored_hash):
         return False
 
 
-def get_resend_config():
-    """Retrieve Resend configuration from DynamoDB (CONFIG#RESEND) or environment."""
-    api_key = os.environ.get("RESEND_API_KEY", "")
-    from_email = os.environ.get("RESEND_FROM", "Daily Scrum <onboarding@resend.dev>")
+def get_email_config():
+    """Retrieve Gmail SMTP configuration from DynamoDB (CONFIG#EMAIL) or environment."""
+    gmail_user = os.environ.get("GMAIL_USER", "")
+    gmail_password = os.environ.get("GMAIL_APP_PASSWORD", "")
+    sender_name = os.environ.get("GMAIL_SENDER_NAME", "Daily Scrum")
 
     try:
-        resp = table.get_item(Key={"PK": "CONFIG#SYSTEM", "SK": "CONFIG#RESEND"})
+        resp = table.get_item(Key={"PK": "CONFIG#SYSTEM", "SK": "CONFIG#EMAIL"})
         item = resp.get("Item")
         if item:
-            api_key = item.get("api_key") or api_key
-            from_email = item.get("from_email") or from_email
+            gmail_user = item.get("gmail_user") or gmail_user
+            gmail_password = item.get("gmail_password") or gmail_password
+            sender_name = item.get("sender_name") or sender_name
     except Exception:
         pass
 
-    return api_key.strip(), from_email.strip()
+    return {
+        "gmail_user": gmail_user.strip(),
+        "gmail_password": gmail_password.strip().replace(" ", ""),
+        "sender_name": sender_name.strip(),
+    }
 
 
-def send_resend_email(api_key, from_email, to_email, subject, html_body):
-    """Send an email using Resend API via standard urllib without external dependencies."""
-    if not api_key:
-        return False, "Resend API key is not configured"
+def send_email(to_email, subject, html_body):
+    """Send an email using Gmail SMTP via standard smtplib without external dependencies."""
+    cfg = get_email_config()
+    gmail_user = cfg.get("gmail_user")
+    app_pwd = cfg.get("gmail_password")
+    sender_name = cfg.get("sender_name") or "Daily Scrum"
 
-    payload = json.dumps({
-        "from": from_email,
-        "to": [to_email],
-        "subject": subject,
-        "html": html_body,
-    }).encode("utf-8")
+    if not gmail_user or not app_pwd:
+        return False, "El servicio de correo (Gmail SMTP) no está configurado por el administrador."
 
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "resend-python/2.0.0",
-        },
-        method="POST",
-    )
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{sender_name} <{gmail_user}>"
+    msg["To"] = to_email
+    msg["Reply-To"] = gmail_user
+
+    part = MIMEText(html_body, "html", "utf-8")
+    msg.attach(part)
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return True, data
-    except urllib.error.HTTPError as e:
+        # Connect to Gmail SMTP over SSL (Port 465)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=12) as server:
+            server.login(gmail_user, app_pwd)
+            server.sendmail(gmail_user, [to_email], msg.as_string())
+        return True, "Email enviado exitosamente"
+    except smtplib.SMTPAuthenticationError:
+        return False, "Error de autenticación de Gmail: verificá tu correo y la contraseña de aplicación de 16 letras."
+    except Exception:
+        # Fallback try port 587 with STARTTLS if port 465 timed out or had issue
         try:
-            err_data = json.loads(e.read().decode("utf-8"))
-            err_msg = err_data.get("message") or str(err_data)
-        except Exception:
-            err_msg = str(e)
-        return False, f"Resend API Error ({e.code}): {err_msg}"
-    except Exception as e:
-        return False, f"Email delivery error: {str(e)}"
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=12) as server:
+                server.starttls()
+                server.login(gmail_user, app_pwd)
+                server.sendmail(gmail_user, [to_email], msg.as_string())
+            return True, "Email enviado exitosamente"
+        except Exception as e2:
+            return False, f"Fallo al enviar correo con Gmail SMTP: {str(e2)}"
 
 
 def handler(event, context):
@@ -270,7 +280,7 @@ def handler(event, context):
         # =====================================================================
         # 1. AUTH ENDPOINTS (Cognito Integration)
         # =====================================================================
-        # POST /auth/signup -> Register user with Email + Password, sending verification code via Resend
+        # POST /auth/signup -> Register user with Email + Password, sending verification code via Email (Gmail SMTP)
         if path == "/auth/signup" and method == "POST":
             body = parse_body(event)
             email = (body.get("email") or "").strip().lower()
@@ -282,11 +292,11 @@ def handler(event, context):
             if not password or len(password) < 8:
                 return create_response(400, {"error": "La contraseña debe tener al menos 8 caracteres"})
 
-            # Resend API Key is MANDATORY (Strictly no fallback)
-            api_key, from_email = get_resend_config()
-            if not api_key:
+            # Email Service check
+            email_cfg = get_email_config()
+            if not email_cfg.get("gmail_user") or not email_cfg.get("gmail_password"):
                 return create_response(400, {
-                    "error": "La API Key de Resend no está configurada por el administrador. Es obligatoria para verificar cuentas nuevas."
+                    "error": "El servicio de email (Gmail SMTP) no está configurado por el administrador. Es obligatorio para verificar cuentas nuevas."
                 })
 
             # Check if user already exists
@@ -314,7 +324,7 @@ def handler(event, context):
             }
             table.put_item(Item=user_item)
 
-            # Send verification code strictly via Resend
+            # Send verification code
             subject = f"{code} es tu código de activación - Daily Scrum"
             html = f"""
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 460px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
@@ -326,14 +336,14 @@ def handler(event, context):
               <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">Este código vence en 15 minutos. Si no te registraste, podés desestimar este email.</p>
             </div>
             """
-            success, res = send_resend_email(api_key, from_email, email, subject, html)
+            success, res = send_email(email, subject, html)
             if not success:
                 return create_response(500, {
-                    "error": f"Fallo al despachar email de verificación con Resend ({res}). Verificá la configuración de Resend."
+                    "error": f"Fallo al despachar email de verificación ({res})."
                 })
 
             return create_response(201, {
-                "message": "Usuario registrado. Te enviamos el código de 6 dígitos a tu correo vía Resend.",
+                "message": "Usuario registrado. Te enviamos el código de 6 dígitos a tu correo.",
                 "email": email,
                 "name": name,
             })
@@ -521,17 +531,17 @@ def handler(event, context):
                 return create_response(401, {"error": "Unauthorized or session expired"})
             return create_response(200, {"user": user_claims})
 
-        # POST /auth/otp/request -> Passwordless OTP request strictly via Resend
+        # POST /auth/otp/request -> Passwordless OTP request via Email
         elif path == "/auth/otp/request" and method == "POST":
             body = parse_body(event)
             email = (body.get("email") or "").strip().lower()
             if not email or "@" not in email:
                 return create_response(400, {"error": "Email válido es requerido"})
 
-            api_key, from_email = get_resend_config()
-            if not api_key:
+            email_cfg = get_email_config()
+            if not email_cfg.get("gmail_user") or not email_cfg.get("gmail_password"):
                 return create_response(400, {
-                    "error": "La API Key de Resend no está configurada por el administrador. Es obligatoria para enviar códigos."
+                    "error": "El servicio de email (Gmail SMTP) no está configurado por el administrador. Es obligatorio para enviar códigos."
                 })
 
             code = f"{secrets.randbelow(900000) + 100000}"
@@ -559,7 +569,7 @@ def handler(event, context):
               <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">Válido por 10 minutos.</p>
             </div>
             """
-            success, res = send_resend_email(api_key, from_email, email, subject, html)
+            success, res = send_email(email, subject, html)
             if success:
                 return create_response(200, {
                     "message": f"Código enviado con éxito a {email}",
@@ -567,7 +577,7 @@ def handler(event, context):
                 })
             else:
                 return create_response(500, {
-                    "error": f"Error al despachar email con Resend ({res}). Verificá la configuración de Resend.",
+                    "error": f"Error al despachar email ({res}). Verificá la configuración de email.",
                 })
 
         # POST /auth/otp/verify -> Validate OTP and generate session token
@@ -636,108 +646,84 @@ def handler(event, context):
                 "user": claims,
             })
 
-        # GET /admin/config/resend (Admin only)
-        elif path == "/admin/config/resend" and method == "GET":
+        # GET /admin/config/email (Admin only)
+        elif path in ("/admin/config/email", "/admin/config/resend") and method == "GET":
             if not user_claims or not user_claims.get("is_admin"):
-                return create_response(403, {"error": "Forbidden: Only administrators can view Resend configuration."})
+                return create_response(403, {"error": "Forbidden: Solo administradores pueden ver la configuración de email."})
 
-            api_key, from_email = get_resend_config()
-            masked_key = ""
-            if api_key:
-                masked_key = api_key[:5] + "••••••••" + api_key[-4:] if len(api_key) > 9 else "••••••••"
+            cfg = get_email_config()
+            gmail_user = cfg.get("gmail_user") or ""
+            has_pwd = bool(cfg.get("gmail_password"))
+            sender_name = cfg.get("sender_name") or "Daily Scrum"
 
             return create_response(200, {
-                "configured": bool(api_key),
-                "apiKeyMasked": masked_key,
-                "hasKey": bool(api_key),
-                "fromEmail": from_email,
+                "configured": bool(gmail_user and has_pwd),
+                "gmailUser": gmail_user,
+                "senderName": sender_name,
+                "hasPassword": has_pwd,
+                "passwordMasked": "••••••••" if has_pwd else "",
             })
 
-        # POST /admin/config/resend (Admin only)
-        elif path == "/admin/config/resend" and method == "POST":
+        # POST /admin/config/email (Admin only)
+        elif path in ("/admin/config/email", "/admin/config/resend", "/admin/resend-config") and method == "POST":
             if not user_claims or not user_claims.get("is_admin"):
-                return create_response(403, {"error": "Forbidden: Only administrators can update Resend configuration."})
+                return create_response(403, {"error": "Forbidden: Solo administradores pueden actualizar la configuración de email."})
 
             body = parse_body(event)
-            api_key = (body.get("apiKey") or "").strip()
-            from_email = (body.get("fromEmail") or "Daily Scrum <onboarding@resend.dev>").strip()
+            gmail_user = (body.get("gmailUser") or body.get("gmail_user") or "").strip().lower()
+            gmail_password = (body.get("gmailPassword") or body.get("gmail_password") or body.get("apiKey") or body.get("api_key") or "").strip().replace(" ", "")
+            sender_name = (body.get("senderName") or body.get("sender_name") or body.get("fromEmail") or "Daily Scrum").strip()
 
-            existing_key, existing_from = get_resend_config()
-            if not api_key and existing_key:
-                api_key = existing_key
+            existing = get_email_config()
+            if not gmail_user and existing.get("gmail_user"):
+                gmail_user = existing.get("gmail_user")
+            if not gmail_password and existing.get("gmail_password"):
+                gmail_password = existing.get("gmail_password")
 
-            if not api_key:
-                return create_response(400, {"error": "Resend API Key es requerida."})
+            if not gmail_user or not gmail_password:
+                return create_response(400, {"error": "Correo de Gmail y Contraseña de Aplicación (16 letras) son requeridos."})
 
             item = {
                 "PK": "CONFIG#SYSTEM",
-                "SK": "CONFIG#RESEND",
-                "api_key": api_key,
-                "from_email": from_email,
+                "SK": "CONFIG#EMAIL",
+                "gmail_user": gmail_user,
+                "gmail_password": gmail_password,
+                "sender_name": sender_name,
                 "updated_at": datetime.datetime.utcnow().isoformat(),
                 "updated_by": user_claims.get("email"),
             }
             table.put_item(Item=item)
-            return create_response(200, {"message": "Configuración de Resend guardada exitosamente."})
+            return create_response(200, {"message": "Configuración de Gmail SMTP guardada exitosamente."})
 
-        # POST /admin/resend-config (Admin only, write-only alias of /admin/config/resend)
-        # The stored key is never echoed back in any response by design.
-        elif path == "/admin/resend-config" and method == "POST":
-            claims, err = require_auth(event, admin_only=True)
-            if err:
-                return err
-
-            body = parse_body(event)
-            api_key = (body.get("api_key") or body.get("apiKey") or "").strip()
-            from_email = (body.get("from_email") or body.get("fromEmail")
-                          or "Daily Scrum <onboarding@resend.dev>").strip()
-
-            existing_key, _ = get_resend_config()
-            if not api_key and existing_key:
-                api_key = existing_key
-
-            if not api_key:
-                return create_response(400, {"error": "Resend API Key es requerida."})
-
-            item = {
-                "PK": "CONFIG#SYSTEM",
-                "SK": "CONFIG#RESEND",
-                "api_key": api_key,
-                "from_email": from_email,
-                "updated_at": datetime.datetime.utcnow().isoformat(),
-                "updated_by": claims.get("email"),
-            }
-            table.put_item(Item=item)
-            return create_response(200, {"message": "Configuración de Resend guardada exitosamente."})
-
-        # POST /admin/config/resend/test (Admin only)
-        elif path == "/admin/config/resend/test" and method == "POST":
+        # POST /admin/config/email/test (Admin only)
+        elif path in ("/admin/config/email/test", "/admin/config/resend/test") and method == "POST":
             if not user_claims or not user_claims.get("is_admin"):
-                return create_response(403, {"error": "Forbidden: Only administrators can test Resend configuration."})
+                return create_response(403, {"error": "Forbidden: Solo administradores pueden probar la configuración de email."})
 
             body = parse_body(event)
             to_email = (body.get("toEmail") or body.get("to") or body.get("email") or user_claims.get("email") or "").strip()
             if not to_email or "@" not in to_email:
                 return create_response(400, {"error": "Email destino válido requerido"})
 
-            api_key, from_email = get_resend_config()
-            if not api_key:
-                return create_response(400, {"error": "No hay API Key de Resend configurada aún."})
+            cfg = get_email_config()
+            if not cfg.get("gmail_user") or not cfg.get("gmail_password"):
+                return create_response(400, {"error": "No hay credenciales de Gmail SMTP configuradas aún."})
 
             subject = "🧪 Prueba de Configuración - Daily Scrum"
             html = f"""
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 460px; margin: 0 auto; padding: 24px; border: 1px solid #10b981; border-radius: 12px; background: #ffffff;">
-              <h2 style="color: #10b981; margin-top: 0; font-size: 20px;">¡Conexión Exitosa con Resend!</h2>
+              <h2 style="color: #10b981; margin-top: 0; font-size: 20px;">¡Conexión Exitosa con Gmail SMTP!</h2>
               <p style="color: #334155; font-size: 14px;">Este es un correo de prueba generado desde el panel de administración de <strong>Daily Scrum & Kanban</strong>.</p>
-              <p style="color: #334155; font-size: 14px;">Tu clave de Resend y el remitente <code>{from_email}</code> están funcionando a la perfección.</p>
-              <p style="color: #64748b; font-size: 12px; margin-top: 24px; margin-bottom: 0;">Enviado: {datetime.datetime.utcnow().isoformat()}</p>
+              <p style="color: #334155; font-size: 14px;">La cuenta <code>{cfg.get('gmail_user')}</code> y el remitente <strong>{cfg.get('sender_name')}</strong> están funcionando a la perfección.</p>
+              <p style="color: #64748b; font-size: 12px; margin-top: 24px; margin-bottom: 0;">Enviado vía Gmail SMTP: {datetime.datetime.utcnow().isoformat()}</p>
             </div>
             """
-            success, res = send_resend_email(api_key, from_email, to_email, subject, html)
+            success, res = send_email(to_email, subject, html)
             if success:
                 return create_response(200, {"message": f"Email de prueba enviado exitosamente a {to_email}"})
             else:
-                return create_response(400, {"error": f"Fallo al enviar correo con Resend: {res}"})
+                return create_response(400, {"error": f"Fallo al enviar correo con Gmail: {res}"})
+
 
         # =====================================================================
         # 2. PROJECTS CRUD (Admin-Gated Modification)
@@ -929,9 +915,9 @@ def handler(event, context):
                 }
                 table.put_item(Item=user_record)
 
-                # Send invitation via Resend
-                api_key, from_email = get_resend_config()
-                if api_key:
+                # Send invitation via Email (Gmail SMTP)
+                email_cfg = get_email_config()
+                if email_cfg.get("gmail_user") and email_cfg.get("gmail_password"):
                     role_badge = "Administrador" if is_admin else "Integrante"
                     subject = f"Invitación a Daily Scrum ({project}) - Activá tu cuenta"
                     html = f"""
@@ -951,7 +937,7 @@ def handler(event, context):
                       </p>
                     </div>
                     """
-                    sent, err_msg = send_resend_email(api_key, from_email, email, subject, html)
+                    sent, err_msg = send_email(email, subject, html)
                     invite_email_sent = sent
                     if not sent:
                         invite_email_error = err_msg

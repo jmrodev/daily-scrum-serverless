@@ -169,7 +169,7 @@ if ! aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION"
         --role "$ROLE_ARN" \
         --handler lambda_function.handler \
         --zip-file fileb:///tmp/daily_scrum_function.zip \
-        --timeout 8 \
+        --timeout 15 \
         --memory-size 128 \
         --environment "$ENV_VARS" \
         --region "$REGION"
@@ -188,7 +188,7 @@ else
     aws lambda update-function-configuration \
         --function-name "$FUNCTION_NAME" \
         --environment "$ENV_VARS" \
-        --timeout 8 \
+        --timeout 15 \
         --region "$REGION" >/dev/null
 fi
 

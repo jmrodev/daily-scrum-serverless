@@ -15,14 +15,34 @@ export const setAdminModalRefreshCallback = (cb) => {
   onRequestRefreshBoard = cb;
 };
 
+export const loadEmailConfig = async () => {
+  try {
+    const cfg = await api.getEmailConfig();
+    const userEl = document.getElementById("gmailUser");
+    const nameEl = document.getElementById("gmailSenderName");
+    const passEl = document.getElementById("gmailAppPassword");
+    if (userEl && cfg.gmailUser) userEl.value = cfg.gmailUser;
+    if (nameEl && cfg.senderName) nameEl.value = cfg.senderName;
+    if (passEl && cfg.hasPassword && !passEl.value) {
+      passEl.placeholder = cfg.passwordMasked || "••••••••";
+    }
+  } catch (e) {
+    console.warn("Could not prefetch email config", e);
+  }
+};
+
 export const switchAdminTab = (tab) => {
-  const tabs = ["projects", "members", "resend", "endpoint"];
+  const tabs = ["projects", "members", "email", "endpoint"];
   tabs.forEach((t) => {
     const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
     const content = document.getElementById(`adminTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
     if (btn) btn.classList.toggle("active", t === tab);
     if (content) content.style.display = t === tab ? "block" : "none";
   });
+
+  if (tab === "email") {
+    loadEmailConfig();
+  }
 
   if (tab === "endpoint") {
     const input = document.getElementById("adminApiUrlInput");
@@ -208,7 +228,7 @@ export const initAdminModalListeners = () => {
   // Manage Modal Tabs
   document.getElementById("tabBtnProjects")?.addEventListener("click", () => switchAdminTab("projects"));
   document.getElementById("tabBtnMembers")?.addEventListener("click", () => switchAdminTab("members"));
-  document.getElementById("tabBtnResend")?.addEventListener("click", () => switchAdminTab("resend"));
+  document.getElementById("tabBtnEmail")?.addEventListener("click", () => switchAdminTab("email"));
   document.getElementById("tabBtnEndpoint")?.addEventListener("click", () => switchAdminTab("endpoint"));
 
   // Add Project
@@ -278,36 +298,46 @@ export const initAdminModalListeners = () => {
     }
   });
 
-  // Resend Config
-  const resendApiKey = document.getElementById("resendApiKey");
-  const resendFrom = document.getElementById("resendFrom");
+  // Gmail SMTP Email Config
+  const gmailUserInput = document.getElementById("gmailUser");
+  const gmailPassInput = document.getElementById("gmailAppPassword");
+  const gmailSenderInput = document.getElementById("gmailSenderName");
 
-  document.getElementById("btnToggleResendKey")?.addEventListener("click", () => {
-    if (!resendApiKey) return;
-    resendApiKey.type = resendApiKey.type === "password" ? "text" : "password";
+  document.getElementById("btnToggleGmailPassword")?.addEventListener("click", () => {
+    if (!gmailPassInput) return;
+    gmailPassInput.type = gmailPassInput.type === "password" ? "text" : "password";
   });
 
-  document.getElementById("btnSaveResendConfig")?.addEventListener("click", async () => {
-    const apiKey = resendApiKey?.value.trim();
-    const fromEmail = resendFrom?.value.trim();
+  document.getElementById("btnSaveEmailConfig")?.addEventListener("click", async () => {
+    const gmailUser = gmailUserInput?.value.trim();
+    const gmailPassword = gmailPassInput?.value.trim();
+    const senderName = gmailSenderInput?.value.trim() || "Daily Scrum";
+
+    if (!gmailUser) {
+      showToast("Ingresá tu correo de Gmail", "error");
+      return;
+    }
+
     try {
-      await api.saveResendConfig(apiKey, fromEmail);
-      showToast("Configuración de Resend guardada en el backend.");
+      await api.saveEmailConfig(gmailUser, gmailPassword, senderName);
+      showToast("Configuración de Gmail SMTP guardada en el backend.");
+      await loadEmailConfig();
     } catch (err) {
       showToast(err.message, "error");
     }
   });
 
-  document.getElementById("btnTestResendEmail")?.addEventListener("click", async () => {
-    const defaultEmail = state.currentUser?.email || "juanmarcelo.rodrigueztandil@gmail.com";
+  document.getElementById("btnTestEmail")?.addEventListener("click", async () => {
+    const defaultEmail = state.currentUser?.email || "";
     const targetEmail = prompt(
-      "Ingresá el correo de destino para la prueba:\n\n(Nota: Con el remitente de prueba 'onboarding@resend.dev', Resend solo permite enviar a tu propio correo registrado en su plataforma):",
+      "Ingresá el correo de destino para la prueba de Gmail SMTP:",
       defaultEmail
     );
     if (!targetEmail || !targetEmail.includes("@")) return;
 
     try {
-      const res = await api.testResendEmail(targetEmail.trim());
+      showToast("Enviando correo de prueba...");
+      const res = await api.testEmail(targetEmail.trim());
       showToast(res.message || "Email de prueba enviado exitosamente.");
     } catch (err) {
       showToast(err.message, "error");

@@ -288,29 +288,29 @@ export const api = {
     return data;
   },
 
-  // Resend Email Admin Config
-  async getResendConfig() {
+  // Gmail SMTP Admin Config
+  async getEmailConfig() {
     const url = getCleanUrl();
-    const res = await authFetch(`${url}/admin/config/resend`);
+    const res = await authFetch(`${url}/admin/config/email`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Error al obtener configuración de Resend");
+    if (!res.ok) throw new Error(data.error || "Error al obtener configuración de Email");
     return data;
   },
 
-  async saveResendConfig(apiKey, fromEmail) {
+  async saveEmailConfig(gmailUser, gmailPassword, senderName) {
     const url = getCleanUrl();
-    const res = await authFetch(`${url}/admin/config/resend`, {
+    const res = await authFetch(`${url}/admin/config/email`, {
       method: "POST",
-      body: JSON.stringify({ apiKey, fromEmail }),
+      body: JSON.stringify({ gmailUser, gmailPassword, senderName }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Error al guardar configuración de Resend");
+    if (!res.ok) throw new Error(data.error || "Error al guardar configuración de Email");
     return data;
   },
 
-  async testResendEmail(toEmail) {
+  async testEmail(toEmail) {
     const url = getCleanUrl();
-    const res = await authFetch(`${url}/admin/config/resend/test`, {
+    const res = await authFetch(`${url}/admin/config/email/test`, {
       method: "POST",
       body: JSON.stringify({ toEmail }),
     });
