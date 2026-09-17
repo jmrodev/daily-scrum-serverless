@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Scrum Serverless</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.5;
+      color: #222;
+    }
+    h1, h2 { color: #111; }
+    .card {
+      border: 1px solid #e0e0e0;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      background: #fafafa;
+    }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input, textarea, button {
+      width: 100%;
+      padding: 8px 12px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    textarea { resize: vertical; min-height: 60px; }
+    button {
+      margin-top: 16px;
+      background: #0066cc;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover { background: #0052a3; }
+    .status {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    .status.success { display: block; background: #e6f4ea; color: #137333; }
+    .status.error { display: block; background: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+  <h1>Daily Scrum</h1>
+
+  <!-- Configuration -->
+  <div class="card">
+    <label for="apiUrl">Lambda Function URL</label>
+    <input type="text" id="apiUrl" placeholder="https://xxxxxx.lambda-url.us-east-1.on.aws/" />
+  </div>
+
+  <!-- Register Form -->
+  <div class="card">
+    <h2>Registrar Daily (POST a AWS)</h2>
+    <label>Proyecto</label>
+    <input type="text" id="postProject" value="Sabato" />
+
+    <label>Semana</label>
+    <input type="text" id="postWeek" value="WEEK 9" />
+
+    <label>Día</label>
+    <input type="text" id="postDay" value="Lunes" />
+
+    <label>Integrante</label>
+    <input type="text" id="postMember" value="Paz" />
+
+    <label>1. ¿Qué hiciste ayer?</label>
+    <textarea id="ans1" placeholder="Avances en frontend..."></textarea>
+
+    <label>2. ¿Qué vas a hacer hoy?</label>
+    <textarea id="ans2" placeholder="Inicio integración..."></textarea>
+
+    <label>3. ¿Hay algún bloqueo?</label>
+    <textarea id="ans3" placeholder="Ninguno"></textarea>
+
+    <button id="btnSubmit">Guardar en AWS</button>
+    <div id="postStatus" class="status"></div>
+  </div>
+
+  <!-- Query / Render Data -->
+  <div class="card">
+    <h2>Consultar Daily (GET desde AWS)</h2>
+    <label>Proyecto</label>
+    <input type="text" id="getProject" value="Sabato" />
+
+    <label>Semana</label>
+    <input type="text" id="getWeek" value="WEEK 9" />
+
+    <label>Día</label>
+    <input type="text" id="getDay" value="Lunes" />
+
+    <label>Integrante</label>
+    <input type="text" id="getMember" value="Paz" />
+
+    <button id="btnLoad">Cargar Respuestas desde AWS</button>
+    <div id="getStatus" class="status"></div>
+    <div id="results" style="margin-top: 16px;"></div>
+  </div>
+
+  <script>
+    const cleanUrl = (url) => url.trim().replace(/\/+$/, "");
+
+    // 1. Guardar en AWS (POST)
+    document.getElementById("btnSubmit").addEventListener("click", async () => {
+      const url = cleanUrl(document.getElementById("apiUrl").value);
+      const statusBox = document.getElementById("postStatus");
+      if (!url) {
+        alert("Por favor ingresa la Lambda Function URL");
+        return;
+      }
+
+      const payload = {
+        project: document.getElementById("postProject").value,
+        week: document.getElementById("postWeek").value,
+        day: document.getElementById("postDay").value,
+        member: document.getElementById("postMember").value,
+        answers: [
+          document.getElementById("ans1").value,
+          document.getElementById("ans2").value,
+          document.getElementById("ans3").value,
+        ],
+      };
+
+      try {
+        statusBox.className = "status";
+        statusBox.style.display = "none";
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar");
+
+        statusBox.className = "status success";
+        statusBox.textContent = "✅ " + data.message;
+      } catch (err) {
+        statusBox.className = "status error";
+        statusBox.textContent = "❌ " + err.message;
+      }
+    });
+
+    // 2. Consultar y Renderizar desde AWS (GET)
+    document.getElementById("btnLoad").addEventListener("click", async () => {
+      const url = cleanUrl(document.getElementById("apiUrl").value);
+      const statusBox = document.getElementById("getStatus");
+      const resultsDiv = document.getElementById("results");
+
+      if (!url) {
+        alert("Por favor ingresa la Lambda Function URL");
+        return;
+      }
+
+      const project = encodeURIComponent(document.getElementById("getProject").value);
+      const week = encodeURIComponent(document.getElementById("getWeek").value);
+      const day = encodeURIComponent(document.getElementById("getDay").value);
+      const member = encodeURIComponent(document.getElementById("getMember").value);
+
+      try {
+        statusBox.className = "status";
+        statusBox.style.display = "none";
+        resultsDiv.innerHTML = "";
+
+        const queryUrl = `${url}?project=${project}&week=${week}&day=${day}&member=${member}`;
+        const res = await fetch(queryUrl, { method: "GET" });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "No se encontraron datos");
+
+        statusBox.className = "status success";
+        statusBox.textContent = "📥 " + data.message;
+
+        // Renderizar las respuestas traídas de DynamoDB
+        const listHtml = data.answers.map((ans, idx) => `<li><strong>Pregunta ${idx + 1}:</strong> ${ans}</li>`).join("");
+        resultsDiv.innerHTML = `<ul>${listHtml}</ul>`;
+      } catch (err) {
+        statusBox.className = "status error";
+        statusBox.textContent = "❌ " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
