@@ -937,18 +937,25 @@
         </div>
 
         <div style="margin-bottom: 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label for="modalBlockedTaskSelect" style="margin: 0;">3. ¿Bloqueos o Impedimentos?</label>
-            <span style="font-size: 11px; color: var(--text-muted);">Asociar a una tarea</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin: 0; font-weight: 700;">3. ¿Bloqueos o Impedimentos?</label>
+            <span style="font-size: 11px; color: var(--text-muted);">Persistentes hasta resolución</span>
+          </div>
+
+          <!-- Active Blocked Tasks List with Destrabar action -->
+          <div id="modalActiveBlockedTasksList"></div>
+
+          <div style="margin-top: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 600; color: var(--text-muted);">
+            Reportar nuevo bloqueo (asociar a tarea o crear nueva):
           </div>
           <select id="modalBlockedTaskSelect" style="width: 100%; margin-bottom: 8px; font-size: 12px;">
-            <option value="">🟢 Sin Bloqueos (Ninguno)</option>
-            <option value="__NEW__">➕ Bloquear otra tarea (crear nueva en Kanban)</option>
+            <option value="">🟢 No agregar otro bloqueo</option>
+            <option value="__NEW__">➕ Crear nueva tarea bloqueada en Kanban</option>
           </select>
           <div id="modalNewBlockedTaskTitleContainer" style="margin-bottom: 8px; display: none;">
-            <input type="text" id="modalNewBlockedTaskTitle" placeholder="Título de la nueva tarea que está bloqueada..." style="width: 100%; font-size: 12px;" />
+            <input type="text" id="modalNewBlockedTaskTitle" placeholder="Título de la nueva tarea que nace bloqueada..." style="width: 100%; font-size: 12px;" />
           </div>
-          <textarea id="modalAns3" placeholder="Motivo del impedimento (o 'Ninguno')..."></textarea>
+          <textarea id="modalAns3" placeholder="Motivo o detalle del nuevo bloqueo (o 'Ninguno')..."></textarea>
         </div>
 
         <div style="margin-top: 10px; margin-bottom: 14px; padding: 8px 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px;">
@@ -2417,6 +2424,115 @@
     };
 
     // -------------------------------------------------------------
+    // Scrum Modal Blockers: Refresh & Resolve
+    // -------------------------------------------------------------
+    window.resolveTaskBlocker = async (taskId) => {
+      if (!activeScrumContext) return;
+      const { project, week, day, member } = activeScrumContext;
+      try {
+        const tasks = await api.getTasks(project);
+        const t = tasks.find((x) => x.id === taskId);
+        if (!t) return;
+
+        t.status = "DOING";
+        t.blocker = "";
+        await api.saveTask(t);
+        showToast(`Tarea '${t.title}' destrabada (pasa a En Progreso).`);
+
+        // Refresh active blocked list in modal
+        await refreshModalBlockedTasks(project, member);
+
+        // Update modalAns3 with remaining active blockers
+        const updatedTasks = await api.getTasks(project);
+        const remainingBlocked = (updatedTasks || []).filter(
+          (x) => x.assignee && x.assignee.toLowerCase() === member.toLowerCase() && x.status === "BLOCKED"
+        );
+        const ans3 = document.getElementById("modalAns3");
+        if (ans3) {
+          ans3.value = remainingBlocked.length > 0
+            ? remainingBlocked.map((x) => x.blocker ? `[${x.title}] ${x.blocker}` : `[${x.title}] Bloqueada`).join("; ")
+            : "Ninguno";
+        }
+
+        await renderBoard();
+        if (currentMainView === "kanban") await renderKanban();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+
+    window.refreshModalBlockedTasks = async (project, member) => {
+      const container = document.getElementById("modalActiveBlockedTasksList");
+      const blockedSelect = document.getElementById("modalBlockedTaskSelect");
+      const newBlockedTitleContainer = document.getElementById("modalNewBlockedTaskTitleContainer");
+      const newBlockedTitleInput = document.getElementById("modalNewBlockedTaskTitle");
+
+      if (newBlockedTitleContainer) newBlockedTitleContainer.style.display = "none";
+      if (newBlockedTitleInput) newBlockedTitleInput.value = "";
+
+      let memberTasks = [];
+      try {
+        const tasks = await api.getTasks(project);
+        memberTasks = (tasks || []).filter(
+          (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+        );
+      } catch (err) {
+        console.warn("Error getting tasks for modal blocked list:", err);
+      }
+
+      const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED");
+
+      if (container) {
+        if (blockedTasks.length === 0) {
+          container.innerHTML = `
+            <div style="padding: 6px 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; font-size: 11px; color: #10b981; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+              <span>✓</span> <span>No tenés tareas bloqueadas actualmente.</span>
+            </div>
+          `;
+        } else {
+          let html = `
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+              <div style="font-size: 11px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 0.5px;">
+                🚨 Bloqueos Activos (${blockedTasks.length}) — No se liberan hasta resolverlos
+              </div>
+          `;
+          blockedTasks.forEach((t) => {
+            html += `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; font-size: 12px;">
+                <div style="overflow: hidden; text-overflow: ellipsis; padding-right: 8px;">
+                  <strong style="color: var(--text-color);">${escapeHtml(t.title)}</strong>
+                  <div style="font-size: 11px; color: #ef4444; margin-top: 1px;">Impedimento: ${escapeHtml(t.blocker || "Bloqueada")}</div>
+                </div>
+                <button type="button" class="btn-action" style="background: var(--surface); border: 1px solid var(--border); font-size: 11px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; cursor: pointer; color: #10b981;" onclick="resolveTaskBlocker('${escapeHtml(t.id)}')">
+                  ✅ Destrabar
+                </button>
+              </div>
+            `;
+          });
+          html += `</div>`;
+          container.innerHTML = html;
+        }
+      }
+
+      if (blockedSelect) {
+        blockedSelect.innerHTML = '<option value="">🟢 No agregar otro bloqueo</option>';
+        const candidateTasks = memberTasks.filter((t) => t.status === "TODO" || t.status === "DOING");
+        candidateTasks.forEach((t) => {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          const statusIcon = t.status === "DOING" ? "⚡ [En Progreso]" : "📝 [Por Hacer]";
+          opt.textContent = `${statusIcon} ${t.title}`;
+          blockedSelect.appendChild(opt);
+        });
+        const newOpt = document.createElement("option");
+        newOpt.value = "__NEW__";
+        newOpt.textContent = "➕ Crear nueva tarea bloqueada en Kanban";
+        blockedSelect.appendChild(newOpt);
+        blockedSelect.value = "";
+      }
+    };
+
+    // -------------------------------------------------------------
     // Scrum Modal (View / Edit / Delete)
     // -------------------------------------------------------------
     window.openScrumModal = async (project, week, day, member, isEdit) => {
@@ -2473,7 +2589,7 @@
         // Automatic dynamic pre-fill from Kanban
         const doneTasks = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
         const doingTasks = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
-        const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker || t.title);
+        const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker ? `[${t.title}] ${t.blocker}` : `[${t.title}] Bloqueada`);
 
         if (doneTasks.length > 0 || doingTasks.length > 0 || blockedTasks.length > 0) {
           ans1.value = doneTasks.length > 0 ? doneTasks.join(", ") : "Sin respuesta";
@@ -2497,36 +2613,7 @@
           : `🔄 Re-sincronizar con mi Kanban`;
       }
 
-      // Populate Blocked Task Select
-      const blockedSelect = document.getElementById("modalBlockedTaskSelect");
-      const newBlockedTitleContainer = document.getElementById("modalNewBlockedTaskTitleContainer");
-      const newBlockedTitleInput = document.getElementById("modalNewBlockedTaskTitle");
-
-      if (blockedSelect) {
-        blockedSelect.innerHTML = '<option value="">🟢 Sin Bloqueos (Ninguno)</option>';
-        const candidateTasks = memberTasks.filter((t) => t.status === "TODO" || t.status === "DOING" || t.status === "BLOCKED");
-        candidateTasks.forEach((t) => {
-          const opt = document.createElement("option");
-          opt.value = t.id;
-          const statusIcon = t.status === "BLOCKED" ? "🚨 [Bloqueada]" : (t.status === "DOING" ? "⚡ [En Progreso]" : "📝 [Por Hacer]");
-          opt.textContent = `${statusIcon} ${t.title}`;
-          blockedSelect.appendChild(opt);
-        });
-        const newOpt = document.createElement("option");
-        newOpt.value = "__NEW__";
-        newOpt.textContent = "➕ Bloquear otra tarea (crear nueva en Kanban)";
-        blockedSelect.appendChild(newOpt);
-
-        if (newBlockedTitleContainer) newBlockedTitleContainer.style.display = "none";
-        if (newBlockedTitleInput) newBlockedTitleInput.value = "";
-
-        const currentlyBlocked = memberTasks.find((t) => t.status === "BLOCKED");
-        if (currentlyBlocked) {
-          blockedSelect.value = currentlyBlocked.id;
-        } else {
-          blockedSelect.value = "";
-        }
-      }
+      await refreshModalBlockedTasks(project, member);
 
       const banner = document.getElementById("scrumAutoSyncBanner");
       if (banner) {
@@ -2555,7 +2642,7 @@
       } else if (val === "") {
         container.style.display = "none";
         newTitleInput.value = "";
-        ans3.value = "Ninguno";
+        ans3.placeholder = "Motivo o detalle del nuevo bloqueo (o 'Ninguno')...";
       } else {
         container.style.display = "none";
         newTitleInput.value = "";
@@ -2577,27 +2664,49 @@
       const { project, week, day, member } = activeScrumContext;
       const blockedTaskId = document.getElementById("modalBlockedTaskSelect")?.value;
       const newBlockedTitle = document.getElementById("modalNewBlockedTaskTitle")?.value.trim();
-      let blockerReason = document.getElementById("modalAns3").value.trim() || "Ninguno";
+      let inputBlockerReason = document.getElementById("modalAns3").value.trim();
 
       const saveBtn = document.getElementById("btnSaveScrum");
 
       if (blockedTaskId === "__NEW__") {
         if (!newBlockedTitle) {
-          showToast("Ingresá el título de la nueva tarea que está bloqueada", "error");
+          showToast("Ingresá el título de la nueva tarea que nace bloqueada", "error");
           return;
         }
       }
 
-      let finalBlockerAns = blockerReason;
-      if (blockedTaskId === "__NEW__") {
-        finalBlockerAns = blockerReason !== "Ninguno" ? `[${newBlockedTitle}] ${blockerReason}` : `[${newBlockedTitle}] Bloqueada`;
-      } else if (blockedTaskId) {
-        const tasks = await api.getTasks(project);
-        const t = tasks.find((x) => x.id === blockedTaskId);
-        if (t) {
-          finalBlockerAns = blockerReason !== "Ninguno" ? `[${t.title}] ${blockerReason}` : `[${t.title}] Bloqueada`;
+      // Collect all active blockers for this member
+      const tasks = await api.getTasks(project);
+      const memberTasks = (tasks || []).filter(
+        (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+      );
+
+      const blockerEntries = [];
+      // 1. All tasks currently in BLOCKED status
+      memberTasks.filter((t) => t.status === "BLOCKED").forEach((t) => {
+        blockerEntries.push(`[${t.title}] ${t.blocker || "Bloqueada"}`);
+      });
+
+      // 2. Newly blocked task (if not already included)
+      if (blockedTaskId === "__NEW__" && newBlockedTitle) {
+        const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Bloqueada";
+        blockerEntries.push(`[${newBlockedTitle}] ${reason}`);
+      } else if (blockedTaskId && blockedTaskId !== "") {
+        const target = memberTasks.find((t) => t.id === blockedTaskId);
+        if (target && target.status !== "BLOCKED") {
+          const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Bloqueada";
+          blockerEntries.push(`[${target.title}] ${reason}`);
         }
       }
+
+      // 3. Fallback: if no task blockers exist, but user typed free text
+      if (blockerEntries.length === 0) {
+        if (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") {
+          blockerEntries.push(inputBlockerReason);
+        }
+      }
+
+      const finalBlockerAns = blockerEntries.length > 0 ? blockerEntries.join("; ") : "Ninguno";
 
       const answers = [
         document.getElementById("modalAns1").value.trim() || "Sin respuesta",
@@ -2612,7 +2721,7 @@
       try {
         await api.saveScrum(project, week, day, member, answers);
         if (shouldSync) {
-          await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, blockerReason);
+          await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, inputBlockerReason);
         }
         scrumModal.close();
         await renderBoard();
@@ -2977,7 +3086,7 @@
 
       const doneTitles = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
       const doingTitles = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
-      const blockedTitles = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker || t.title);
+      const blockedTitles = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker ? `[${t.title}] ${t.blocker}` : `[${t.title}] Bloqueada`);
 
       const existingScrum = (scrums || []).find(
         (s) => s.member && s.member.toLowerCase() === member.toLowerCase() && s.day === today
@@ -2990,7 +3099,6 @@
       if (existingScrum && existingScrum.answers) {
         const prev1 = existingScrum.answers[0] || "";
         const prev2 = existingScrum.answers[1] || "";
-        const prev3 = existingScrum.answers[2] || "";
 
         if (prev1 && prev1 !== "Sin respuesta") {
           const items = prev1.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
@@ -3007,10 +3115,6 @@
             if (!filtered.some((i) => i.toLowerCase() === t.toLowerCase())) filtered.push(t);
           });
           ans2 = filtered.join(", ");
-        }
-
-        if (prev3 && prev3 !== "Ninguno" && blockedTitles.length === 0) {
-          ans3 = prev3;
         }
       }
 
@@ -3048,6 +3152,8 @@
         });
         if (res === null) return;
         task.blocker = res.value.trim() || "Bloqueo no especificado";
+      } else if (nextStatus !== "BLOCKED") {
+        task.blocker = "";
       }
 
       task.status = nextStatus;
@@ -3310,7 +3416,7 @@
 
       const doneTasks = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
       const doingTasks = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
-      const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker || t.title);
+      const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker ? `[${t.title}] ${t.blocker}` : `[${t.title}] Bloqueada`);
 
       const ans1 = document.getElementById("modalAns1");
       const ans2 = document.getElementById("modalAns2");
@@ -3328,6 +3434,7 @@
         ans3.value = "Ninguno";
       }
 
+      await refreshModalBlockedTasks(project, member);
       showToast("✨ Daily autocompletado con tus tareas de Kanban.");
     };
 
@@ -3353,7 +3460,6 @@
 
       const doneItems = splitItems(doneText);
       const doingItems = splitItems(doingText);
-      const hasBlocker = blockerText && !["ninguno", "ninguna", "no", "nada", "sin respuesta", "sin bloqueos", "n/a", "none"].includes(blockerText.toLowerCase().trim());
 
       const tasks = await api.getTasks(project);
       const memberTasks = (tasks || []).filter(
@@ -3390,15 +3496,14 @@
       }
 
       // 2. Synchronize DOING tasks
-      const activeDoingTasks = [];
       for (const item of doingItems) {
         const match = findMatchingTask(item);
         if (match) {
+          // If in TODO, advance to DOING. Do NOT unblock BLOCKED tasks here.
           if (match.status === "TODO") {
             match.status = "DOING";
             await api.saveTask(match);
           }
-          activeDoingTasks.push(match);
         } else {
           const created = await api.saveTask({
             project,
@@ -3407,71 +3512,29 @@
             status: "DOING",
             priority: "MEDIUM",
           });
-          if (created) {
-            memberTasks.push(created);
-            activeDoingTasks.push(created);
-          }
+          if (created) memberTasks.push(created);
         }
       }
 
       // 3. Synchronize Blockers
+      // A new blocker creates a new task or blocks an existing task in Kanban.
+      // Existing blocked tasks remain blocked until explicitly resolved by the user.
       if (explicitBlockedTaskId === "__NEW__" && explicitNewBlockedTitle) {
-        // Create new blocked task in Kanban for this member
         await api.saveTask({
           project,
           title: explicitNewBlockedTitle,
           assignee: member,
           status: "BLOCKED",
           priority: "HIGH",
-          blocker: explicitBlockerReason || "Bloqueada",
+          blocker: (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno") ? explicitBlockerReason : "Bloqueada",
         });
-      } else if (explicitBlockedTaskId) {
-        // Mark specific task as BLOCKED
+      } else if (explicitBlockedTaskId && explicitBlockedTaskId !== "") {
         const allTasks = await api.getTasks(project);
         const taskToBlock = allTasks.find((t) => t.id === explicitBlockedTaskId);
         if (taskToBlock) {
           taskToBlock.status = "BLOCKED";
-          taskToBlock.blocker = explicitBlockerReason || "Bloqueada";
+          taskToBlock.blocker = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno") ? explicitBlockerReason : "Bloqueada";
           await api.saveTask(taskToBlock);
-        }
-      } else if (explicitBlockedTaskId === "") {
-        // Explicitly unblock any tasks of this member that were blocked
-        for (const t of memberTasks) {
-          if (t.status === "BLOCKED") {
-            t.status = "DOING";
-            t.blocker = "";
-            await api.saveTask(t);
-          }
-        }
-      } else if (hasBlocker) {
-        const targets = activeDoingTasks.length > 0
-          ? activeDoingTasks
-          : memberTasks.filter((t) => t.status === "DOING");
-
-        if (targets.length > 0) {
-          for (const t of targets) {
-            t.status = "BLOCKED";
-            t.blocker = blockerText;
-            await api.saveTask(t);
-          }
-        } else {
-          await api.saveTask({
-            project,
-            title: blockerText.length > 60 ? blockerText.slice(0, 57) + "..." : blockerText,
-            assignee: member,
-            status: "BLOCKED",
-            priority: "HIGH",
-            blocker: blockerText,
-          });
-        }
-      } else {
-        // Unblock tasks that were listed as in progress if daily indicates no blocker
-        for (const t of activeDoingTasks) {
-          if (t.status === "BLOCKED") {
-            t.status = "DOING";
-            t.blocker = "";
-            await api.saveTask(t);
-          }
         }
       }
     };
