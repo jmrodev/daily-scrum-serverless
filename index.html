@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daily Scrum Serverless</title>
+  <title>Daily Scrum Board Serverless</title>
   <style>
     :root {
       --primary: #2563eb;
@@ -19,7 +19,7 @@
       --error-bg: #fee2e2;
       --warning: #d97706;
       --warning-bg: #fef3c7;
-      --radius: 12px;
+      --radius: 10px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,51 +29,29 @@
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
-      padding: 24px 16px;
+      padding: 16px 12px;
     }
 
     .container {
-      max-width: 98%;
       width: 98%;
+      max-width: 98%;
       margin: 0 auto;
-      padding: 0 8px;
     }
 
-    #view-home .card {
-      max-width: 860px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    #view-form .card {
-      max-width: 780px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    #view-board, #view-board .card {
-      width: 100%;
-    }
-
-    .table-container table {
-      width: 100%;
-      min-width: 100%;
-    }
-
-    /* Top Navigation Header */
+    /* Top Bar Header */
     header {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
       border-bottom: 1px solid var(--border);
     }
 
     .brand h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 800;
       letter-spacing: -0.5px;
       display: flex;
@@ -105,149 +83,50 @@
     .mode-badge.mock { background: var(--warning-bg); color: var(--warning); }
     .mode-badge.aws { background: var(--success-bg); color: var(--success); }
 
-    /* Navigation Tabs */
-    .nav-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-      background: #e2e8f0;
-      padding: 4px;
-      border-radius: 10px;
-      max-width: 500px;
-    }
-
-    .nav-tab {
-      flex: 1;
-      text-align: center;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text-muted);
-      background: transparent;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .nav-tab.active {
-      background: #fff;
-      color: var(--primary);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    }
-
-    /* Views */
-    .view-panel { display: none; }
-    .view-panel.active { display: block; }
-
-    /* Cards */
+    /* Main Board Card */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 20px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
 
-    /* Index Hub (Welcome Options) */
-    .hub-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 24px;
-    }
-
-    @media (max-width: 680px) {
-      .hub-grid { grid-template-columns: 1fr; }
-    }
-
-    .hub-card {
-      background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 28px 24px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .hub-card:hover {
-      border-color: var(--primary);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.1);
-    }
-
-    .hub-icon {
-      font-size: 36px;
-      line-height: 1;
-    }
-
-    .hub-card h3 {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--text);
-      margin-top: 8px;
-    }
-
-    .hub-card p {
-      font-size: 14px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    .hub-btn {
-      align-self: flex-start;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--primary);
+    .card-header-flex {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
-    .hub-card:hover .hub-btn { color: var(--primary-hover); }
-
-    /* Form Styles */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+    .filters-bar {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-
-    @media (max-width: 560px) {
-      .grid-2 { grid-template-columns: 1fr; }
-    }
-
-    .form-group { margin-bottom: 16px; }
 
     label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--text-muted);
-      margin-bottom: 5px;
+      margin-bottom: 4px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
     input, select, textarea {
-      width: 100%;
-      padding: 10px 14px;
+      padding: 8px 12px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 6px;
+      font-size: 13px;
       color: var(--text);
       background: #fff;
       font-family: inherit;
-      transition: border-color 0.15s ease;
     }
 
     input:focus, select:focus, textarea:focus {
@@ -256,22 +135,21 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
     }
 
-    textarea { resize: vertical; min-height: 80px; }
+    textarea { resize: vertical; min-height: 80px; width: 100%; }
 
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 16px;
-      font-size: 14px;
+      padding: 8px 14px;
+      font-size: 13px;
       font-weight: 600;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       border: none;
       transition: all 0.15s ease;
-      gap: 8px;
+      gap: 6px;
     }
-
     .btn:active { transform: scale(0.98); }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
@@ -279,13 +157,11 @@
     .btn-secondary:hover { background: #e2e8f0; }
     .btn-danger { background: var(--error); color: #fff; }
     .btn-danger:hover { background: #b91c1c; }
-    .btn-sm { padding: 6px 10px; font-size: 12px; }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
 
-    /* Scrum Table Matrix */
+    /* Scrum Matrix Table */
     .table-container {
       overflow-x: auto;
-      margin-top: 16px;
       border: 1px solid var(--border);
       border-radius: 8px;
     }
@@ -293,75 +169,109 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 900px;
       background: #fff;
     }
 
     th, td {
       border: 1px solid var(--border);
-      padding: 10px 12px;
+      padding: 10px;
       vertical-align: top;
     }
 
     th {
       background: #f8fafc;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--text-muted);
       text-align: left;
     }
 
-    th.day-col { width: 13%; }
-    th.member-col { width: 14%; min-width: 140px; }
+    th.day-col { width: 12.5%; }
+    th.member-col { width: 12.5%; min-width: 140px; }
 
     .member-cell-name { font-weight: 700; font-size: 14px; color: var(--text); }
     .member-cell-role { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
+    /* Full-Text Scrum Cell */
     .cell-filled {
-      background: #fdfdfd;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 8px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+    .cell-filled:hover {
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+      border-color: #94a3b8;
     }
 
     .cell-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 4px;
+      gap: 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #f1f5f9;
     }
 
     .badge-status {
       font-size: 10px;
       font-weight: 700;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 12px;
     }
     .badge-status.clean { background: var(--success-bg); color: var(--success); }
     .badge-status.blocked { background: var(--error-bg); color: var(--error); }
 
-    .cell-summary {
-      font-size: 12px;
-      color: #334155;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      line-height: 1.4;
+    .cell-actions { display: flex; gap: 4px; }
+
+    .cell-section {
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: #1e293b;
+      word-break: break-word;
+      white-space: pre-wrap;
     }
 
-    .cell-actions {
-      display: flex;
-      gap: 4px;
-      margin-top: 6px;
-      justify-content: flex-end;
+    .cell-label {
+      font-weight: 700;
+      color: #64748b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    .cell-content { color: #0f172a; }
+
+    .cell-blocker-box {
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .cell-blocker-box.blocked {
+      background: #fef2f2;
+      border-left: 3px solid #ef4444;
+      color: #991b1b;
+      font-weight: 600;
+    }
+    .cell-blocker-box.clean {
+      background: #f8fafc;
+      color: #64748b;
+      border-left: 3px solid #cbd5e1;
     }
 
     .cell-empty-btn {
       width: 100%;
-      height: 70px;
+      min-height: 80px;
       border: 2px dashed #cbd5e1;
-      border-radius: 6px;
+      border-radius: 8px;
       background: #fafafa;
       color: #94a3b8;
       cursor: pointer;
@@ -371,6 +281,7 @@
       align-items: center;
       justify-content: center;
       gap: 4px;
+      transition: all 0.15s ease;
     }
     .cell-empty-btn:hover {
       border-color: var(--primary);
@@ -378,7 +289,7 @@
       background: #f0f7ff;
     }
 
-    /* Modal Backdrop */
+    /* Modals */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -397,7 +308,7 @@
 
     .modal-box {
       background: #fff;
-      border-radius: 14px;
+      border-radius: 12px;
       width: 100%;
       max-width: 580px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
@@ -421,9 +332,7 @@
 
     .modal-body { padding: 20px; max-height: 75vh; overflow-y: auto; }
 
-    .meta-tags {
-      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
-    }
+    .meta-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
     .tag {
       background: #e2e8f0; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; color: #334155;
     }
@@ -442,23 +351,44 @@
     }
     .chip button:hover { color: var(--error); }
 
-    .status-msg {
-      margin-top: 14px; padding: 12px; border-radius: 8px; font-size: 14px; display: none;
+    /* Custom Toast Banner */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    .status-msg.success { display: block; background: var(--success-bg); color: var(--success); }
-    .status-msg.error { display: block; background: var(--error-bg); color: var(--error); }
+    .toast {
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.2s ease;
+    }
+    .toast.success { background: #15803d; }
+    .toast.error { background: #b91c1c; }
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Main Header -->
+    <!-- Header -->
     <header>
       <div class="brand">
-        <h1>🚀 Daily Scrum</h1>
-        <p>Sistema Serverless en AWS Free Tier</p>
+        <h1>📊 Daily Scrum Board</h1>
+        <p>Matriz Semanal de Equipo &bull; Serverless AWS Free Tier</p>
       </div>
       <div class="top-controls">
-        <span id="modeBadge" class="mode-badge mock">🧪 Modo Mock Activo</span>
+        <span id="modeBadge" class="mode-badge mock">🧪 Modo Mock</span>
         <button id="btnOpenManageModal" class="btn btn-secondary btn-sm">
           👥 Administrar Equipo
         </button>
@@ -468,70 +398,17 @@
       </div>
     </header>
 
-    <!-- Navigation Tabs -->
-    <div class="nav-tabs">
-      <button class="nav-tab active" data-view="view-home">🏠 Inicio</button>
-      <button class="nav-tab" data-view="view-form">📝 Ingresar Daily</button>
-      <button class="nav-tab" data-view="view-board">📊 Matriz Semanal</button>
-    </div>
-
-    <!-- VIEW 1: HOME / INDEX -->
-    <div id="view-home" class="view-panel active">
-      <div class="card" style="padding: 28px; text-align: center; margin-bottom: 24px;">
-        <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 8px;">¿Qué querés hacer hoy?</h2>
-        <p style="color: var(--text-muted); max-width: 520px; margin: 0 auto 20px;">
-          Elegí una opción rápida para registrar tu actualización diaria o revisar el estado del sprint en la matriz.
-        </p>
-
-        <div class="hub-grid" style="text-align: left;">
-          <!-- Action 1: Register -->
-          <div class="hub-card" onclick="switchView('view-form')">
-            <div>
-              <div class="hub-icon">📝</div>
-              <h3>Ingresar mi Daily</h3>
-              <p>Completá qué hiciste ayer, tu foco de hoy y si tenés algún bloqueo en 30 segundos.</p>
-            </div>
-            <div class="hub-btn">Ir al formulario &rarr;</div>
+    <!-- Main Scrum Board Card (Full Width) -->
+    <div class="card">
+      <div class="card-header-flex">
+        <div class="filters-bar">
+          <div>
+            <label for="boardProject">Proyecto</label>
+            <select id="boardProject" style="min-width: 160px;"></select>
           </div>
-
-          <!-- Action 2: Matrix Board -->
-          <div class="hub-card" onclick="switchView('view-board')">
-            <div>
-              <div class="hub-icon">📊</div>
-              <h3>Ver Matriz Semanal</h3>
-              <p>Revisá el tablero de todo el equipo de Lunes a Domingo con alertas de bloqueos.</p>
-            </div>
-            <div class="hub-btn">Abrir tablero &rarr;</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Config Card -->
-      <div class="card" style="padding: 16px 20px;">
-        <label for="apiUrl">⚙️ Lambda Function URL (Vacío = Modo Mock)</label>
-        <input type="text" id="apiUrl" placeholder="https://xxxx.lambda-url.us-east-1.on.aws/ (Pega aquí la URL de deploy.sh)" />
-      </div>
-    </div>
-
-    <!-- VIEW 2: REGISTER FORM -->
-    <div id="view-form" class="view-panel">
-      <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h2 style="font-size: 18px; font-weight: 700;">📝 Registrar Daily Scrum</h2>
-          <button class="btn btn-secondary btn-sm" onclick="switchView('view-board')">
-            📊 Ir a la Matriz Semanal &rarr;
-          </button>
-        </div>
-
-        <div class="grid-2">
-          <div class="form-group">
-            <label for="formProject">Proyecto</label>
-            <select id="formProject"></select>
-          </div>
-
-          <div class="form-group">
-            <label for="formWeek">Semana</label>
-            <select id="formWeek">
+          <div>
+            <label for="boardWeek">Semana</label>
+            <select id="boardWeek" style="min-width: 140px;">
               <option value="WEEK 1">Semana 1</option>
               <option value="WEEK 2">Semana 2</option>
               <option value="WEEK 3">Semana 3</option>
@@ -546,111 +423,42 @@
               <option value="WEEK 12">Semana 12</option>
             </select>
           </div>
+          <button id="btnRefreshBoard" class="btn btn-secondary" style="height: 35px;">
+            🔄 Refrescar
+          </button>
         </div>
 
-        <div class="grid-2">
-          <div class="form-group">
-            <label for="formDay">Día</label>
-            <select id="formDay">
-              <option value="Lunes" selected>Lunes</option>
-              <option value="Martes">Martes</option>
-              <option value="Miercoles">Miércoles</option>
-              <option value="Jueves">Jueves</option>
-              <option value="Viernes">Viernes</option>
-              <option value="Sabado">Sábado</option>
-              <option value="Domingo">Domingo</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="formMember">Integrante</label>
-            <select id="formMember"></select>
-          </div>
+        <!-- Connection Settings Toggle/Input -->
+        <div style="flex: 1; max-width: 380px; min-width: 240px;">
+          <label for="apiUrl">Lambda Function URL (Vacío = Modo Demo)</label>
+          <input type="text" id="apiUrl" placeholder="https://xxxx.lambda-url.us-east-1.on.aws/" style="padding: 6px 10px; font-size: 12px; width: 100%;" />
         </div>
-
-        <div class="form-group">
-          <label for="formAns1">1. ¿Qué hiciste ayer?</label>
-          <textarea id="formAns1" placeholder="Detallá los avances completados..."></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="formAns2">2. ¿Qué vas a hacer hoy?</label>
-          <textarea id="formAns2" placeholder="Detallá el foco de hoy..."></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="formAns3">3. ¿Hay algún bloqueo o impedimento?</label>
-          <textarea id="formAns3" placeholder="Ninguno / Describí el impedimento..."></textarea>
-        </div>
-
-        <button id="btnSubmitForm" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 15px;">
-          <span>💾 Guardar Daily Scrum</span>
-        </button>
-        <div id="formStatus" class="status-msg"></div>
       </div>
-    </div>
 
-    <!-- VIEW 3: WEEKLY MATRIX BOARD -->
-    <div id="view-board" class="view-panel">
-      <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-          <div>
-            <h2 style="font-size: 18px; font-weight: 700;">📊 Matriz Semanal de Daily Scrums</h2>
-            <p style="font-size: 13px; color: var(--text-muted);">Visualizá y gestioná las actividades de todo el equipo.</p>
-          </div>
-          <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-            <div>
-              <label for="boardProject">Proyecto</label>
-              <select id="boardProject" style="min-width: 150px;"></select>
-            </div>
-            <div>
-              <label for="boardWeek">Semana</label>
-              <select id="boardWeek" style="min-width: 130px;">
-                <option value="WEEK 1">Semana 1</option>
-                <option value="WEEK 2">Semana 2</option>
-                <option value="WEEK 3">Semana 3</option>
-                <option value="WEEK 4">Semana 4</option>
-                <option value="WEEK 5">Semana 5</option>
-                <option value="WEEK 6">Semana 6</option>
-                <option value="WEEK 7">Semana 7</option>
-                <option value="WEEK 8">Semana 8</option>
-                <option value="WEEK 9" selected>Semana 9</option>
-                <option value="WEEK 10">Semana 10</option>
-                <option value="WEEK 11">Semana 11</option>
-                <option value="WEEK 12">Semana 12</option>
-              </select>
-            </div>
-            <button id="btnRefreshBoard" class="btn btn-secondary" style="height: 38px;">
-              🔄 Refrescar
-            </button>
-          </div>
-        </div>
-
-        <!-- Matrix Table -->
-        <div class="table-container">
-          <table id="scrumTable">
-            <thead>
-              <tr>
-                <th class="member-col">Integrante</th>
-                <th class="day-col">Lunes</th>
-                <th class="day-col">Martes</th>
-                <th class="day-col">Miércoles</th>
-                <th class="day-col">Jueves</th>
-                <th class="day-col">Viernes</th>
-                <th class="day-col">Sábado</th>
-                <th class="day-col">Domingo</th>
-              </tr>
-            </thead>
-            <tbody id="scrumTableBody">
-              <!-- Dynamic Rows -->
-            </tbody>
-          </table>
-        </div>
+      <!-- Matrix Table -->
+      <div class="table-container">
+        <table id="scrumTable">
+          <thead>
+            <tr>
+              <th class="member-col">Integrante</th>
+              <th class="day-col">Lunes</th>
+              <th class="day-col">Martes</th>
+              <th class="day-col">Miércoles</th>
+              <th class="day-col">Jueves</th>
+              <th class="day-col">Viernes</th>
+              <th class="day-col">Sábado</th>
+              <th class="day-col">Domingo</th>
+            </tr>
+          </thead>
+          <tbody id="scrumTableBody">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- Modal: View / Edit Daily Scrum -->
+  <!-- Modal: View / Edit / Register Daily Scrum -->
   <div id="scrumModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
@@ -662,27 +470,26 @@
 
         <div style="margin-bottom: 14px;">
           <label for="modalAns1">1. ¿Qué hiciste ayer?</label>
-          <textarea id="modalAns1"></textarea>
+          <textarea id="modalAns1" placeholder="Avances concretos..."></textarea>
         </div>
 
         <div style="margin-bottom: 14px;">
           <label for="modalAns2">2. ¿Qué vas a hacer hoy?</label>
-          <textarea id="modalAns2"></textarea>
+          <textarea id="modalAns2" placeholder="Foco del día..."></textarea>
         </div>
 
         <div style="margin-bottom: 14px;">
           <label for="modalAns3">3. ¿Bloqueos o Impedimentos?</label>
-          <textarea id="modalAns3"></textarea>
+          <textarea id="modalAns3" placeholder="Ninguno / Descripción..."></textarea>
         </div>
 
         <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 18px;">
           <button id="btnDeleteScrum" class="btn btn-danger btn-sm">🗑️ Eliminar</button>
           <div style="display: flex; gap: 8px;">
             <button id="btnCancelScrum" class="btn btn-secondary btn-sm">Cancelar</button>
-            <button id="btnSaveScrum" class="btn btn-primary btn-sm">💾 Guardar Cambios</button>
+            <button id="btnSaveScrum" class="btn btn-primary btn-sm">💾 Guardar</button>
           </div>
         </div>
-        <div id="modalScrumStatus" class="status-msg"></div>
       </div>
     </div>
   </div>
@@ -699,7 +506,7 @@
         <div class="sub-section">
           <h4>📁 Proyectos</h4>
           <div style="display: flex; gap: 8px;">
-            <input type="text" id="newProjectName" placeholder="Nuevo proyecto..." />
+            <input type="text" id="newProjectName" placeholder="Nuevo proyecto..." style="flex: 1;" />
             <button id="btnAddProject" class="btn btn-primary btn-sm">Crear</button>
           </div>
           <div id="projectsChipList" class="chip-list"></div>
@@ -708,11 +515,11 @@
         <!-- Members Section -->
         <div class="sub-section">
           <h4>👤 Integrantes</h4>
-          <label style="margin-bottom: 4px;">Proyecto Destino:</label>
-          <select id="manageProjectSelect" style="margin-bottom: 8px;"></select>
+          <label style="margin-bottom: 4px;">Proyecto:</label>
+          <select id="manageProjectSelect" style="margin-bottom: 8px; width: 100%;"></select>
           <div style="display: flex; gap: 8px; margin-bottom: 8px;">
             <input type="text" id="newMemberName" placeholder="Nombre..." style="flex: 2;" />
-            <input type="text" id="newMemberRole" placeholder="Rol (ej: Dev)..." style="flex: 1;" />
+            <input type="text" id="newMemberRole" placeholder="Rol..." style="flex: 1;" />
             <button id="btnAddMember" class="btn btn-primary btn-sm">Agregar</button>
           </div>
           <div id="membersChipList" class="chip-list"></div>
@@ -720,6 +527,48 @@
       </div>
     </div>
   </div>
+
+  <!-- Custom Confirmation Modal (Replaces browser confirm) -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 id="confirmTitle">Confirmar Acción</h3>
+        <button id="confirmClose" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage" style="font-size: 14px; color: var(--text); margin-bottom: 20px;">¿Estás seguro?</p>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="confirmCancelBtn" class="btn btn-secondary btn-sm">Cancelar</button>
+          <button id="confirmOkBtn" class="btn btn-danger btn-sm">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Prompt/Edit Modal (Replaces browser prompt) -->
+  <div id="promptModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 id="promptTitle">Editar</h3>
+        <button id="promptClose" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label id="promptLabel" for="promptInput">Valor:</label>
+        <input type="text" id="promptInput" style="width: 100%; margin-bottom: 14px;" />
+        <div id="promptSecondGroup" style="display: none; margin-bottom: 14px;">
+          <label id="promptSecondLabel" for="promptSecondInput">Rol:</label>
+          <input type="text" id="promptSecondInput" style="width: 100%;" />
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="promptCancelBtn" class="btn btn-secondary btn-sm">Cancelar</button>
+          <button id="promptOkBtn" class="btn btn-primary btn-sm">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <script>
     const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
@@ -729,35 +578,107 @@
     const modeBadge = document.getElementById("modeBadge");
 
     // -------------------------------------------------------------
-    // Tab Navigation & Hash Routing
+    // Utility: HTML Escape
     // -------------------------------------------------------------
-    const tabs = document.querySelectorAll(".nav-tab");
-    const panels = document.querySelectorAll(".view-panel");
-
-    const switchView = (targetViewId) => {
-      tabs.forEach((tab) => {
-        tab.classList.toggle("active", tab.dataset.view === targetViewId);
-      });
-      panels.forEach((panel) => {
-        panel.classList.toggle("active", panel.id === targetViewId);
-      });
-      window.location.hash = targetViewId.replace("view-", "");
-
-      if (targetViewId === "view-board") renderBoard();
-      if (targetViewId === "view-form") syncFormDropdowns();
+    const escapeHtml = (str) => {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     };
 
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => switchView(tab.dataset.view));
+    // -------------------------------------------------------------
+    // Custom Toast (No more alert)
+    // -------------------------------------------------------------
+    const showToast = (message, type = "success") => {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>${type === "success" ? "✅" : "⚠️"}</span> ${escapeHtml(message)}`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 200);
+      }, 3000);
+    };
+
+    // -------------------------------------------------------------
+    // Custom Confirm Modal (No more window.confirm)
+    // -------------------------------------------------------------
+    let confirmResolver = null;
+    const confirmModalEl = document.getElementById("confirmModal");
+
+    const showConfirm = (title, message, isDanger = true) => {
+      return new Promise((resolve) => {
+        confirmResolver = resolve;
+        document.getElementById("confirmTitle").textContent = title;
+        document.getElementById("confirmMessage").textContent = message;
+        const okBtn = document.getElementById("confirmOkBtn");
+        okBtn.className = isDanger ? "btn btn-danger btn-sm" : "btn btn-primary btn-sm";
+        confirmModalEl.classList.add("open");
+      });
+    };
+
+    const closeConfirmModal = (result) => {
+      confirmModalEl.classList.remove("open");
+      if (confirmResolver) {
+        confirmResolver(result);
+        confirmResolver = null;
+      }
+    };
+
+    document.getElementById("confirmOkBtn").addEventListener("click", () => closeConfirmModal(true));
+    document.getElementById("confirmCancelBtn").addEventListener("click", () => closeConfirmModal(false));
+    document.getElementById("confirmClose").addEventListener("click", () => closeConfirmModal(false));
+
+    // -------------------------------------------------------------
+    // Custom Prompt Modal (No more window.prompt)
+    // -------------------------------------------------------------
+    let promptResolver = null;
+    const promptModalEl = document.getElementById("promptModal");
+
+    const showPrompt = ({ title, label, initialValue = "", secondLabel = null, initialSecondValue = "" }) => {
+      return new Promise((resolve) => {
+        promptResolver = resolve;
+        document.getElementById("promptTitle").textContent = title;
+        document.getElementById("promptLabel").textContent = label;
+        const input1 = document.getElementById("promptInput");
+        input1.value = initialValue;
+
+        const secGroup = document.getElementById("promptSecondGroup");
+        const secInput = document.getElementById("promptSecondInput");
+        if (secondLabel) {
+          secGroup.style.display = "block";
+          document.getElementById("promptSecondLabel").textContent = secondLabel;
+          secInput.value = initialSecondValue;
+        } else {
+          secGroup.style.display = "none";
+        }
+
+        promptModalEl.classList.add("open");
+        input1.focus();
+      });
+    };
+
+    const closePromptModal = (result) => {
+      promptModalEl.classList.remove("open");
+      if (promptResolver) {
+        promptResolver(result);
+        promptResolver = null;
+      }
+    };
+
+    document.getElementById("promptOkBtn").addEventListener("click", () => {
+      const val1 = document.getElementById("promptInput").value.trim();
+      const hasSec = document.getElementById("promptSecondGroup").style.display !== "none";
+      const val2 = hasSec ? document.getElementById("promptSecondInput").value.trim() : null;
+      closePromptModal({ value: val1, secondValue: val2 });
     });
-
-    // Check URL Hash on Load
-    const initHashRouting = () => {
-      const hash = window.location.hash.replace("#", "");
-      if (hash === "form") switchView("view-form");
-      else if (hash === "board") switchView("view-board");
-      else switchView("view-home");
-    };
+    document.getElementById("promptCancelBtn").addEventListener("click", () => closePromptModal(null));
+    document.getElementById("promptClose").addEventListener("click", () => closePromptModal(null));
 
     // -------------------------------------------------------------
     // Mock Engine
@@ -787,10 +708,10 @@
           answers: ["Implementación de DynamoDB Single Table", "Pruebas de latencia", "Esperando credenciales AWS"]
         },
         "Sabato#WEEK 9#Lunes#Juan": {
-          answers: ["Maquetación de la matriz semanal", "Componentes de modal y tablas", "Ninguno"]
+          answers: ["Maquetación de la matriz semanal completa", "Componentes de modal y tablas", "Ninguno"]
         },
         "Sabato#WEEK 9#Miercoles#Juan": {
-          answers: ["Integración de mock engine local", "Sincronización de selects dinámicos", "Revisión de responsive"]
+          answers: ["Integración de mock engine local y modales", "Sincronización de selects dinámicos", "Revisión de responsive"]
         },
         "Sabato#WEEK 9#Lunes#Marcelo": {
           answers: ["Setup de Lambda Function URLs", "Optimización de costos Always Free", "Ninguno"]
@@ -804,12 +725,13 @@
     let mockState = JSON.parse(localStorage.getItem(MOCK_STORAGE_KEY)) || DEFAULT_MOCK;
     const saveMockState = () => localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockState));
 
-    document.getElementById("btnResetMock").addEventListener("click", () => {
-      if (!confirm("¿Restablecer datos demo a valores iniciales?")) return;
+    document.getElementById("btnResetMock").addEventListener("click", async () => {
+      const ok = await showConfirm("Restablecer Datos Demo", "¿Deseas restablecer todos los datos demo a los valores iniciales?");
+      if (!ok) return;
       mockState = JSON.parse(JSON.stringify(DEFAULT_MOCK));
       saveMockState();
       renderBoard();
-      alert("✅ Datos demo restablecidos.");
+      showToast("Datos demo restablecidos a valores iniciales.");
     });
 
     // -------------------------------------------------------------
@@ -825,7 +747,7 @@
         modeBadge.textContent = "⚡ Conectado a AWS";
       } else {
         modeBadge.className = "mode-badge mock";
-        modeBadge.textContent = "🧪 Modo Mock (Demo)";
+        modeBadge.textContent = "🧪 Modo Mock";
       }
     };
     updateModeBadge();
@@ -1028,88 +950,7 @@
     let activeScrumContext = null;
 
     // -------------------------------------------------------------
-    // Form Synchronization
-    // -------------------------------------------------------------
-    const syncFormDropdowns = async () => {
-      const projects = await api.getProjects();
-      const projSelect = document.getElementById("formProject");
-      const current = projSelect.value;
-      projSelect.innerHTML = "";
-
-      projects.forEach((p) => {
-        const opt = document.createElement("option");
-        opt.value = p.name;
-        opt.textContent = p.name;
-        if (p.name === current) opt.selected = true;
-        projSelect.appendChild(opt);
-      });
-
-      if (!projSelect.value && projects.length > 0) projSelect.value = projects[0].name;
-      await updateFormMembers();
-    };
-
-    const updateFormMembers = async () => {
-      const project = document.getElementById("formProject").value;
-      const memberSelect = document.getElementById("formMember");
-      memberSelect.innerHTML = "";
-      if (!project) return;
-
-      const members = await api.getMembers(project);
-      members.forEach((m) => {
-        const opt = document.createElement("option");
-        opt.value = m.name;
-        opt.textContent = `${m.name} (${m.role || "Dev"})`;
-        memberSelect.appendChild(opt);
-      });
-    };
-
-    document.getElementById("formProject").addEventListener("change", updateFormMembers);
-
-    // Submit Form
-    document.getElementById("btnSubmitForm").addEventListener("click", async () => {
-      const project = document.getElementById("formProject").value;
-      const week = document.getElementById("formWeek").value;
-      const day = document.getElementById("formDay").value;
-      const member = document.getElementById("formMember").value;
-      const statusBox = document.getElementById("formStatus");
-      const submitBtn = document.getElementById("btnSubmitForm");
-
-      if (!project || !member) {
-        statusBox.className = "status-msg error";
-        statusBox.textContent = "⚠️ Debes seleccionar proyecto e integrante.";
-        return;
-      }
-
-      const answers = [
-        document.getElementById("formAns1").value.trim() || "Sin respuesta",
-        document.getElementById("formAns2").value.trim() || "Sin respuesta",
-        document.getElementById("formAns3").value.trim() || "Ninguno",
-      ];
-
-      try {
-        submitBtn.disabled = true;
-        submitBtn.querySelector("span").textContent = "Guardando...";
-        statusBox.className = "status-msg";
-
-        await api.saveScrum(project, week, day, member, answers);
-
-        statusBox.className = "status-msg success";
-        statusBox.textContent = `✅ Daily Scrum guardada para ${member} (${week} - ${day}).`;
-
-        document.getElementById("formAns1").value = "";
-        document.getElementById("formAns2").value = "";
-        document.getElementById("formAns3").value = "";
-      } catch (err) {
-        statusBox.className = "status-msg error";
-        statusBox.textContent = "❌ " + err.message;
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.querySelector("span").textContent = "💾 Guardar Daily Scrum";
-      }
-    });
-
-    // -------------------------------------------------------------
-    // Render Board Matrix
+    // Render Board Matrix (Full-Text & Full-Width)
     // -------------------------------------------------------------
     const renderBoard = async () => {
       const project = document.getElementById("boardProject").value;
@@ -1142,8 +983,8 @@
 
         const memberTd = document.createElement("td");
         memberTd.innerHTML = `
-          <div class="member-cell-name">👤 ${m.name}</div>
-          <div class="member-cell-role">${m.role || "Developer"}</div>
+          <div class="member-cell-name">👤 ${escapeHtml(m.name)}</div>
+          <div class="member-cell-role">${escapeHtml(m.role || "Developer")}</div>
         `;
         tr.appendChild(memberTd);
 
@@ -1153,19 +994,38 @@
 
           if (scrum) {
             const ans = scrum.answers || [];
+            const ans1 = escapeHtml(ans[0] || "Sin respuesta");
+            const ans2 = escapeHtml(ans[1] || "Sin respuesta");
+            const ans3 = escapeHtml(ans[2] || "Ninguno");
             const hasBlocker = ans[2] && ans[2].toLowerCase() !== "ninguno" && ans[2].trim() !== "";
+
             dayTd.innerHTML = `
               <div class="cell-filled">
                 <div class="cell-header">
                   <span class="badge-status ${hasBlocker ? 'blocked' : 'clean'}">
                     ${hasBlocker ? '🚨 Bloqueo' : '✅ Al día'}
                   </span>
+                  <div class="cell-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', true)" title="Ver / Editar">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteScrumEntry('${project}', '${week}', '${day}', '${m.name}')" title="Eliminar">🗑️</button>
+                  </div>
                 </div>
-                <div class="cell-summary" title="${ans[0] || ''}"><strong>Ayer:</strong> ${ans[0] || 'Sin respuesta'}</div>
-                <div class="cell-summary" title="${ans[1] || ''}" style="margin-top:2px;"><strong>Hoy:</strong> ${ans[1] || 'Sin respuesta'}</div>
-                <div class="cell-actions">
-                  <button class="btn btn-secondary btn-sm" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', true)" title="Ver / Editar">✏️</button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteScrumEntry('${project}', '${week}', '${day}', '${m.name}')" title="Eliminar">🗑️</button>
+
+                <div class="cell-section">
+                  <span class="cell-label">Ayer</span>
+                  <div class="cell-content">${ans1}</div>
+                </div>
+
+                <div class="cell-section">
+                  <span class="cell-label">Hoy</span>
+                  <div class="cell-content">${ans2}</div>
+                </div>
+
+                <div class="cell-section">
+                  <span class="cell-label">Bloqueo</span>
+                  <div class="cell-blocker-box ${hasBlocker ? 'blocked' : 'clean'}">
+                    ${ans3}
+                  </div>
                 </div>
               </div>
             `;
@@ -1190,18 +1050,16 @@
       activeScrumContext = { project, week, day, member, isEdit };
       document.getElementById("modalTitle").textContent = isEdit ? "✏️ Editar Daily Scrum" : "📝 Registrar Daily Scrum";
       document.getElementById("modalMetaTags").innerHTML = `
-        <span class="tag">📁 ${project}</span>
-        <span class="tag">📅 ${week}</span>
-        <span class="tag">🗓️ ${day}</span>
-        <span class="tag">👤 ${member}</span>
+        <span class="tag">📁 ${escapeHtml(project)}</span>
+        <span class="tag">📅 ${escapeHtml(week)}</span>
+        <span class="tag">🗓️ ${escapeHtml(day)}</span>
+        <span class="tag">👤 ${escapeHtml(member)}</span>
       `;
 
       const ans1 = document.getElementById("modalAns1");
       const ans2 = document.getElementById("modalAns2");
       const ans3 = document.getElementById("modalAns3");
       const deleteBtn = document.getElementById("btnDeleteScrum");
-      const statusBox = document.getElementById("modalScrumStatus");
-      statusBox.style.display = "none";
 
       if (isEdit) {
         deleteBtn.style.display = "inline-flex";
@@ -1236,25 +1094,30 @@
 
       await api.saveScrum(project, week, day, member, answers);
       saveBtn.disabled = false;
-      saveBtn.textContent = "💾 Guardar Cambios";
+      saveBtn.textContent = "💾 Guardar";
       scrumModal.close();
       await renderBoard();
+      showToast(`Daily guardada para ${member} (${day}).`);
     });
 
     document.getElementById("btnDeleteScrum").addEventListener("click", async () => {
       if (!activeScrumContext) return;
       const { project, week, day, member } = activeScrumContext;
-      if (!confirm(`¿Eliminar la Daily de ${member} para el ${day}?`)) return;
+      const ok = await showConfirm("Eliminar Daily", `¿Eliminar la Daily de ${member} del ${day}?`);
+      if (!ok) return;
 
       await api.deleteScrum(project, week, day, member);
       scrumModal.close();
       await renderBoard();
+      showToast(`Daily eliminada.`);
     });
 
     window.deleteScrumEntry = async (project, week, day, member) => {
-      if (!confirm(`¿Eliminar la Daily de ${member} del ${day}?`)) return;
+      const ok = await showConfirm("Eliminar Daily", `¿Eliminar la Daily de ${member} del ${day}?`);
+      if (!ok) return;
       await api.deleteScrum(project, week, day, member);
       await renderBoard();
+      showToast(`Daily eliminada.`);
     };
 
     // -------------------------------------------------------------
@@ -1288,7 +1151,7 @@
         const chip = document.createElement("span");
         chip.className = "chip";
         chip.innerHTML = `
-          📁 ${p.name}
+          📁 ${escapeHtml(p.name)}
           <button onclick="editProjectPrompt('${p.name}')" title="Renombrar">✏️</button>
           <button onclick="deleteProjectAction('${p.name}')" title="Eliminar">🗑️</button>
         `;
@@ -1314,7 +1177,7 @@
         const chip = document.createElement("span");
         chip.className = "chip";
         chip.innerHTML = `
-          👤 ${m.name} (${m.role || "Dev"})
+          👤 ${escapeHtml(m.name)} (${escapeHtml(m.role || "Dev")})
           <button onclick="editMemberPrompt('${project}', '${m.name}', '${m.role || ''}')" title="Editar">✏️</button>
           <button onclick="deleteMemberAction('${project}', '${m.name}')" title="Eliminar">🗑️</button>
         `;
@@ -1332,21 +1195,29 @@
       input.value = "";
       await loadManageModal(name);
       await initProjectSelectors();
+      showToast(`Proyecto '${name}' creado.`);
     });
 
     window.editProjectPrompt = async (name) => {
-      const newName = prompt(`Renombrar proyecto '${name}':`, name);
-      if (!newName || newName.trim() === name) return;
-      await api.updateProject(name, newName.trim());
-      await loadManageModal(newName.trim());
+      const result = await showPrompt({
+        title: "Renombrar Proyecto",
+        label: "Nuevo nombre del proyecto:",
+        initialValue: name,
+      });
+      if (!result || !result.value || result.value === name) return;
+      await api.updateProject(name, result.value);
+      await loadManageModal(result.value);
       await initProjectSelectors();
+      showToast(`Proyecto renombrado a '${result.value}'.`);
     };
 
     window.deleteProjectAction = async (name) => {
-      if (!confirm(`¿Eliminar proyecto '${name}' y todos sus datos?`)) return;
+      const ok = await showConfirm("Eliminar Proyecto", `¿Eliminar el proyecto '${name}' y todas sus dailies asociadas?`);
+      if (!ok) return;
       await api.deleteProject(name);
       await loadManageModal();
       await initProjectSelectors();
+      showToast(`Proyecto '${name}' eliminado.`);
     };
 
     document.getElementById("btnAddMember").addEventListener("click", async () => {
@@ -1362,25 +1233,31 @@
       roleInput.value = "";
       await loadMembersChipList();
       await renderBoard();
-      await syncFormDropdowns();
+      showToast(`Integrante '${name}' agregado a '${project}'.`);
     });
 
     window.editMemberPrompt = async (project, oldName, oldRole) => {
-      const newName = prompt(`Nuevo nombre para '${oldName}':`, oldName);
-      if (!newName) return;
-      const newRole = prompt(`Nuevo rol para '${newName}':`, oldRole || "Developer");
-      await api.updateMember(project, oldName, newName.trim(), newRole || "Developer");
+      const result = await showPrompt({
+        title: "Editar Integrante",
+        label: "Nombre:",
+        initialValue: oldName,
+        secondLabel: "Rol:",
+        initialSecondValue: oldRole || "Developer",
+      });
+      if (!result || !result.value) return;
+      await api.updateMember(project, oldName, result.value, result.secondValue || "Developer");
       await loadMembersChipList();
       await renderBoard();
-      await syncFormDropdowns();
+      showToast(`Integrante actualizado.`);
     };
 
     window.deleteMemberAction = async (project, name) => {
-      if (!confirm(`¿Eliminar a '${name}' del proyecto '${project}'?`)) return;
+      const ok = await showConfirm("Eliminar Integrante", `¿Eliminar a '${name}' del proyecto '${project}'?`);
+      if (!ok) return;
       await api.deleteMember(project, name);
       await loadMembersChipList();
       await renderBoard();
-      await syncFormDropdowns();
+      showToast(`Integrante '${name}' eliminado.`);
     };
 
     // -------------------------------------------------------------
@@ -1401,8 +1278,7 @@
       });
 
       if (!boardSelect.value && projects.length > 0) boardSelect.value = projects[0].name;
-
-      await syncFormDropdowns();
+      await renderBoard();
     };
 
     document.getElementById("boardProject").addEventListener("change", renderBoard);
@@ -1411,7 +1287,6 @@
 
     const initApp = async () => {
       await initProjectSelectors();
-      initHashRouting();
     };
 
     initApp();
