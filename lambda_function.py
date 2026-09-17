@@ -987,7 +987,26 @@ def handler(event, context):
             if not project:
                 return create_response(400, {"error": "Project parameter is required"})
 
-            # Case A: Get full weekly matrix for a project
+            # Case A: Get all distinct weeks for a project (when week is omitted)
+            if not week:
+                resp = table.query(
+                    KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
+                    & Key("SK").begins_with("WEEK#"),
+                    ProjectionExpression="#w",
+                    ExpressionAttributeNames={"#w": "week"},
+                )
+                items = resp.get("Items", [])
+                weeks = list({item.get("week") for item in items if item.get("week")})
+                def week_key(w):
+                    try:
+                        nums = re.findall(r"\d+", w)
+                        return int(nums[0]) if nums else 0
+                    except Exception:
+                        return 0
+                weeks.sort(key=week_key)
+                return create_response(200, {"project": project, "weeks": weeks})
+
+            # Case B: Get full weekly matrix for a project
             if week and not (day and member):
                 resp = table.query(
                     KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")

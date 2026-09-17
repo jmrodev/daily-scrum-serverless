@@ -814,8 +814,6 @@
         <p>Matriz Semanal de Equipo &bull; Serverless AWS Free Tier</p>
       </div>
       <div class="top-controls">
-        <span id="modeBadge" class="mode-badge mock">🧪 Modo Mock</span>
-
         <!-- App Auth Navbar (Pure App Experience) -->
         <div id="authNavContainer" style="display: inline-flex; align-items: center; gap: 8px;">
           <span id="authUserBadge" class="user-badge" style="display: none;"></span>
@@ -829,10 +827,6 @@
           👥 Administrar Equipo
         </button>
 
-        <button id="btnResetMock" class="btn btn-secondary btn-sm" title="Restablecer datos demo">
-          🔄 Reset Demo
-        </button>
-
         <button id="btnThemeToggle" class="btn btn-secondary btn-sm" title="Alternar modo Claro / Oscuro" aria-label="Alternar tema">
           🌙 Oscuro
         </button>
@@ -842,7 +836,7 @@
     <!-- Main Scrum Board Card (Full Width) -->
     <div class="card">
       <div class="card-header-flex">
-        <div class="filters-bar">
+        <div class="filters-bar" style="width: 100%;">
           <!-- View Switcher Tabs -->
           <div class="view-switcher" style="margin-right: 6px;">
             <button type="button" id="tabDailyView" class="view-tab active" onclick="switchMainView('daily')">📊 Matriz Daily</button>
@@ -855,31 +849,15 @@
           </div>
           <div id="weekFilterGroup">
             <label for="boardWeek">Semana</label>
-            <select id="boardWeek" style="min-width: 140px;">
-              <option value="WEEK 1">Semana 1</option>
-              <option value="WEEK 2">Semana 2</option>
-              <option value="WEEK 3">Semana 3</option>
-              <option value="WEEK 4">Semana 4</option>
-              <option value="WEEK 5">Semana 5</option>
-              <option value="WEEK 6">Semana 6</option>
-              <option value="WEEK 7">Semana 7</option>
-              <option value="WEEK 8">Semana 8</option>
-              <option value="WEEK 9" selected>Semana 9</option>
-              <option value="WEEK 10">Semana 10</option>
-              <option value="WEEK 11">Semana 11</option>
-              <option value="WEEK 12">Semana 12</option>
-            </select>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <select id="boardWeek" style="min-width: 140px;"></select>
+              <button id="btnAddWeek" class="btn btn-secondary btn-sm" style="height: 35px; padding: 0 10px;" title="Agregar próxima semana">➕</button>
+            </div>
           </div>
           <button id="btnRefreshBoard" class="btn btn-secondary" style="height: 35px;">
             🔄 Refrescar
           </button>
           <div id="projectSelfAssignContainer" style="display: flex; align-items: flex-end; padding-bottom: 2px;"></div>
-        </div>
-
-        <!-- Connection Settings Toggle/Input -->
-        <div style="flex: 1; max-width: 380px; min-width: 240px;">
-          <label for="apiUrl">Lambda Function URL (Vacío = Modo Demo)</label>
-          <input type="text" id="apiUrl" value="https://2pa3hfii3cirygdrjnyjsit7ve0ybqgy.lambda-url.us-east-1.on.aws/" placeholder="https://xxxx.lambda-url.us-east-1.on.aws/" style="padding: 6px 10px; font-size: 12px; width: 100%;" />
         </div>
       </div>
 
@@ -1096,6 +1074,7 @@
           <button type="button" class="tab-btn active" id="tabBtnProjects" onclick="switchAdminTab('projects')">📁 Proyectos</button>
           <button type="button" class="tab-btn" id="tabBtnMembers" onclick="switchAdminTab('members')">👤 Integrantes</button>
           <button type="button" class="tab-btn" id="tabBtnResend" onclick="switchAdminTab('resend')">📧 Email (Resend)</button>
+          <button type="button" class="tab-btn" id="tabBtnEndpoint" onclick="switchAdminTab('endpoint')">⚙️ Endpoint Lambda</button>
         </div>
 
         <!-- Tab 1: Projects Section -->
@@ -1151,6 +1130,24 @@
               <button type="button" id="btnSaveResendConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>
               <button type="button" id="btnTestResendEmail" class="btn btn-secondary btn-sm">🧪 Probar Envío</button>
               <span id="resendConfigStatus" style="font-size: 11px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Endpoint Configuration (Admin Only) -->
+        <div id="adminTabEndpoint" class="admin-tab-content" style="display: none;">
+          <div class="sub-section">
+            <h4>⚙️ Endpoint de AWS Lambda</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+              Configuración del Function URL del backend en AWS Lambda para este cliente.
+            </p>
+            <div style="margin-bottom: 8px;">
+              <label for="adminApiUrlInput">Lambda Function URL:</label>
+              <input type="text" id="adminApiUrlInput" style="width: 100%; font-size: 12px;" />
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" id="btnSaveApiUrl" class="btn btn-primary btn-sm">💾 Guardar Endpoint</button>
+              <button type="button" id="btnResetApiUrl" class="btn btn-secondary btn-sm">↺ Restablecer Default</button>
             </div>
           </div>
         </div>
@@ -1304,7 +1301,6 @@
     window.getCurrentDayName = getCurrentDayName;
 
     const STORAGE_KEY = "daily_scrum_api_url";
-    const MOCK_STORAGE_KEY = "daily_scrum_mock_data";
     const AUTH_STORAGE_KEY = "daily_scrum_auth_session";
     const THEME_STORAGE_KEY = "daily_scrum_theme";
 
@@ -1344,8 +1340,6 @@
     // Apply theme immediately
     applyTheme(getPreferredTheme());
 
-    const apiInput = document.getElementById("apiUrl");
-    const modeBadge = document.getElementById("modeBadge");
     const authNavContainer = document.getElementById("authNavContainer");
     const authUserBadge = document.getElementById("authUserBadge");
     const btnLoginOpen = document.getElementById("btnLoginOpen");
@@ -1465,103 +1459,41 @@
     document.getElementById("promptClose").addEventListener("click", () => closePromptModal(null));
 
     // -------------------------------------------------------------
-    // Mock Engine
-    // -------------------------------------------------------------
-    const DEFAULT_MOCK = {
-      projects: [
-        { name: "Sabato", allow_self_assignment: false },
-        { name: "Core", allow_self_assignment: false },
-        { name: "Mobile", allow_self_assignment: true }
-      ],
-      members: {
-        "Sabato": [
-          { name: "Lucas", role: "Tech Lead", email: "lucas@empresa.com" },
-          { name: "Marcelo", role: "Frontend Dev", email: "marcelo@gmail.com" },
-          { name: "José", role: "Backend Dev", email: "jose@empresa.com" }
-        ],
-        "Core": [
-          { name: "Lucas", role: "Tech Lead", email: "lucas@empresa.com" },
-          { name: "José", role: "Backend Dev", email: "jose@empresa.com" }
-        ],
-        "Mobile": [
-          { name: "Lucas", role: "Tech Lead", email: "lucas@empresa.com" }
-        ]
-      },
-      scrums: {
-        "Sabato#WEEK 9#Lunes#Lucas": {
-          answers: ["Planificación del Sprint y arquitectura", "Revisión de pull requests", "Ninguno"]
-        },
-        "Sabato#WEEK 9#Lunes#Marcelo": {
-          answers: ["Implementación de interfaz del Daily Scrum", "Restricción de permisos para proteger filas", "Ninguno"]
-        },
-        "Sabato#WEEK 9#Martes#Marcelo": {
-          answers: ["Pruebas de autoasignación a proyectos", "Revisión de responsive en móvil", "Ninguno"]
-        },
-        "Sabato#WEEK 9#Lunes#José": {
-          answers: ["Diseño de Single Table en DynamoDB", "Optimización de consultas", "Ninguno"]
-        },
-        "Sabato#WEEK 9#Miercoles#José": {
-          answers: ["Pruebas de latencia en endpoints", "Manejo de CORS y preflight", "Ninguno"]
-        }
-      },
-      tasks: {
-        "Sabato": [
-          { id: "task-1", title: "Diseñar arquitectura Serverless en AWS Free Tier", assignee: "Lucas", status: "DONE", priority: "HIGH", blocker: "" },
-          { id: "task-2", title: "Integrar autenticación segura de usuarios", assignee: "Marcelo", status: "DONE", priority: "HIGH", blocker: "" },
-          { id: "task-3", title: "Unificar tablero Kanban con matriz del Daily Scrum", assignee: "Marcelo", status: "DOING", priority: "HIGH", blocker: "" },
-          { id: "task-4", title: "Optimización de cache y CORS preflight en CloudFront", assignee: "José", status: "BLOCKED", priority: "MEDIUM", blocker: "Esperando permisos IAM de CloudFront" },
-          { id: "task-5", title: "Pruebas de autoasignación a proyectos abiertos", assignee: "Marcelo", status: "TODO", priority: "LOW", blocker: "" },
-          { id: "task-6", title: "Configurar alertas de presupuesto $0 en AWS Billing", assignee: "Lucas", status: "TODO", priority: "MEDIUM", blocker: "" }
-        ],
-        "Core": [
-          { id: "task-c1", title: "Refactorizar consultas de DynamoDB Single Table", assignee: "José", status: "DOING", priority: "HIGH", blocker: "" }
-        ],
-        "Mobile": [
-          { id: "task-m1", title: "Revisar estilos responsive en pantallas pequeñas", assignee: "Lucas", status: "TODO", priority: "LOW", blocker: "" }
-        ]
-      }
-    };
-
-    let rawMock = JSON.parse(localStorage.getItem(MOCK_STORAGE_KEY));
-    let mockState = rawMock;
-
-    // Reset or migrate mock state if it lacks the current Marcelo/José/Lucas schema or tasks
-    if (!mockState || !mockState.members || !mockState.members["Sabato"] || !mockState.tasks || !mockState.tasks["Sabato"]) {
-      mockState = JSON.parse(JSON.stringify(DEFAULT_MOCK));
-      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockState));
-    }
-
-    // Normalize projects in case older format stored plain strings
-    if (mockState && mockState.projects) {
-      mockState.projects = mockState.projects.map((p) => {
-        if (typeof p === "string") {
-          return { name: p, allow_self_assignment: p === "Mobile" };
-        }
-        return p;
-      });
-    }
-
-    const saveMockState = () => localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockState));
-
-    document.getElementById("btnResetMock").addEventListener("click", async () => {
-      const ok = await showConfirm("Restablecer Datos Demo", "¿Deseas restablecer todos los datos demo a los valores iniciales?");
-      if (!ok) return;
-      mockState = JSON.parse(JSON.stringify(DEFAULT_MOCK));
-      saveMockState();
-      await initProjectSelectors();
-      showToast("Datos demo restablecidos a valores iniciales.");
-    });
-
-    // -------------------------------------------------------------
-    // API URL & Mode Indicator
+    // API URL & Backend Endpoint Manager
     // -------------------------------------------------------------
     const DEFAULT_API_URL = "https://2pa3hfii3cirygdrjnyjsit7ve0ybqgy.lambda-url.us-east-1.on.aws/";
-    const savedUrl = localStorage.getItem(STORAGE_KEY);
-    const effectiveUrl = (savedUrl && savedUrl.trim()) ? savedUrl.trim() : DEFAULT_API_URL;
-    apiInput.value = effectiveUrl;
-    localStorage.setItem(STORAGE_KEY, effectiveUrl);
+    const getCleanUrl = () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const url = (saved && saved.trim()) ? saved.trim() : DEFAULT_API_URL;
+      return url.replace(/\/+$/, "");
+    };
 
-    const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
+    const adminApiInput = document.getElementById("adminApiUrlInput");
+    if (adminApiInput) {
+      adminApiInput.value = getCleanUrl();
+    }
+    const btnSaveApiUrl = document.getElementById("btnSaveApiUrl");
+    if (btnSaveApiUrl) {
+      btnSaveApiUrl.addEventListener("click", () => {
+        const val = (adminApiInput.value || "").trim();
+        if (!val || !val.startsWith("http")) {
+          showToast("Ingresá una URL válida que empiece con https://", "error");
+          return;
+        }
+        localStorage.setItem(STORAGE_KEY, val);
+        showToast("Endpoint de Lambda actualizado exitosamente.");
+        initApp();
+      });
+    }
+    const btnResetApiUrl = document.getElementById("btnResetApiUrl");
+    if (btnResetApiUrl) {
+      btnResetApiUrl.addEventListener("click", () => {
+        localStorage.setItem(STORAGE_KEY, DEFAULT_API_URL);
+        if (adminApiInput) adminApiInput.value = DEFAULT_API_URL;
+        showToast("Endpoint restablecido al valor predeterminado de AWS.");
+        initApp();
+      });
+    }
 
     const getStoredAuth = () => {
       try {
@@ -1587,24 +1519,6 @@
       }
       return headers;
     };
-
-    const updateModeBadge = () => {
-      const url = getCleanUrl();
-      if (url) {
-        modeBadge.className = "mode-badge aws";
-        modeBadge.textContent = "⚡ Conectado a AWS";
-      } else {
-        modeBadge.className = "mode-badge mock";
-        modeBadge.textContent = "🧪 Modo Mock";
-      }
-      updateAuthUI();
-    };
-
-    apiInput.addEventListener("input", () => {
-      localStorage.setItem(STORAGE_KEY, apiInput.value.trim());
-      updateModeBadge();
-      initApp();
-    });
 
     // -------------------------------------------------------------
     // Universal RBAC & Authentication State
@@ -1668,38 +1582,6 @@
     const api = {
       async requestOtp(email) {
         const url = getCleanUrl();
-        if (!url) {
-          const code = Math.floor(100000 + Math.random() * 900000).toString();
-          sessionStorage.setItem("mock_otp_" + email.toLowerCase(), JSON.stringify({
-            code: code,
-            expires: Date.now() + 10 * 60 * 1000
-          }));
-
-          const stored = localStorage.getItem("daily_scrum_resend_config");
-          const cfg = stored ? JSON.parse(stored) : null;
-          if (cfg && cfg.apiKey) {
-            try {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  "Authorization": `Bearer ${cfg.apiKey}`,
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                  from: cfg.fromEmail || "Daily Scrum <onboarding@resend.dev>",
-                  to: [email],
-                  subject: `${code} es tu código de acceso a Daily Scrum`,
-                  html: `<p>Tu código de acceso OTP es: <strong>${code}</strong> (válido por 10 minutos).</p>`
-                })
-              });
-              return { message: `Código enviado a ${email} vía Resend.`, sent: true };
-            } catch (err) {
-              return { message: "Código generado. (Fallo CORS directo; usá el código en pantalla)", sent: false, demo_code: code };
-            }
-          }
-          return { message: "Código generado (Modo Mock sin Resend).", sent: false, demo_code: code };
-        }
-
         const res = await fetch(`${url}/auth/otp/request`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1712,33 +1594,6 @@
 
       async verifyOtp(email, code) {
         const url = getCleanUrl();
-        if (!url) {
-          const stored = sessionStorage.getItem("mock_otp_" + email.toLowerCase());
-          if (!stored) throw new Error("Código no encontrado o expirado. Solicitá uno nuevo.");
-          const parsed = JSON.parse(stored);
-          if (Date.now() > parsed.expires) {
-            sessionStorage.removeItem("mock_otp_" + email.toLowerCase());
-            throw new Error("El código expiró. Solicitá uno nuevo.");
-          }
-          if (parsed.code !== code.trim()) {
-            throw new Error("Código incorrecto. Verificá los 6 dígitos.");
-          }
-          sessionStorage.removeItem("mock_otp_" + email.toLowerCase());
-
-          const isAdmin = email.toLowerCase().includes("lucas") || email.toLowerCase().includes("admin");
-          const name = email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1);
-          return {
-            message: "Login exitoso",
-            user: {
-              email: email,
-              name: name,
-              role: isAdmin ? "admin" : "member",
-              is_admin: isAdmin,
-              title: isAdmin ? "Admin / Tech Lead" : "Team Member",
-            }
-          };
-        }
-
         const res = await fetch(`${url}/auth/otp/verify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1751,10 +1606,6 @@
 
       async getResendConfig() {
         const url = getCleanUrl();
-        if (!url) {
-          const stored = localStorage.getItem("daily_scrum_resend_config");
-          return stored ? JSON.parse(stored) : { configured: false, apiKey: "", fromEmail: "Daily Scrum <onboarding@resend.dev>" };
-        }
         const res = await fetch(`${url}/admin/config/resend`, { headers: getAuthHeaders() });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al obtener configuración de Resend");
@@ -1763,14 +1614,6 @@
 
       async saveResendConfig(apiKey, fromEmail) {
         const url = getCleanUrl();
-        if (!url) {
-          localStorage.setItem("daily_scrum_resend_config", JSON.stringify({
-            configured: !!apiKey,
-            apiKey: apiKey,
-            fromEmail: fromEmail || "Daily Scrum <onboarding@resend.dev>"
-          }));
-          return { message: "Configuración guardada en almacenamiento local (Modo Mock)." };
-        }
         const res = await fetch(`${url}/admin/config/resend`, {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1783,14 +1626,6 @@
 
       async testResendEmail(toEmail) {
         const url = getCleanUrl();
-        if (!url) {
-          const stored = localStorage.getItem("daily_scrum_resend_config");
-          const cfg = stored ? JSON.parse(stored) : null;
-          if (!cfg || !cfg.apiKey) {
-            throw new Error("No hay API Key configurada. Ingresá una antes de probar.");
-          }
-          return { message: `Simulación de prueba: email listo para enviarse a ${toEmail} con remitente ${cfg.fromEmail}` };
-        }
         const res = await fetch(`${url}/admin/config/resend/test`, {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1803,7 +1638,6 @@
 
       async signup(email, password, name) {
         const url = getCleanUrl();
-        if (!url) throw new Error("El registro de nuevas cuentas requiere la conexión con AWS Lambda y Resend. Para pruebas en modo demo utilizá los 3 usuarios habilitados (Marcelo, Lucas o José).");
         const res = await fetch(`${url}/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1816,7 +1650,6 @@
 
       async confirm(email, code) {
         const url = getCleanUrl();
-        if (!url) throw new Error("La verificación de cuentas requiere la conexión con AWS Lambda y Resend.");
         const res = await fetch(`${url}/auth/confirm`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1829,17 +1662,6 @@
 
       async login(email, password) {
         const url = getCleanUrl();
-        if (!url) {
-          const lower = email.toLowerCase();
-          if (lower === "marcelo@gmail.com" || lower === "marcelo") {
-            return { user: { name: "Marcelo", email: "marcelo@gmail.com", role: "member", title: "Frontend Dev", is_admin: false } };
-          } else if (lower === "lucas@empresa.com" || lower === "lucas") {
-            return { user: { name: "Lucas", email: "lucas@empresa.com", role: "admin", title: "Tech Lead / Admin", is_admin: true } };
-          } else if (lower === "jose@empresa.com" || lower === "jose") {
-            return { user: { name: "José", email: "jose@empresa.com", role: "member", title: "Backend Dev", is_admin: false } };
-          }
-          throw new Error("En modo local solo están habilitados los 3 usuarios demo: Marcelo (Dev), Lucas (Admin) o José (Dev). Para ingresar con tu cuenta, conectá el Lambda Function URL.");
-        }
         const res = await fetch(`${url}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1857,32 +1679,18 @@
 
       async getProjects() {
         const url = getCleanUrl();
-        if (!url) {
-          return mockState.projects.map((p) =>
-            typeof p === "string" ? { name: p, allow_self_assignment: false } : p
-          );
-        }
         try {
           const res = await fetch(`${url}/projects`, { headers: getAuthHeaders() });
           const data = await res.json();
           return data.projects || [];
         } catch (err) {
-          return mockState.projects.map((p) =>
-            typeof p === "string" ? { name: p, allow_self_assignment: false } : p
-          );
+          console.error("Error fetching projects:", err);
+          return [];
         }
       },
 
       async createProject(name, allow_self_assignment = false) {
         const url = getCleanUrl();
-        if (!url) {
-          if (!mockState.projects.some((p) => p.name === name)) {
-            mockState.projects.push({ name, allow_self_assignment });
-            mockState.members[name] = [];
-            saveMockState();
-          }
-          return;
-        }
         const res = await fetch(`${url}/projects`, {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1894,21 +1702,6 @@
 
       async updateProject(oldName, newName, allow_self_assignment) {
         const url = getCleanUrl();
-        if (!url) {
-          const proj = mockState.projects.find((p) => p.name === oldName);
-          if (proj) {
-            proj.name = newName;
-            if (allow_self_assignment !== undefined) {
-              proj.allow_self_assignment = allow_self_assignment;
-            }
-          }
-          if (oldName !== newName) {
-            mockState.members[newName] = mockState.members[oldName] || [];
-            delete mockState.members[oldName];
-          }
-          saveMockState();
-          return;
-        }
         const res = await fetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
           method: "PUT",
           headers: getAuthHeaders(),
@@ -1920,12 +1713,6 @@
 
       async deleteProject(name) {
         const url = getCleanUrl();
-        if (!url) {
-          mockState.projects = mockState.projects.filter((p) => p.name !== name);
-          delete mockState.members[name];
-          saveMockState();
-          return;
-        }
         const res = await fetch(`${url}/projects/${encodeURIComponent(name)}`, {
           method: "DELETE",
           headers: getAuthHeaders(),
@@ -1936,7 +1723,6 @@
 
       async getMembers(project) {
         const url = getCleanUrl();
-        if (!url) return mockState.members[project] || [];
         try {
           const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
             headers: getAuthHeaders(),
@@ -1944,18 +1730,13 @@
           const data = await res.json();
           return data.members || [];
         } catch (err) {
-          return mockState.members[project] || [];
+          console.error("Error fetching members:", err);
+          return [];
         }
       },
 
       async createMember(project, name, role, email = "") {
         const url = getCleanUrl();
-        if (!url) {
-          if (!mockState.members[project]) mockState.members[project] = [];
-          mockState.members[project].push({ name, role, email });
-          saveMockState();
-          return;
-        }
         const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1967,13 +1748,6 @@
 
       async updateMember(project, oldName, newName, role, email = "") {
         const url = getCleanUrl();
-        if (!url) {
-          const list = mockState.members[project] || [];
-          const m = list.find((x) => x.name === oldName);
-          if (m) { m.name = newName; m.role = role; if (email) m.email = email; }
-          saveMockState();
-          return;
-        }
         const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
           method: "PUT",
           headers: getAuthHeaders(),
@@ -1985,13 +1759,6 @@
 
       async deleteMember(project, name) {
         const url = getCleanUrl();
-        if (!url) {
-          if (mockState.members[project]) {
-            mockState.members[project] = mockState.members[project].filter((m) => m.name !== name);
-            saveMockState();
-          }
-          return;
-        }
         const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
           method: "DELETE",
           headers: getAuthHeaders(),
@@ -2000,18 +1767,22 @@
         if (!res.ok) throw new Error(data.error || "Error al eliminar integrante");
       },
 
+      async getWeeks(project) {
+        const url = getCleanUrl();
+        try {
+          const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}`, {
+            headers: getAuthHeaders(),
+          });
+          const data = await res.json();
+          return data.weeks || [];
+        } catch (err) {
+          console.error("Error fetching weeks:", err);
+          return [];
+        }
+      },
+
       async getWeeklyScrums(project, week) {
         const url = getCleanUrl();
-        if (!url) {
-          const scrums = [];
-          Object.entries(mockState.scrums).forEach(([key, val]) => {
-            const [p, w, day, member] = key.split("#");
-            if (p === project && w === week) {
-              scrums.push({ project: p, week: w, day, member, answers: val.answers });
-            }
-          });
-          return scrums;
-        }
         try {
           const res = await fetch(`${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}`, {
             headers: getAuthHeaders(),
@@ -2019,18 +1790,13 @@
           const data = await res.json();
           return data.scrums || [];
         } catch (err) {
+          console.error("Error fetching weekly scrums:", err);
           return [];
         }
       },
 
       async saveScrum(project, week, day, member, answers) {
         const url = getCleanUrl();
-        if (!url) {
-          const key = `${project}#${week}#${day}#${member}`;
-          mockState.scrums[key] = { answers };
-          saveMockState();
-          return;
-        }
         const res = await fetch(`${url}/scrums`, {
           method: "POST",
           headers: getAuthHeaders(),
@@ -2042,12 +1808,6 @@
 
       async deleteScrum(project, week, day, member) {
         const url = getCleanUrl();
-        if (!url) {
-          const key = `${project}#${week}#${day}#${member}`;
-          delete mockState.scrums[key];
-          saveMockState();
-          return;
-        }
         const res = await fetch(`${url}/scrums`, {
           method: "DELETE",
           headers: getAuthHeaders(),
@@ -2059,36 +1819,20 @@
 
       async getTasks(project) {
         const url = getCleanUrl();
-        if (!url) {
-          return (mockState.tasks && mockState.tasks[project]) || [];
-        }
         try {
-          const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}`, { headers: getAuthHeaders() });
+          const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}`, {
+            headers: getAuthHeaders(),
+          });
           const data = await res.json();
           return data.tasks || [];
         } catch (err) {
-          return (mockState.tasks && mockState.tasks[project]) || [];
+          console.error("Error fetching tasks:", err);
+          return [];
         }
       },
 
       async saveTask(task) {
         const url = getCleanUrl();
-        if (!url) {
-          if (!mockState.tasks) mockState.tasks = {};
-          if (!mockState.tasks[task.project]) mockState.tasks[task.project] = [];
-          const list = mockState.tasks[task.project];
-          const idx = list.findIndex((t) => t.id === task.id);
-          let saved;
-          if (idx >= 0) {
-            list[idx] = { ...list[idx], ...task };
-            saved = list[idx];
-          } else {
-            saved = { ...task, id: task.id || "task-" + Date.now().toString(36) };
-            list.push(saved);
-          }
-          saveMockState();
-          return saved;
-        }
         const method = task.id ? "PUT" : "POST";
         const res = await fetch(`${url}/tasks`, {
           method,
@@ -2102,13 +1846,6 @@
 
       async deleteTask(project, taskId) {
         const url = getCleanUrl();
-        if (!url) {
-          if (mockState.tasks && mockState.tasks[project]) {
-            mockState.tasks[project] = mockState.tasks[project].filter((t) => t.id !== taskId);
-            saveMockState();
-          }
-          return;
-        }
         const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}&id=${encodeURIComponent(taskId)}`, {
           method: "DELETE",
           headers: getAuthHeaders(),
@@ -2864,13 +2601,16 @@
     // Management Modal (CRUD - Admin Only)
     // -------------------------------------------------------------
     window.switchAdminTab = (tab) => {
-      const tabs = ["projects", "members", "resend"];
+      const tabs = ["projects", "members", "resend", "endpoint"];
       tabs.forEach((t) => {
         const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
         const content = document.getElementById(`adminTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
         if (btn) btn.classList.toggle("active", t === tab);
         if (content) content.style.display = t === tab ? "block" : "none";
       });
+      if (tab === "endpoint" && adminApiInput) {
+        adminApiInput.value = getCleanUrl();
+      }
     };
 
     document.getElementById("btnOpenManageModal").addEventListener("click", () => {
@@ -3134,8 +2874,89 @@
     };
 
     // -------------------------------------------------------------
-    // Initializer
+    // Initializer & Week Management
     // -------------------------------------------------------------
+    const getCalendarWeekNumber = (d = new Date()) => {
+      const target = new Date(d.valueOf());
+      const dayNr = (d.getDay() + 6) % 7;
+      target.setDate(target.getDate() - dayNr + 3);
+      const firstThursday = target.valueOf();
+      target.setMonth(0, 1);
+      if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+      }
+      return 1 + Math.ceil((firstThursday - target) / 604800000);
+    };
+
+    const initWeekSelector = async (project, targetWeek = null) => {
+      const weekSelect = document.getElementById("boardWeek");
+      if (!weekSelect) return;
+      const prevVal = targetWeek || weekSelect.value;
+      const currentCalWeekNum = getCalendarWeekNumber();
+      const currentWeekKey = `WEEK ${currentCalWeekNum}`;
+
+      let loadedWeeks = [];
+      if (project) {
+        try {
+          loadedWeeks = await api.getWeeks(project);
+        } catch (e) {
+          console.error("Error loading weeks for project", e);
+        }
+      }
+
+      const weekSet = new Set(loadedWeeks);
+      weekSet.add(currentWeekKey);
+      if (prevVal) weekSet.add(prevVal);
+
+      const sortedWeeks = Array.from(weekSet).sort((a, b) => {
+        const numA = parseInt((a.match(/\d+/) || [0])[0], 10);
+        const numB = parseInt((b.match(/\d+/) || [0])[0], 10);
+        return numA - numB;
+      });
+
+      weekSelect.innerHTML = "";
+      sortedWeeks.forEach((w) => {
+        const opt = document.createElement("option");
+        opt.value = w;
+        opt.textContent = w.replace(/^WEEK\s*/i, "Semana ");
+        weekSelect.appendChild(opt);
+      });
+
+      if (prevVal && sortedWeeks.includes(prevVal)) {
+        weekSelect.value = prevVal;
+      } else if (sortedWeeks.includes(currentWeekKey)) {
+        weekSelect.value = currentWeekKey;
+      } else if (sortedWeeks.length > 0) {
+        weekSelect.value = sortedWeeks[sortedWeeks.length - 1];
+      }
+    };
+
+    const addNewWeek = async () => {
+      const weekSelect = document.getElementById("boardWeek");
+      if (!weekSelect) return;
+
+      let maxNum = 0;
+      Array.from(weekSelect.options).forEach((opt) => {
+        const num = parseInt((opt.value.match(/\d+/) || [0])[0], 10);
+        if (num > maxNum) maxNum = num;
+      });
+
+      const nextNum = maxNum + 1;
+      const nextKey = `WEEK ${nextNum}`;
+      const opt = document.createElement("option");
+      opt.value = nextKey;
+      opt.textContent = `Semana ${nextNum}`;
+      weekSelect.appendChild(opt);
+      weekSelect.value = nextKey;
+
+      showToast(`Semana ${nextNum} agregada.`);
+      if (currentMainView === "daily") {
+        await renderBoard();
+      } else {
+        await renderKanban();
+      }
+    };
+
     const initProjectSelectors = async () => {
       const projects = await api.getProjects();
       const boardSelect = document.getElementById("boardProject");
@@ -3151,6 +2972,11 @@
       });
 
       if (!boardSelect.value && projects.length > 0) boardSelect.value = projects[0].name;
+
+      if (boardSelect.value) {
+        await initWeekSelector(boardSelect.value);
+      }
+
       if (currentMainView === "daily") {
         await renderBoard();
       } else {
@@ -3203,12 +3029,12 @@
       return idx > 0 ? KANBAN_STATUSES[idx - 1] : null;
     };
 
+    let currentLoadedTasks = [];
     let draggedTaskId = null;
 
     window.handleDragStart = (e, taskId) => {
-      const project = document.getElementById("boardProject").value;
-      if (project && mockState && mockState.tasks && mockState.tasks[project]) {
-        const task = mockState.tasks[project].find((t) => t.id === taskId);
+      if (currentLoadedTasks && currentLoadedTasks.length) {
+        const task = currentLoadedTasks.find((t) => t.id === taskId);
         if (task && task.assignee) {
           const isOwner = currentUser.name && (task.assignee.toLowerCase() === currentUser.name.toLowerCase());
           const canDrag = (currentUser.role === "admin") || isOwner;
@@ -3373,6 +3199,7 @@
         api.getTasks(project),
         api.getWeeklyScrums(project, week),
       ]);
+      currentLoadedTasks = tasks || [];
 
       const statusMap = { TODO: [], DOING: [], BLOCKED: [], DONE: [] };
       tasks.forEach((t) => {
@@ -3812,14 +3639,28 @@
       }
     };
 
-    document.getElementById("boardProject").addEventListener("change", () => {
+    document.getElementById("boardProject").addEventListener("change", async () => {
+      await initWeekSelector(document.getElementById("boardProject").value);
+      if (currentMainView === "daily") {
+        await renderBoard();
+      } else {
+        await renderKanban();
+      }
+    });
+
+    document.getElementById("boardWeek").addEventListener("change", () => {
       if (currentMainView === "daily") {
         renderBoard();
       } else {
         renderKanban();
       }
     });
-    document.getElementById("boardWeek").addEventListener("change", renderBoard);
+
+    const btnAddWeek = document.getElementById("btnAddWeek");
+    if (btnAddWeek) {
+      btnAddWeek.addEventListener("click", addNewWeek);
+    }
+
     document.getElementById("btnRefreshBoard").addEventListener("click", () => {
       if (currentMainView === "daily") {
         renderBoard();
@@ -3829,7 +3670,7 @@
     });
 
     const initApp = async () => {
-      updateModeBadge();
+      updateAuthUI();
       await initProjectSelectors();
     };
 
