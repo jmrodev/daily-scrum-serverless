@@ -27,18 +27,15 @@ dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
 cognito_idp = boto3.client("cognito-idp")
 
-CORS_HEADERS = {
+RESPONSE_HEADERS = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
 }
 
 
 def create_response(status_code, body):
     return {
         "statusCode": status_code,
-        "headers": CORS_HEADERS,
+        "headers": RESPONSE_HEADERS,
         "body": json.dumps(body),
     }
 
@@ -264,7 +261,7 @@ def handler(event, context):
         path = "/"
 
     if method == "OPTIONS":
-        return {"statusCode": 204, "headers": CORS_HEADERS}
+        return {"statusCode": 204, "headers": RESPONSE_HEADERS}
 
     params = event.get("queryStringParameters") or {}
     user_claims = extract_user_claims(event)
