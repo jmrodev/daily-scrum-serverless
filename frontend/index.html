@@ -469,27 +469,16 @@
       <div class="top-controls">
         <span id="modeBadge" class="mode-badge mock">🧪 Modo Mock</span>
 
-        <!-- Mock Mode Role/Member Switcher -->
-        <div id="mockUserContainer" class="user-pill">
-          <label for="mockUserSelect" style="margin:0; font-size:11px; text-transform:none;">Simular Usuario:</label>
-          <select id="mockUserSelect" style="padding: 4px 8px; font-size: 12px; font-weight: 600;">
-            <option value="Marcelo|member|Frontend Dev" selected>👨‍💻 Marcelo (Dev - Mi Usuario)</option>
-            <option value="Lucas|admin|Tech Lead">🛡️ Lucas (Admin / Tech Lead)</option>
-            <option value="José|member|Backend Dev">👨‍💻 José (Dev - Compañero)</option>
-            <option value="Invitado|guest|Viewer">👁️ Invitado (Solo Lectura)</option>
-          </select>
-        </div>
-
-        <!-- AWS Cognito Auth State -->
-        <div id="awsAuthContainer" style="display: none; align-items: center; gap: 8px;">
+        <!-- App Auth Navbar (Pure App Experience) -->
+        <div id="authNavContainer" style="display: inline-flex; align-items: center; gap: 8px;">
           <span id="authUserBadge" class="user-badge" style="display: none;"></span>
           <button id="btnLoginOpen" class="btn btn-primary btn-sm">🔑 Iniciar Sesión</button>
           <button id="btnSignupOpen" class="btn btn-secondary btn-sm">📝 Registrarse</button>
           <button id="btnLogout" class="btn btn-secondary btn-sm" style="display: none;">🚪 Salir</button>
         </div>
 
-        <!-- Admin Management Button (Gated) -->
-        <button id="btnOpenManageModal" class="btn btn-secondary btn-sm">
+        <!-- Admin Management Button (Gated to Admins) -->
+        <button id="btnOpenManageModal" class="btn btn-secondary btn-sm" style="display: none;">
           👥 Administrar Equipo
         </button>
 
@@ -646,11 +635,23 @@
         <form id="loginForm" onsubmit="return false;">
           <button type="button" id="btnGoogleSignIn" class="btn btn-secondary" style="width: 100%; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
             <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
-            Continuar con Google
+            Continuar con Google (marcelo@gmail.com)
           </button>
+
+          <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
+              Acceso Rápido Demo:
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('marcelo')">👨‍💻 Marcelo (Dev)</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('lucas')">🛡️ Lucas (Admin)</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('jose')">👨‍💻 José (Dev)</button>
+            </div>
+          </div>
+
           <div style="display: flex; align-items: center; text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 11px;">
             <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
-            <span style="padding: 0 10px; font-weight: 600;">O CON EMAIL</span>
+            <span style="padding: 0 10px; font-weight: 600;">O CON EMAIL Y CONTRASEÑA</span>
             <span style="flex: 1; border-bottom: 1px solid var(--border);"></span>
           </div>
 
@@ -772,21 +773,19 @@
 
     const apiInput = document.getElementById("apiUrl");
     const modeBadge = document.getElementById("modeBadge");
-    const mockUserContainer = document.getElementById("mockUserContainer");
-    const mockUserSelect = document.getElementById("mockUserSelect");
-    const awsAuthContainer = document.getElementById("awsAuthContainer");
+    const authNavContainer = document.getElementById("authNavContainer");
     const authUserBadge = document.getElementById("authUserBadge");
     const btnLoginOpen = document.getElementById("btnLoginOpen");
     const btnSignupOpen = document.getElementById("btnSignupOpen");
     const btnLogout = document.getElementById("btnLogout");
     const btnOpenManageModal = document.getElementById("btnOpenManageModal");
 
-    // Current logged-in / active user state
+    // Current logged-in / active user state (defaults to guest until auth resolves)
     let currentUser = {
-      name: "Marcelo",
-      role: "member", // 'admin', 'member', 'guest'
-      title: "Frontend Dev",
-      email: "marcelo@gmail.com",
+      name: "",
+      role: "guest", // 'admin', 'member', 'guest'
+      title: "Invitado",
+      email: "",
     };
 
     // -------------------------------------------------------------
@@ -1002,16 +1001,11 @@
       if (url) {
         modeBadge.className = "mode-badge aws";
         modeBadge.textContent = "⚡ Conectado a AWS";
-        mockUserContainer.style.display = "none";
-        awsAuthContainer.style.display = "inline-flex";
-        refreshAWSAuthState();
       } else {
         modeBadge.className = "mode-badge mock";
         modeBadge.textContent = "🧪 Modo Mock";
-        mockUserContainer.style.display = "inline-flex";
-        awsAuthContainer.style.display = "none";
-        applyMockUser();
       }
+      updateAuthUI();
     };
 
     apiInput.addEventListener("input", () => {
@@ -1021,50 +1015,27 @@
     });
 
     // -------------------------------------------------------------
-    // RBAC & Role Management
+    // Universal RBAC & Authentication State
     // -------------------------------------------------------------
-    const applyMockUser = () => {
-      const val = mockUserSelect.value;
-      const [name, role, title] = val.split("|");
-      currentUser = {
-        name,
-        role, // 'admin', 'member', 'guest'
-        title,
-        email: `${name.toLowerCase()}@demo.com`,
-      };
-      updateUIForRole();
-      renderBoard();
-    };
-
-    mockUserSelect.addEventListener("change", applyMockUser);
-
-    const updateUIForRole = () => {
-      if (currentUser.role === "admin") {
-        btnOpenManageModal.style.display = "inline-flex";
-      } else {
-        btnOpenManageModal.style.display = "none";
-      }
-    };
-
-    const refreshAWSAuthState = async () => {
+    const updateAuthUI = () => {
       const session = getStoredAuth();
       if (session && session.user) {
         currentUser = {
           name: session.user.name || session.user.email.split("@")[0],
-          role: session.user.is_admin ? "admin" : "member",
-          title: session.user.is_admin ? "Administrador" : "Integrante",
-          email: session.user.email,
+          role: session.user.is_admin ? "admin" : (session.user.role || "member"),
+          title: session.user.title || (session.user.is_admin ? "Admin / Tech Lead" : "Developer"),
+          email: session.user.email || "",
         };
         authUserBadge.style.display = "inline-flex";
-        authUserBadge.innerHTML = `👤 ${escapeHtml(currentUser.name)} (${escapeHtml(currentUser.title)})`;
+        authUserBadge.innerHTML = `👤 <strong>${escapeHtml(currentUser.name)}</strong> <span style="font-size:10px; color:var(--text-muted); margin-left:3px;">(${escapeHtml(currentUser.title)})</span>`;
         btnLoginOpen.style.display = "none";
         btnSignupOpen.style.display = "none";
         btnLogout.style.display = "inline-flex";
       } else {
         currentUser = {
-          name: "Invitado",
+          name: "",
           role: "guest",
-          title: "Visitante",
+          title: "Invitado",
           email: "",
         };
         authUserBadge.style.display = "none";
@@ -1072,14 +1043,31 @@
         btnSignupOpen.style.display = "inline-flex";
         btnLogout.style.display = "none";
       }
-      updateUIForRole();
+
+      btnOpenManageModal.style.display = currentUser.role === "admin" ? "inline-flex" : "none";
+    };
+
+    window.quickLogin = (userId) => {
+      if (userId === "marcelo") {
+        setStoredAuth({ user: { name: "Marcelo", email: "marcelo@gmail.com", role: "member", title: "Frontend Dev", is_admin: false } });
+        showToast("¡Sesión iniciada como Marcelo (Frontend Dev)!");
+      } else if (userId === "lucas") {
+        setStoredAuth({ user: { name: "Lucas", email: "lucas@empresa.com", role: "admin", title: "Tech Lead / Admin", is_admin: true } });
+        showToast("¡Sesión iniciada como Lucas (Admin)! Tenés gestión de equipo.");
+      } else if (userId === "jose") {
+        setStoredAuth({ user: { name: "José", email: "jose@empresa.com", role: "member", title: "Backend Dev", is_admin: false } });
+        showToast("¡Sesión iniciada como José (Backend Dev)!");
+      }
+      authModal.close();
+      updateAuthUI();
+      renderBoard();
     };
 
     btnLogout.addEventListener("click", () => {
       setStoredAuth(null);
-      refreshAWSAuthState();
+      updateAuthUI();
       renderBoard();
-      showToast("Sesión cerrada.");
+      showToast("Sesión cerrada. Ahora estás en modo invitado (lectura).");
     });
 
     // -------------------------------------------------------------
@@ -1384,15 +1372,18 @@
     });
 
     const handleGoogleAuth = () => {
-      currentUser = {
-        name: "Marcelo",
-        role: "member",
-        title: "Frontend Dev",
-        email: "marcelo@gmail.com",
-      };
+      setStoredAuth({
+        user: {
+          name: "Marcelo",
+          role: "member",
+          title: "Frontend Dev",
+          email: "marcelo@gmail.com",
+          is_admin: false,
+        },
+      });
       authModal.close();
       showToast("¡Sesión iniciada con Google (marcelo@gmail.com)!");
-      refreshAWSAuthState();
+      updateAuthUI();
       renderBoard();
     };
 
@@ -1418,7 +1409,7 @@
           user: data.user,
         });
         authModal.close();
-        refreshAWSAuthState();
+        updateAuthUI();
         await renderBoard();
         showToast(`¡Bienvenido, ${data.user.name || email}!`);
       } catch (err) {
@@ -1671,6 +1662,14 @@
     // Scrum Modal (View / Edit / Delete)
     // -------------------------------------------------------------
     window.openScrumModal = async (project, week, day, member, isEdit) => {
+      // Prompt guests to log in
+      if (!currentUser.name || currentUser.role === "guest") {
+        showToast("Iniciá sesión para registrar o editar tu Daily Scrum", "info");
+        switchAuthView("login");
+        authModal.open();
+        return;
+      }
+
       // Permission check guard
       const isSelf = currentUser.name && (member.toLowerCase() === currentUser.name.toLowerCase());
       if (currentUser.role !== "admin" && !isSelf) {
