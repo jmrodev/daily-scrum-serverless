@@ -229,7 +229,11 @@ def handler(event, context):
         if path == "/projects" and method == "GET":
             resp = table.query(KeyConditionExpression=Key("PK").eq("META#PROJECTS"))
             projects = [
-                {"name": item.get("name"), "created_at": item.get("created_at")}
+                {
+                    "name": item.get("name"),
+                    "allow_self_assignment": bool(item.get("allow_self_assignment", False)),
+                    "created_at": item.get("created_at"),
+                }
                 for item in resp.get("Items", [])
             ]
             return create_response(200, {"projects": projects})
@@ -244,6 +248,7 @@ def handler(event, context):
 
             body = parse_body(event)
             name = (body.get("name") or "").strip()
+            allow_self = bool(body.get("allow_self_assignment", False))
             if not name:
                 return create_response(400, {"error": "Project name is required"})
 
@@ -251,12 +256,13 @@ def handler(event, context):
                 "PK": "META#PROJECTS",
                 "SK": f"PROJECT#{name}",
                 "name": name,
+                "allow_self_assignment": allow_self,
                 "created_at": event.get("requestContext", {}).get("time", ""),
             }
             table.put_item(Item=item)
             return create_response(201, {"message": f"Project '{name}' created", "project": item})
 
-        # PUT /projects/{name} -> Rename project (Admin only)
+        # PUT /projects/{name} -> Rename project or toggle allow_self_assignment (Admin only)
         elif re.match(r"^/projects/[^/]+$", path) and method == "PUT":
             if user_claims and not user_claims["is_admin"]:
                 return create_response(
@@ -266,21 +272,30 @@ def handler(event, context):
 
             old_name = urllib.parse.unquote(re.match(r"^/projects/([^/]+)$", path).group(1))
             body = parse_body(event)
-            new_name = (body.get("newName") or "").strip()
+            new_name = (body.get("newName") or old_name).strip()
+
+            old_item_resp = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{old_name}"})
+            old_item = old_item_resp.get("Item") or {}
+            allow_self = bool(body.get("allow_self_assignment", old_item.get("allow_self_assignment", False)))
+
             if not new_name:
                 return create_response(400, {"error": "New project name is required"})
 
-            table.delete_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{old_name}"})
+            if old_name != new_name:
+                table.delete_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{old_name}"})
+
             item = {
                 "PK": "META#PROJECTS",
                 "SK": f"PROJECT#{new_name}",
                 "name": new_name,
-                "created_at": event.get("requestContext", {}).get("time", ""),
+                "allow_self_assignment": allow_self,
+                "created_at": old_item.get("created_at") or event.get("requestContext", {}).get("time", ""),
+                "updated_at": event.get("requestContext", {}).get("time", ""),
             }
             table.put_item(Item=item)
             return create_response(
                 200,
-                {"message": f"Project '{old_name}' renamed to '{new_name}'", "project": item},
+                {"message": f"Project '{new_name}' updated", "project": item},
             )
 
         # DELETE /projects/{name} (Admin only)
@@ -300,7 +315,7 @@ def handler(event, context):
             return create_response(200, {"message": f"Project '{name}' deleted"})
 
         # =====================================================================
-        # 3. MEMBERS CRUD (Admin-Gated Modification)
+        # 3. MEMBERS CRUD (Admin-Gated or Self-Assignment when enabled)
         # =====================================================================
         # GET /projects/{project}/members
         member_list_match = re.match(r"^/projects/([^/]+)/members$", path)
@@ -328,15 +343,9 @@ def handler(event, context):
             ]
             return create_response(200, {"members": members})
 
-        # POST /projects/{project}/members (Admin only)
+        # POST /projects/{project}/members (Admin or Self-Assignment)
         member_add_match = re.match(r"^/projects/([^/]+)/members$", path)
         if (member_add_match or path == "/members") and method == "POST":
-            if user_claims and not user_claims["is_admin"]:
-                return create_response(
-                    403,
-                    {"error": "Forbidden: Only administrators can assign members to projects."},
-                )
-
             body = parse_body(event)
             project = (
                 urllib.parse.unquote(member_add_match.group(1))
@@ -349,6 +358,29 @@ def handler(event, context):
 
             if not project or not name:
                 return create_response(400, {"error": "Project and member name are required"})
+
+            # Check permissions: Admin OR self-assignment if allowed by project
+            if user_claims and not user_claims["is_admin"]:
+                proj_resp = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{project}"})
+                proj_item = proj_resp.get("Item") or {}
+                allow_self = bool(proj_item.get("allow_self_assignment", False))
+
+                user_name = (user_claims.get("name") or "").strip().lower()
+                user_email = (user_claims.get("email") or "").strip().lower()
+                target_norm = name.strip().lower()
+                is_self = (
+                    target_norm == user_name
+                    or target_norm == user_email
+                    or target_norm == user_email.split("@")[0]
+                )
+
+                if not (allow_self and is_self):
+                    return create_response(
+                        403,
+                        {
+                            "error": f"Forbidden: Self-assignment is not enabled for project '{project}'. An administrator must assign you."
+                        },
+                    )
 
             item = {
                 "PK": f"PROJECT#{project}",
@@ -393,15 +425,9 @@ def handler(event, context):
             table.put_item(Item=item)
             return create_response(200, {"message": f"Member '{old_name}' updated in '{project}'", "member": item})
 
-        # DELETE /projects/{project}/members/{name} (Admin only)
+        # DELETE /projects/{project}/members/{name} (Admin or self un-assignment)
         member_del_match = re.match(r"^/projects/([^/]+)/members/([^/]+)$", path)
         if (member_del_match or path == "/members") and method == "DELETE":
-            if user_claims and not user_claims["is_admin"]:
-                return create_response(
-                    403,
-                    {"error": "Forbidden: Only administrators can remove members."},
-                )
-
             body = parse_body(event) if method == "DELETE" and event.get("body") else {}
             if member_del_match:
                 project = urllib.parse.unquote(member_del_match.group(1))
@@ -412,6 +438,26 @@ def handler(event, context):
 
             if not project or not name:
                 return create_response(400, {"error": "Project and member name are required"})
+
+            if user_claims and not user_claims["is_admin"]:
+                proj_resp = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{project}"})
+                proj_item = proj_resp.get("Item") or {}
+                allow_self = bool(proj_item.get("allow_self_assignment", False))
+
+                user_name = (user_claims.get("name") or "").strip().lower()
+                user_email = (user_claims.get("email") or "").strip().lower()
+                target_norm = name.strip().lower()
+                is_self = (
+                    target_norm == user_name
+                    or target_norm == user_email
+                    or target_norm == user_email.split("@")[0]
+                )
+
+                if not (allow_self and is_self):
+                    return create_response(
+                        403,
+                        {"error": "Forbidden: Only administrators can remove other members from projects."},
+                    )
 
             table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"})
             return create_response(200, {"message": f"Member '{name}' removed from '{project}'"})

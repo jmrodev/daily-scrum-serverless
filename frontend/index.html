@@ -107,6 +107,23 @@
       gap: 5px;
     }
 
+    .tag-status {
+      border: none;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .tag-status.open { background: var(--success-bg); color: var(--success); }
+    .tag-status.open:hover { background: #bbf7d0; }
+    .tag-status.closed { background: #f1f5f9; color: #64748b; }
+    .tag-status.closed:hover { background: #e2e8f0; }
+
     /* Main Board Card */
     .card {
       background: var(--surface);
@@ -512,6 +529,7 @@
           <button id="btnRefreshBoard" class="btn btn-secondary" style="height: 35px;">
             🔄 Refrescar
           </button>
+          <div id="projectSelfAssignContainer" style="display: flex; align-items: flex-end; padding-bottom: 2px;"></div>
         </div>
 
         <!-- Connection Settings Toggle/Input -->
@@ -591,10 +609,13 @@
         <!-- Projects Section -->
         <div class="sub-section">
           <h4>📁 Proyectos</h4>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; margin-bottom: 6px;">
             <input type="text" id="newProjectName" placeholder="Nuevo proyecto..." style="flex: 1;" />
             <button id="btnAddProject" class="btn btn-primary btn-sm">Crear</button>
           </div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; text-transform: none; cursor: pointer; color: var(--text-muted); font-weight: 600; margin-bottom: 10px;">
+            <input type="checkbox" id="newProjectAllowSelf" /> Permitir que cualquier integrante se autoasigne a este proyecto
+          </label>
           <div id="projectsChipList" class="chip-list"></div>
         </div>
 
@@ -858,7 +879,11 @@
     // Mock Engine
     // -------------------------------------------------------------
     const DEFAULT_MOCK = {
-      projects: ["Sabato", "Core", "Mobile"],
+      projects: [
+        { name: "Sabato", allow_self_assignment: false },
+        { name: "Core", allow_self_assignment: false },
+        { name: "Mobile", allow_self_assignment: true }
+      ],
       members: {
         "Sabato": [
           { name: "Paz", role: "Tech Lead", email: "paz@demo.com" },
@@ -896,7 +921,19 @@
       }
     };
 
-    let mockState = JSON.parse(localStorage.getItem(MOCK_STORAGE_KEY)) || DEFAULT_MOCK;
+    let rawMock = JSON.parse(localStorage.getItem(MOCK_STORAGE_KEY));
+    let mockState = rawMock || DEFAULT_MOCK;
+
+    // Normalize projects in case older format stored plain strings
+    if (mockState && mockState.projects) {
+      mockState.projects = mockState.projects.map((p) => {
+        if (typeof p === "string") {
+          return { name: p, allow_self_assignment: p === "Mobile" };
+        }
+        return p;
+      });
+    }
+
     const saveMockState = () => localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockState));
 
     document.getElementById("btnResetMock").addEventListener("click", async () => {
@@ -904,7 +941,7 @@
       if (!ok) return;
       mockState = JSON.parse(JSON.stringify(DEFAULT_MOCK));
       saveMockState();
-      renderBoard();
+      await initProjectSelectors();
       showToast("Datos demo restablecidos a valores iniciales.");
     });
 
@@ -1071,21 +1108,27 @@
 
       async getProjects() {
         const url = getCleanUrl();
-        if (!url) return mockState.projects.map((p) => ({ name: p }));
+        if (!url) {
+          return mockState.projects.map((p) =>
+            typeof p === "string" ? { name: p, allow_self_assignment: false } : p
+          );
+        }
         try {
           const res = await fetch(`${url}/projects`, { headers: getAuthHeaders() });
           const data = await res.json();
           return data.projects || [];
         } catch (err) {
-          return mockState.projects.map((p) => ({ name: p }));
+          return mockState.projects.map((p) =>
+            typeof p === "string" ? { name: p, allow_self_assignment: false } : p
+          );
         }
       },
 
-      async createProject(name) {
+      async createProject(name, allow_self_assignment = false) {
         const url = getCleanUrl();
         if (!url) {
-          if (!mockState.projects.includes(name)) {
-            mockState.projects.push(name);
+          if (!mockState.projects.some((p) => p.name === name)) {
+            mockState.projects.push({ name, allow_self_assignment });
             mockState.members[name] = [];
             saveMockState();
           }
@@ -1094,26 +1137,33 @@
         const res = await fetch(`${url}/projects`, {
           method: "POST",
           headers: getAuthHeaders(),
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name, allow_self_assignment }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al crear proyecto");
       },
 
-      async updateProject(oldName, newName) {
+      async updateProject(oldName, newName, allow_self_assignment) {
         const url = getCleanUrl();
         if (!url) {
-          const idx = mockState.projects.indexOf(oldName);
-          if (idx !== -1) mockState.projects[idx] = newName;
-          mockState.members[newName] = mockState.members[oldName] || [];
-          delete mockState.members[oldName];
+          const proj = mockState.projects.find((p) => p.name === oldName);
+          if (proj) {
+            proj.name = newName;
+            if (allow_self_assignment !== undefined) {
+              proj.allow_self_assignment = allow_self_assignment;
+            }
+          }
+          if (oldName !== newName) {
+            mockState.members[newName] = mockState.members[oldName] || [];
+            delete mockState.members[oldName];
+          }
           saveMockState();
           return;
         }
         const res = await fetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
           method: "PUT",
           headers: getAuthHeaders(),
-          body: JSON.stringify({ newName }),
+          body: JSON.stringify({ newName, allow_self_assignment }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al actualizar proyecto");
@@ -1122,7 +1172,7 @@
       async deleteProject(name) {
         const url = getCleanUrl();
         if (!url) {
-          mockState.projects = mockState.projects.filter((p) => p !== name);
+          mockState.projects = mockState.projects.filter((p) => p.name !== name);
           delete mockState.members[name];
           saveMockState();
           return;
@@ -1394,19 +1444,72 @@
       const project = document.getElementById("boardProject").value;
       const week = document.getElementById("boardWeek").value;
       const tbody = document.getElementById("scrumTableBody");
+      const bannerContainer = document.getElementById("projectSelfAssignContainer");
+
       tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">Cargando matriz...</td></tr>`;
 
       if (!project) return;
 
-      const [members, scrums] = await Promise.all([
+      const [allProjects, members, scrums] = await Promise.all([
+        api.getProjects(),
         api.getMembers(project),
         api.getWeeklyScrums(project, week),
       ]);
 
+      const currentProjObj = allProjects.find((p) => p.name === project) || {
+        name: project,
+        allow_self_assignment: false,
+      };
+
+      const isMemberOfProject = members.some(
+        (m) => currentUser.name && m.name.toLowerCase() === currentUser.name.toLowerCase()
+      );
+
+      // Render Project Self-Assignment Banner
+      if (currentUser.role === "admin") {
+        bannerContainer.innerHTML = `
+          <button class="tag-status ${currentProjObj.allow_self_assignment ? 'open' : 'closed'}" onclick="toggleProjectSelfAssign('${project}')" title="Clic para alternar permiso de autoasignación">
+            ${currentProjObj.allow_self_assignment ? '🔓 Abierto (Autoasignable)' : '🔒 Cerrado (Solo Admin)'}
+          </button>
+        `;
+      } else if (currentUser.role === "member") {
+        if (isMemberOfProject) {
+          bannerContainer.innerHTML = `
+            <span style="font-size: 12px; color: var(--success); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+              ✅ Estás en este equipo
+            </span>
+            ${currentProjObj.allow_self_assignment ? `
+              <button class="btn btn-secondary btn-sm" onclick="leaveProjectAction('${project}')" style="margin-left: 6px; font-size: 11px; padding: 2px 7px;">
+                Abandonar
+              </button>
+            ` : ''}
+          `;
+        } else {
+          if (currentProjObj.allow_self_assignment) {
+            bannerContainer.innerHTML = `
+              <button class="btn btn-primary btn-sm" onclick="joinProjectAction('${project}')" style="background: #16a34a;">
+                ➕ Unirme a este Proyecto
+              </button>
+            `;
+          } else {
+            bannerContainer.innerHTML = `
+              <span style="font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 4px 8px; background: #f1f5f9; border-radius: 6px;" title="Pedile al Administrador que te asigne">
+                🔒 Proyecto cerrado (Asignación por Admin)
+              </span>
+            `;
+          }
+        }
+      } else {
+        bannerContainer.innerHTML = "";
+      }
+
       if (members.length === 0) {
         const canAdd = currentUser.role === "admin";
+        const canJoin = currentUser.role === "member" && currentProjObj.allow_self_assignment;
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 32px; color:#64748b;">
-          No hay integrantes en este proyecto. ${canAdd ? `<button class="btn btn-secondary btn-sm" onclick="openManageWithProject('${project}')">Asignar Integrantes</button>` : ''}
+          No hay integrantes en este proyecto.
+          ${canAdd ? `<button class="btn btn-secondary btn-sm" onclick="openManageWithProject('${project}')" style="margin-left: 8px;">Asignar Integrantes</button>` : ''}
+          ${canJoin ? `<button class="btn btn-primary btn-sm" onclick="joinProjectAction('${project}')" style="margin-left: 8px; background: #16a34a;">➕ Ser el primer integrante</button>` : ''}
         </td></tr>`;
         return;
       }
@@ -1480,6 +1583,51 @@
 
         tbody.appendChild(tr);
       });
+    };
+
+    // -------------------------------------------------------------
+    // Project Self-Assignment Actions
+    // -------------------------------------------------------------
+    window.joinProjectAction = async (project) => {
+      if (!currentUser.name || currentUser.role === "guest") {
+        showToast("Debes iniciar sesión para unirte a un proyecto.", "error");
+        return;
+      }
+      try {
+        await api.createMember(project, currentUser.name, currentUser.title || "Developer", currentUser.email);
+        await renderBoard();
+        showToast(`¡Te uniste al proyecto '${project}'! Ya podés cargar tu Daily.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+
+    window.leaveProjectAction = async (project) => {
+      const ok = await showConfirm("Abandonar Proyecto", `¿Seguro que deseas desvincularte del proyecto '${project}'?`);
+      if (!ok) return;
+      try {
+        await api.deleteMember(project, currentUser.name);
+        await renderBoard();
+        showToast(`Te desvinculaste de '${project}'.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+
+    window.toggleProjectSelfAssign = async (project) => {
+      if (currentUser.role !== "admin") return;
+      const projects = await api.getProjects();
+      const p = projects.find((x) => x.name === project);
+      if (!p) return;
+      const newVal = !p.allow_self_assignment;
+      try {
+        await api.updateProject(project, project, newVal);
+        await loadManageModal(project);
+        await renderBoard();
+        showToast(`Proyecto '${project}' configurado como ${newVal ? 'Abierto (Autoasignable)' : 'Cerrado (Solo Admin)'}.`);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
     };
 
     // -------------------------------------------------------------
@@ -1624,7 +1772,10 @@
         const chip = document.createElement("span");
         chip.className = "chip";
         chip.innerHTML = `
-          📁 ${escapeHtml(p.name)}
+          📁 <strong>${escapeHtml(p.name)}</strong>
+          <button class="tag-status ${p.allow_self_assignment ? 'open' : 'closed'}" onclick="toggleProjectSelfAssign('${p.name}')" title="Clic para alternar autoasignación">
+            ${p.allow_self_assignment ? '🔓 Abierto' : '🔒 Cerrado'}
+          </button>
           <button onclick="editProjectPrompt('${p.name}')" title="Renombrar">✏️</button>
           <button onclick="deleteProjectAction('${p.name}')" title="Eliminar">🗑️</button>
         `;
@@ -1662,14 +1813,18 @@
 
     document.getElementById("btnAddProject").addEventListener("click", async () => {
       const input = document.getElementById("newProjectName");
+      const allowSelfInput = document.getElementById("newProjectAllowSelf");
       const name = input.value.trim();
+      const allowSelf = allowSelfInput.checked;
+
       if (!name) return;
       try {
-        await api.createProject(name);
+        await api.createProject(name, allowSelf);
         input.value = "";
+        allowSelfInput.checked = false;
         await loadManageModal(name);
         await initProjectSelectors();
-        showToast(`Proyecto '${name}' creado.`);
+        showToast(`Proyecto '${name}' creado (${allowSelf ? 'Abierto' : 'Cerrado'}).`);
       } catch (err) {
         showToast(err.message, "error");
       }

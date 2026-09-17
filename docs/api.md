@@ -99,9 +99,9 @@ Retrieves the active user session claims based on the Bearer token.
 | `PUT /projects/{name}` | 403 Forbidden | 403 Forbidden | Allowed |
 | `DELETE /projects/{name}` | 403 Forbidden | 403 Forbidden | Allowed |
 | `GET /projects/{proj}/members` | Allowed (Read-only) | Allowed | Allowed |
-| `POST /projects/{proj}/members` | 403 Forbidden | 403 Forbidden | Allowed |
+| `POST /projects/{proj}/members` | 403 Forbidden | **Self-assignment only** if `allow_self_assignment: true`; otherwise 403 | Any member |
 | `PUT /projects/{proj}/members/{m}` | 403 Forbidden | 403 Forbidden | Allowed |
-| `DELETE /projects/{proj}/members/{m}` | 403 Forbidden | 403 Forbidden | Allowed |
+| `DELETE /projects/{proj}/members/{m}` | 403 Forbidden | **Self un-assignment only** if `allow_self_assignment: true`; otherwise 403 | Any member |
 | `GET /scrums` | Allowed (Transparent board) | Allowed | Allowed |
 | `POST, PUT, DELETE /scrums` | Open if no auth header; 403 if auth header is present | **Only own daily** (`member == user.name`) | Any member's daily |
 
@@ -110,26 +110,26 @@ Retrieves the active user session claims based on the Bearer token.
 ## 1. Projects Endpoints
 
 ### `GET /projects`
-Returns an array of all active projects.
+Returns an array of all active projects with their self-assignment configuration.
 * **Response `200 OK`:**
   ```json
   {
     "projects": [
-      { "name": "Sabato", "created_at": "2026-09-16T22:30:00Z" },
-      { "name": "Core", "created_at": "2026-09-16T22:30:00Z" }
+      { "name": "Sabato", "allow_self_assignment": false, "created_at": "2026-09-16T22:30:00Z" },
+      { "name": "Mobile", "allow_self_assignment": true, "created_at": "2026-09-16T22:30:00Z" }
     ]
   }
   ```
 
 ### `POST /projects` (Admin Only)
-Creates a new project.
-* **Request Body:** `{ "name": "Mobile" }`
+Creates a new project with optional self-assignment toggle.
+* **Request Body:** `{ "name": "Mobile", "allow_self_assignment": true }`
 * **Response `201 Created`:** `{ "message": "Project 'Mobile' created" }`
 
 ### `PUT /projects/{name}` (Admin Only)
-Renames an existing project.
-* **Request Body:** `{ "newName": "MobileApp" }`
-* **Response `200 OK`:** `{ "message": "Project 'Mobile' renamed to 'MobileApp'" }`
+Renames an existing project or toggles `allow_self_assignment`.
+* **Request Body:** `{ "newName": "MobileApp", "allow_self_assignment": false }`
+* **Response `200 OK`:** `{ "message": "Project 'MobileApp' updated" }`
 
 ### `DELETE /projects/{name}` (Admin Only)
 Deletes a project record.
