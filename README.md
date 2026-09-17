@@ -58,9 +58,26 @@ Many serverless architectures incur unexpected charges once initial 12-month pro
 ├── index.html             # Static client-side frontend served by GitHub Pages
 ├── frontend/
 │   └── index.html         # Mirror copy of the frontend
+├── docs/                  # Detailed architectural and technical specifications
+│   ├── architecture.md    # In-depth architectural trade-offs and zero-cost design
+│   ├── data-model.md      # DynamoDB single-table design and access patterns
+│   ├── backend.md         # Lambda handler implementation, CORS, and error handling
+│   ├── frontend.md        # Client-side component architecture and DOM updates
+│   └── deployment.md      # deploy.sh execution lifecycle and IAM security
 ├── .gitignore             # Ignores packages, zip files, and environments
 └── README.md              # Technical and operational documentation
 ```
+
+---
+
+## 📚 In-Depth Technical Documentation
+
+For deep technical specifications, refer to the guides in the [`docs/`](docs/) directory:
+* [**Architecture Deep-Dive**](docs/architecture.md): Trade-offs, extreme serverless patterns, and why API Gateway/SSR were avoided.
+* [**DynamoDB Data Model**](docs/data-model.md): Primary key strategy (`PK`/`SK`), single-table design, and query complexity.
+* [**Backend Handler Reference**](docs/backend.md): Ingress payload v2 format, CORS preflight, base64 decoding, and status codes.
+* [**Frontend Reference**](docs/frontend.md): Client-Side Rendering (CSR), DOM lifecycle, and asynchronous fetch integration.
+* [**Deployment Lifecycle**](docs/deployment.md): Idempotency, IAM least-privilege scoping, and automated resource provisioning.
 
 ---
 
