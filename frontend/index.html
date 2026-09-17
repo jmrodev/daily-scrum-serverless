@@ -732,6 +732,26 @@
       align-items: center;
       gap: 6px;
     }
+    .kanban-card.readonly {
+      cursor: default;
+      opacity: 0.88;
+    }
+    .kanban-card.readonly:hover {
+      box-shadow: none;
+      border-color: var(--border);
+    }
+    .badge-readonly {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
   </style>
   <!-- Google Identity Services (Sign-In with Google) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -917,8 +937,18 @@
         </div>
 
         <div style="margin-bottom: 14px;">
-          <label for="modalAns3">3. ¿Bloqueos o Impedimentos?</label>
-          <textarea id="modalAns3" placeholder="Ninguno / Describí el impedimento..."></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label for="modalBlockedTaskSelect" style="margin: 0;">3. ¿Bloqueos o Impedimentos?</label>
+            <span style="font-size: 11px; color: var(--text-muted);">Asociar a una tarea</span>
+          </div>
+          <select id="modalBlockedTaskSelect" style="width: 100%; margin-bottom: 8px; font-size: 12px;">
+            <option value="">🟢 Sin Bloqueos (Ninguno)</option>
+            <option value="__NEW__">➕ Bloquear otra tarea (crear nueva en Kanban)</option>
+          </select>
+          <div id="modalNewBlockedTaskTitleContainer" style="margin-bottom: 8px; display: none;">
+            <input type="text" id="modalNewBlockedTaskTitle" placeholder="Título de la nueva tarea que está bloqueada..." style="width: 100%; font-size: 12px;" />
+          </div>
+          <textarea id="modalAns3" placeholder="Motivo del impedimento (o 'Ninguno')..."></textarea>
         </div>
 
         <div style="margin-top: 10px; margin-bottom: 14px; padding: 8px 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px;">
@@ -2467,6 +2497,37 @@
           : `🔄 Re-sincronizar con mi Kanban`;
       }
 
+      // Populate Blocked Task Select
+      const blockedSelect = document.getElementById("modalBlockedTaskSelect");
+      const newBlockedTitleContainer = document.getElementById("modalNewBlockedTaskTitleContainer");
+      const newBlockedTitleInput = document.getElementById("modalNewBlockedTaskTitle");
+
+      if (blockedSelect) {
+        blockedSelect.innerHTML = '<option value="">🟢 Sin Bloqueos (Ninguno)</option>';
+        const candidateTasks = memberTasks.filter((t) => t.status === "TODO" || t.status === "DOING" || t.status === "BLOCKED");
+        candidateTasks.forEach((t) => {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          const statusIcon = t.status === "BLOCKED" ? "🚨 [Bloqueada]" : (t.status === "DOING" ? "⚡ [En Progreso]" : "📝 [Por Hacer]");
+          opt.textContent = `${statusIcon} ${t.title}`;
+          blockedSelect.appendChild(opt);
+        });
+        const newOpt = document.createElement("option");
+        newOpt.value = "__NEW__";
+        newOpt.textContent = "➕ Bloquear otra tarea (crear nueva en Kanban)";
+        blockedSelect.appendChild(newOpt);
+
+        if (newBlockedTitleContainer) newBlockedTitleContainer.style.display = "none";
+        if (newBlockedTitleInput) newBlockedTitleInput.value = "";
+
+        const currentlyBlocked = memberTasks.find((t) => t.status === "BLOCKED");
+        if (currentlyBlocked) {
+          blockedSelect.value = currentlyBlocked.id;
+        } else {
+          blockedSelect.value = "";
+        }
+      }
+
       const banner = document.getElementById("scrumAutoSyncBanner");
       if (banner) {
         if (prefilledFromKanban) {
@@ -2480,24 +2541,78 @@
       scrumModal.open();
     };
 
+    document.getElementById("modalBlockedTaskSelect").addEventListener("change", async (e) => {
+      const val = e.target.value;
+      const ans3 = document.getElementById("modalAns3");
+      const container = document.getElementById("modalNewBlockedTaskTitleContainer");
+      const newTitleInput = document.getElementById("modalNewBlockedTaskTitle");
+
+      if (val === "__NEW__") {
+        container.style.display = "block";
+        newTitleInput.focus();
+        if (ans3.value === "Ninguno") ans3.value = "";
+        ans3.placeholder = "Motivo del bloqueo para la nueva tarea...";
+      } else if (val === "") {
+        container.style.display = "none";
+        newTitleInput.value = "";
+        ans3.value = "Ninguno";
+      } else {
+        container.style.display = "none";
+        newTitleInput.value = "";
+        if (activeScrumContext) {
+          const tasks = await api.getTasks(activeScrumContext.project);
+          const t = tasks.find((x) => x.id === val);
+          if (t && t.blocker) {
+            ans3.value = t.blocker;
+          } else if (ans3.value === "Ninguno") {
+            ans3.value = "";
+            ans3.placeholder = `¿Por qué está trabada '${t ? t.title : ''}'?`;
+          }
+        }
+      }
+    });
+
     document.getElementById("btnSaveScrum").addEventListener("click", async () => {
       if (!activeScrumContext) return;
       const { project, week, day, member } = activeScrumContext;
+      const blockedTaskId = document.getElementById("modalBlockedTaskSelect")?.value;
+      const newBlockedTitle = document.getElementById("modalNewBlockedTaskTitle")?.value.trim();
+      let blockerReason = document.getElementById("modalAns3").value.trim() || "Ninguno";
+
+      const saveBtn = document.getElementById("btnSaveScrum");
+
+      if (blockedTaskId === "__NEW__") {
+        if (!newBlockedTitle) {
+          showToast("Ingresá el título de la nueva tarea que está bloqueada", "error");
+          return;
+        }
+      }
+
+      let finalBlockerAns = blockerReason;
+      if (blockedTaskId === "__NEW__") {
+        finalBlockerAns = blockerReason !== "Ninguno" ? `[${newBlockedTitle}] ${blockerReason}` : `[${newBlockedTitle}] Bloqueada`;
+      } else if (blockedTaskId) {
+        const tasks = await api.getTasks(project);
+        const t = tasks.find((x) => x.id === blockedTaskId);
+        if (t) {
+          finalBlockerAns = blockerReason !== "Ninguno" ? `[${t.title}] ${blockerReason}` : `[${t.title}] Bloqueada`;
+        }
+      }
+
       const answers = [
         document.getElementById("modalAns1").value.trim() || "Sin respuesta",
         document.getElementById("modalAns2").value.trim() || "Sin respuesta",
-        document.getElementById("modalAns3").value.trim() || "Ninguno",
+        finalBlockerAns,
       ];
       const shouldSync = document.getElementById("syncKanbanOnSave")?.checked;
 
-      const saveBtn = document.getElementById("btnSaveScrum");
       saveBtn.disabled = true;
       saveBtn.textContent = "Guardando...";
 
       try {
         await api.saveScrum(project, week, day, member, answers);
         if (shouldSync) {
-          await syncDailyToKanban(project, member, answers);
+          await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, blockerReason);
         }
         scrumModal.close();
         await renderBoard();
@@ -2800,6 +2915,19 @@
     let draggedTaskId = null;
 
     window.handleDragStart = (e, taskId) => {
+      const project = document.getElementById("boardProject").value;
+      if (project && mockState && mockState.tasks && mockState.tasks[project]) {
+        const task = mockState.tasks[project].find((t) => t.id === taskId);
+        if (task && task.assignee) {
+          const isOwner = currentUser.name && (task.assignee.toLowerCase() === currentUser.name.toLowerCase());
+          const canDrag = (currentUser.role === "admin") || isOwner;
+          if (!canDrag) {
+            e.preventDefault();
+            showToast(`Solo podés mover tus propias tareas (${task.assignee})`, "error");
+            return;
+          }
+        }
+      }
       draggedTaskId = taskId;
       e.dataTransfer.setData("text/plain", taskId);
       e.target.classList.add("dragging");
@@ -2905,6 +3033,13 @@
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      const isSelf = currentUser.name && task.assignee && (task.assignee.toLowerCase() === currentUser.name.toLowerCase());
+      const canManage = (currentUser.role === "admin") || isSelf || !task.assignee;
+      if (!canManage) {
+        showToast(`Solo podés mover tus propias tareas (Asignada a ${task.assignee})`, "error");
+        return;
+      }
+
       if (nextStatus === "BLOCKED" && !task.blocker) {
         const res = await showPrompt({
           title: "🚨 Registrar Bloqueo",
@@ -2973,16 +3108,23 @@
         list.forEach((t) => {
           const card = document.createElement("div");
           card.className = "kanban-card";
-          card.draggable = true;
-          card.ondragstart = (e) => handleDragStart(e, t.id);
-          card.ondragend = handleDragEnd;
-
           const isSelf = currentUser.name && t.assignee && (t.assignee.toLowerCase() === currentUser.name.toLowerCase());
+          const canManageTask = (currentUser.role === "admin") || isSelf || !t.assignee;
           const prevStatus = getPrevStatus(t.status);
           const nextStatus = getNextStatus(t.status);
 
           const prioClass = (t.priority || "medium").toLowerCase();
           const prioLabel = t.priority === "HIGH" ? "Alta" : (t.priority === "LOW" ? "Baja" : "Media");
+
+          if (canManageTask) {
+            card.draggable = true;
+            card.ondragstart = (e) => handleDragStart(e, t.id);
+            card.ondragend = handleDragEnd;
+          } else {
+            card.draggable = false;
+            card.classList.add("readonly");
+            card.setAttribute("title", `Tarea asignada a ${t.assignee} (Solo lectura)`);
+          }
 
           const isMentionedInDaily = (scrums || []).some((s) => {
             if (!s.answers || !t.assignee) return false;
@@ -2998,7 +3140,7 @@
                 <span class="priority-badge ${prioClass}">${prioLabel}</span>
                 ${isMentionedInDaily ? '<span class="badge-in-daily" title="Reportada en el Daily Scrum de esta semana">📅 En Daily</span>' : ''}
               </div>
-              <button class="btn-action" onclick="openEditTaskModal('${t.id}')" title="Editar Tarea" style="font-size: 11px;">✏️</button>
+              ${canManageTask ? `<button class="btn-action" onclick="openEditTaskModal('${t.id}')" title="Editar Tarea" style="font-size: 11px;">✏️</button>` : `<span class="badge-readonly" title="Solo editable por ${escapeHtml(t.assignee)}">🔒</span>`}
             </div>
             <div class="kanban-card-title">${escapeHtml(t.title)}</div>
             ${t.status === "BLOCKED" && t.blocker ? `
@@ -3010,8 +3152,10 @@
                 ${isSelf ? '<span class="member-cell-self" style="font-size:8px;">TÚ</span>' : ''}
               </span>
               <div class="kanban-nav-btns">
-                ${prevStatus ? `<button class="kanban-nav-btn" onclick="moveTaskStatus('${t.id}', '${prevStatus}')" title="Mover a ${getStatusLabel(prevStatus)}">◀</button>` : ''}
-                ${nextStatus ? `<button class="kanban-nav-btn" onclick="moveTaskStatus('${t.id}', '${nextStatus}')" title="Mover a ${getStatusLabel(nextStatus)}">▶</button>` : ''}
+                ${canManageTask ? `
+                  ${prevStatus ? `<button class="kanban-nav-btn" onclick="moveTaskStatus('${t.id}', '${prevStatus}')" title="Mover a ${getStatusLabel(prevStatus)}">◀</button>` : ''}
+                  ${nextStatus ? `<button class="kanban-nav-btn" onclick="moveTaskStatus('${t.id}', '${nextStatus}')" title="Mover a ${getStatusLabel(nextStatus)}">▶</button>` : ''}
+                ` : `<span style="font-size:10px; color:var(--text-muted);" title="Solo editable por ${escapeHtml(t.assignee)}">🔒 Asignada</span>`}
               </div>
             </div>
           `;
@@ -3045,6 +3189,13 @@
       const tasks = await api.getTasks(project);
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
+
+      const isSelf = currentUser.name && task.assignee && (task.assignee.toLowerCase() === currentUser.name.toLowerCase());
+      const canManage = (currentUser.role === "admin") || isSelf || !task.assignee;
+      if (!canManage) {
+        showToast(`Solo ${task.assignee} o un Administrador pueden modificar esta tarea`, "error");
+        return;
+      }
 
       document.getElementById("taskModalTitle").textContent = "✏️ Editar Tarea de Kanban";
       document.getElementById("taskId").value = task.id;
@@ -3183,7 +3334,7 @@
     // -------------------------------------------------------------
     // Bidirectional Sync: Daily Scrum -> Kanban Board
     // -------------------------------------------------------------
-    window.syncDailyToKanban = async (project, member, answers) => {
+    window.syncDailyToKanban = async (project, member, answers, explicitBlockedTaskId, explicitNewBlockedTitle, explicitBlockerReason) => {
       const doneText = answers[0] || "";
       const doingText = answers[1] || "";
       const blockerText = answers[2] || "";
@@ -3264,7 +3415,35 @@
       }
 
       // 3. Synchronize Blockers
-      if (hasBlocker) {
+      if (explicitBlockedTaskId === "__NEW__" && explicitNewBlockedTitle) {
+        // Create new blocked task in Kanban for this member
+        await api.saveTask({
+          project,
+          title: explicitNewBlockedTitle,
+          assignee: member,
+          status: "BLOCKED",
+          priority: "HIGH",
+          blocker: explicitBlockerReason || "Bloqueada",
+        });
+      } else if (explicitBlockedTaskId) {
+        // Mark specific task as BLOCKED
+        const allTasks = await api.getTasks(project);
+        const taskToBlock = allTasks.find((t) => t.id === explicitBlockedTaskId);
+        if (taskToBlock) {
+          taskToBlock.status = "BLOCKED";
+          taskToBlock.blocker = explicitBlockerReason || "Bloqueada";
+          await api.saveTask(taskToBlock);
+        }
+      } else if (explicitBlockedTaskId === "") {
+        // Explicitly unblock any tasks of this member that were blocked
+        for (const t of memberTasks) {
+          if (t.status === "BLOCKED") {
+            t.status = "DOING";
+            t.blocker = "";
+            await api.saveTask(t);
+          }
+        }
+      } else if (hasBlocker) {
         const targets = activeDoingTasks.length > 0
           ? activeDoingTasks
           : memberTasks.filter((t) => t.status === "DOING");
