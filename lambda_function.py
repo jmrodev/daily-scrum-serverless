@@ -232,7 +232,7 @@ def send_resend_email(api_key, from_email, to_email, subject, html_body):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "DailyScrum-Lambda/1.0",
+            "User-Agent": "resend-python/2.0.0",
         },
         method="POST",
     )
@@ -716,7 +716,7 @@ def handler(event, context):
                 return create_response(403, {"error": "Forbidden: Only administrators can test Resend configuration."})
 
             body = parse_body(event)
-            to_email = (body.get("toEmail") or user_claims.get("email") or "").strip()
+            to_email = (body.get("toEmail") or body.get("to") or body.get("email") or user_claims.get("email") or "").strip()
             if not to_email or "@" not in to_email:
                 return create_response(400, {"error": "Email destino válido requerido"})
 

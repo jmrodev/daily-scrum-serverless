@@ -13,7 +13,25 @@ let onAuthSuccessCallback = null;
 export const getStoredAuth = () => {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    const token = session?.token || session?.idToken || session?.accessToken;
+    if (!token) return null;
+
+    // Proactively check JWT expiration client-side to prevent stale 401s
+    const parts = token.split(".");
+    if (parts.length === 3) {
+      try {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.exp && payload.exp < Date.now() / 1000) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          return null;
+        }
+      } catch {
+        // Continue if payload parse fails
+      }
+    }
+    return session;
   } catch {
     return null;
   }

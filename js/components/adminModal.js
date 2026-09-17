@@ -299,7 +299,11 @@ export const initAdminModalListeners = () => {
   });
 
   document.getElementById("btnTestResendEmail")?.addEventListener("click", async () => {
-    const targetEmail = prompt("Ingresá el correo de destino para la prueba:", state.currentUser.email || "");
+    const defaultEmail = state.currentUser?.email || "juanmarcelo.rodrigueztandil@gmail.com";
+    const targetEmail = prompt(
+      "Ingresá el correo de destino para la prueba:\n\n(Nota: Con el remitente de prueba 'onboarding@resend.dev', Resend solo permite enviar a tu propio correo registrado en su plataforma):",
+      defaultEmail
+    );
     if (!targetEmail || !targetEmail.includes("@")) return;
 
     try {
