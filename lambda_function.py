@@ -1,9 +1,11 @@
 import base64
+import datetime
 import json
 import os
 import re
 import time
 import urllib.parse
+import uuid
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
@@ -603,6 +605,111 @@ def handler(event, context):
                 200,
                 {"message": f"Daily Scrum deleted for {member} ({week} - {day})"},
             )
+
+        # =====================================================================
+        # 5. KANBAN TASK ENDPOINTS (Work in Progress / Scrumban)
+        # =====================================================================
+        # GET /tasks -> Get all tasks for a project
+        elif path == "/tasks" and method == "GET":
+            project = params.get("project")
+            if not project:
+                return create_response(400, {"error": "Missing 'project' parameter"})
+
+            response = table.query(
+                KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
+                & Key("SK").begins_with("TASK#")
+            )
+            tasks = response.get("Items", [])
+            return create_response(200, {"project": project, "tasks": tasks})
+
+        # POST /tasks -> Create a task
+        elif path == "/tasks" and method == "POST":
+            body = parse_body(event)
+            project = body.get("project")
+            title = (body.get("title") or "").strip()
+            assignee = (body.get("assignee") or "").strip()
+            status = body.get("status") or "TODO"
+            priority = body.get("priority") or "MEDIUM"
+            blocker = (body.get("blocker") or "").strip()
+
+            if not project or not title:
+                return create_response(400, {"error": "Missing 'project' or 'title'"})
+
+            task_id = body.get("id") or str(uuid.uuid4())[:8]
+            item = {
+                "PK": f"PROJECT#{project}",
+                "SK": f"TASK#{task_id}",
+                "id": task_id,
+                "project": project,
+                "title": title,
+                "assignee": assignee,
+                "status": status,
+                "priority": priority,
+                "blocker": blocker,
+                "updated_at": datetime.datetime.utcnow().isoformat(),
+            }
+            table.put_item(Item=item)
+            return create_response(201, {"message": "Task created successfully", "task": item})
+
+        # PUT /tasks -> Update task status, assignee, title, or blocker
+        elif path == "/tasks" and method == "PUT":
+            body = parse_body(event)
+            project = body.get("project")
+            task_id = body.get("id")
+
+            if not project or not task_id:
+                return create_response(400, {"error": "Missing 'project' or 'id'"})
+
+            update_parts = ["updated_at = :up"]
+            expr_names = {}
+            expr_values = {":up": datetime.datetime.utcnow().isoformat()}
+
+            if "status" in body:
+                update_parts.append("#st = :st")
+                expr_names["#st"] = "status"
+                expr_values[":st"] = body["status"]
+
+            if "assignee" in body:
+                update_parts.append("assignee = :asgn")
+                expr_values[":asgn"] = body["assignee"]
+
+            if "title" in body:
+                update_parts.append("title = :ttl")
+                expr_values[":ttl"] = body["title"]
+
+            if "priority" in body:
+                update_parts.append("priority = :prio")
+                expr_values[":prio"] = body["priority"]
+
+            if "blocker" in body:
+                update_parts.append("blocker = :blk")
+                expr_values[":blk"] = body["blocker"]
+
+            update_expr = "SET " + ", ".join(update_parts)
+            kwargs = {
+                "Key": {"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"},
+                "UpdateExpression": update_expr,
+                "ExpressionAttributeValues": expr_values,
+            }
+            if expr_names:
+                kwargs["ExpressionAttributeNames"] = expr_names
+
+            table.update_item(**kwargs)
+            return create_response(200, {"message": "Task updated successfully"})
+
+        # DELETE /tasks -> Delete a task
+        elif path == "/tasks" and method == "DELETE":
+            body = parse_body(event) if event.get("body") else {}
+            project = params.get("project") or body.get("project")
+            task_id = params.get("id") or body.get("id")
+
+            if not project or not task_id:
+                return create_response(400, {"error": "Missing 'project' or 'id'"})
+
+            table.delete_item(
+                Key={"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"}
+            )
+            return create_response(200, {"message": "Task deleted successfully"})
 
         return create_response(404, {"error": f"Path '{path}' with method '{method}' not found"})
 

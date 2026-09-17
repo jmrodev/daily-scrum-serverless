@@ -482,6 +482,172 @@
     .toast.success { background: #15803d; }
     .toast.error { background: #b91c1c; }
     @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* View Switcher */
+    .view-switcher {
+      display: inline-flex;
+      background: var(--surface-alt);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      gap: 4px;
+    }
+    .view-tab {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .view-tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Kanban Board Layout */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .kanban-board { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .kanban-board { grid-template-columns: 1fr; }
+    }
+    .kanban-col {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      min-height: 480px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .kanban-col.drag-over {
+      background: var(--info-bg);
+      border-color: var(--primary);
+    }
+    .kanban-col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .kanban-col-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kanban-count {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--surface);
+      color: var(--text-muted);
+      padding: 1px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .kanban-card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      min-height: 120px;
+    }
+    .kanban-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      cursor: grab;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
+    }
+    .kanban-card:hover {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+    .kanban-card.dragging {
+      opacity: 0.4;
+      cursor: grabbing;
+    }
+    .kanban-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .kanban-card-blocker {
+      font-size: 11px;
+      color: var(--error);
+      background: var(--error-bg);
+      padding: 3px 6px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .kanban-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .kanban-assignee {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .priority-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .priority-badge.high { background: var(--error-bg); color: var(--error); }
+    .priority-badge.medium { background: var(--warning-bg); color: var(--warning); }
+    .priority-badge.low { background: var(--info-bg); color: var(--info-text); }
+    .kanban-nav-btns {
+      display: flex;
+      gap: 3px;
+    }
+    .kanban-nav-btn {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 10px;
+      cursor: pointer;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+    .kanban-nav-btn:hover {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
   </style>
   <!-- Google Identity Services (Sign-In with Google) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -524,11 +690,17 @@
     <div class="card">
       <div class="card-header-flex">
         <div class="filters-bar">
+          <!-- View Switcher Tabs -->
+          <div class="view-switcher" style="margin-right: 6px;">
+            <button type="button" id="tabDailyView" class="view-tab active" onclick="switchMainView('daily')">📊 Matriz Daily</button>
+            <button type="button" id="tabKanbanView" class="view-tab" onclick="switchMainView('kanban')">📋 Tablero Kanban</button>
+          </div>
+
           <div>
             <label for="boardProject">Proyecto</label>
             <select id="boardProject" style="min-width: 160px;"></select>
           </div>
-          <div>
+          <div id="weekFilterGroup">
             <label for="boardWeek">Semana</label>
             <select id="boardWeek" style="min-width: 140px;">
               <option value="WEEK 1">Semana 1</option>
@@ -558,25 +730,77 @@
         </div>
       </div>
 
-      <!-- Matrix Table -->
-      <div class="table-container">
-        <table id="scrumTable">
-          <thead>
-            <tr>
-              <th class="member-col">Integrante</th>
-              <th class="day-col">Lunes</th>
-              <th class="day-col">Martes</th>
-              <th class="day-col">Miércoles</th>
-              <th class="day-col">Jueves</th>
-              <th class="day-col">Viernes</th>
-              <th class="day-col">Sábado</th>
-              <th class="day-col">Domingo</th>
-            </tr>
-          </thead>
-          <tbody id="scrumTableBody">
-            <!-- Dynamic Rows -->
-          </tbody>
-        </table>
+      <!-- 1. Daily Matrix View -->
+      <div id="dailyViewContainer">
+        <div class="table-container">
+          <table id="scrumTable">
+            <thead>
+              <tr>
+                <th class="member-col">Integrante</th>
+                <th class="day-col">Lunes</th>
+                <th class="day-col">Martes</th>
+                <th class="day-col">Miércoles</th>
+                <th class="day-col">Jueves</th>
+                <th class="day-col">Viernes</th>
+                <th class="day-col">Sábado</th>
+                <th class="day-col">Domingo</th>
+              </tr>
+            </thead>
+            <tbody id="scrumTableBody">
+              <!-- Dynamic Rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. Kanban Board View (WIP Flow) -->
+      <div id="kanbanViewContainer" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 12px; color: var(--text-muted);">
+            💡 <strong>Scrumban Unificado:</strong> Las tareas en progreso y completadas alimentan automáticamente las respuestas de tu Daily.
+          </div>
+          <button type="button" id="btnOpenNewTaskModal" class="btn btn-primary btn-sm" onclick="openNewTaskModal()">
+            ➕ Nueva Tarea
+          </button>
+        </div>
+
+        <div class="kanban-board">
+          <!-- Col: TODO -->
+          <div class="kanban-col" data-status="TODO" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'TODO')">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">📝 Por Hacer</div>
+              <span id="countTODO" class="kanban-count">0</span>
+            </div>
+            <div id="colTODO" class="kanban-card-list"></div>
+          </div>
+
+          <!-- Col: DOING -->
+          <div class="kanban-col" data-status="DOING" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'DOING')">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">⚡ En Progreso</div>
+              <span id="countDOING" class="kanban-count">0</span>
+            </div>
+            <div id="colDOING" class="kanban-card-list"></div>
+          </div>
+
+          <!-- Col: BLOCKED -->
+          <div class="kanban-col" data-status="BLOCKED" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'BLOCKED')">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title" style="color: var(--error);">🚨 Bloqueado</div>
+              <span id="countBLOCKED" class="kanban-count">0</span>
+            </div>
+            <div id="colBLOCKED" class="kanban-card-list"></div>
+          </div>
+
+          <!-- Col: DONE -->
+          <div class="kanban-col" data-status="DONE" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'DONE')">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title" style="color: var(--success);">✅ Completado</div>
+              <span id="countDONE" class="kanban-count">0</span>
+            </div>
+            <div id="colDONE" class="kanban-card-list"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -590,6 +814,12 @@
       </div>
       <div class="modal-body">
         <div class="meta-tags" id="modalMetaTags"></div>
+
+        <div style="margin-bottom: 12px; display: flex; justify-content: flex-end;">
+          <button type="button" id="btnAutofillFromKanban" class="btn btn-secondary btn-sm" style="font-size: 11px; background: var(--info-bg); color: var(--info-text); border: 1px solid var(--border);" onclick="autofillScrumFromKanban()">
+            ✨ Autocompletar desde mi Kanban
+          </button>
+        </div>
 
         <div style="margin-bottom: 14px;">
           <label for="modalAns1">1. ¿Qué hiciste? (Tareas realizadas)</label>
@@ -613,6 +843,63 @@
             <button id="btnSaveScrum" class="btn btn-primary btn-sm">💾 Guardar</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create / Edit Kanban Task -->
+  <div id="taskModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 id="taskModalTitle">➕ Nueva Tarea de Kanban</h3>
+        <button id="taskModalClose" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="taskForm" onsubmit="return false;">
+          <input type="hidden" id="taskId" />
+          <div style="margin-bottom: 12px;">
+            <label for="taskTitle">Título de la Tarea</label>
+            <input type="text" id="taskTitle" placeholder="Ej: Implementar endpoint de pagos" style="width: 100%;" required />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <label for="taskAssignee">Responsable</label>
+              <select id="taskAssignee" style="width: 100%;"></select>
+            </div>
+            <div>
+              <label for="taskStatus">Estado</label>
+              <select id="taskStatus" style="width: 100%;">
+                <option value="TODO">📝 Por Hacer</option>
+                <option value="DOING">⚡ En Progreso</option>
+                <option value="BLOCKED">🚨 Bloqueado</option>
+                <option value="DONE">✅ Completado</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label for="taskPriority">Prioridad</label>
+            <select id="taskPriority" style="width: 100%;">
+              <option value="LOW">Baja</option>
+              <option value="MEDIUM" selected>Media</option>
+              <option value="HIGH">Alta</option>
+            </select>
+          </div>
+
+          <div id="taskBlockerGroup" style="margin-bottom: 16px; display: none;">
+            <label for="taskBlocker" style="color: var(--error);">Motivo del Bloqueo</label>
+            <input type="text" id="taskBlocker" placeholder="¿Por qué está trabada la tarea?" style="width: 100%; border-color: var(--error);" />
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+            <button type="button" id="btnDeleteTask" class="btn btn-danger btn-sm" style="display: none;">🗑️ Eliminar</button>
+            <div style="display: flex; gap: 8px; margin-left: auto;">
+              <button type="button" id="btnCancelTask" class="btn btn-secondary btn-sm">Cancelar</button>
+              <button type="button" id="btnSaveTask" class="btn btn-primary btn-sm">💾 Guardar Tarea</button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -1012,14 +1299,30 @@
         "Sabato#WEEK 9#Miercoles#José": {
           answers: ["Pruebas de latencia en endpoints", "Manejo de CORS y preflight", "Ninguno"]
         }
+      },
+      tasks: {
+        "Sabato": [
+          { id: "task-1", title: "Diseñar arquitectura Serverless en AWS Free Tier", assignee: "Lucas", status: "DONE", priority: "HIGH", blocker: "" },
+          { id: "task-2", title: "Integrar autenticación Google Identity Services", assignee: "Marcelo", status: "DONE", priority: "HIGH", blocker: "" },
+          { id: "task-3", title: "Unificar tablero Kanban con matriz del Daily Scrum", assignee: "Marcelo", status: "DOING", priority: "HIGH", blocker: "" },
+          { id: "task-4", title: "Optimización de cache y CORS preflight en CloudFront", assignee: "José", status: "BLOCKED", priority: "MEDIUM", blocker: "Esperando permisos IAM de CloudFront" },
+          { id: "task-5", title: "Pruebas de autoasignación a proyectos abiertos", assignee: "Marcelo", status: "TODO", priority: "LOW", blocker: "" },
+          { id: "task-6", title: "Configurar alertas de presupuesto $0 en AWS Billing", assignee: "Lucas", status: "TODO", priority: "MEDIUM", blocker: "" }
+        ],
+        "Core": [
+          { id: "task-c1", title: "Refactorizar consultas de DynamoDB Single Table", assignee: "José", status: "DOING", priority: "HIGH", blocker: "" }
+        ],
+        "Mobile": [
+          { id: "task-m1", title: "Revisar estilos responsive en pantallas pequeñas", assignee: "Lucas", status: "TODO", priority: "LOW", blocker: "" }
+        ]
       }
     };
 
     let rawMock = JSON.parse(localStorage.getItem(MOCK_STORAGE_KEY));
     let mockState = rawMock;
 
-    // Reset or migrate mock state if it lacks the current Marcelo/José/Lucas schema
-    if (!mockState || !mockState.members || !mockState.members["Sabato"] || !mockState.members["Sabato"].some((m) => m.name === "Marcelo")) {
+    // Reset or migrate mock state if it lacks the current Marcelo/José/Lucas schema or tasks
+    if (!mockState || !mockState.members || !mockState.members["Sabato"] || !mockState.tasks || !mockState.tasks["Sabato"]) {
       mockState = JSON.parse(JSON.stringify(DEFAULT_MOCK));
       localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockState));
     }
@@ -1396,6 +1699,64 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al eliminar Daily");
       },
+
+      async getTasks(project) {
+        const url = getCleanUrl();
+        if (!url) {
+          return (mockState.tasks && mockState.tasks[project]) || [];
+        }
+        try {
+          const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}`, { headers: getAuthHeaders() });
+          const data = await res.json();
+          return data.tasks || [];
+        } catch (err) {
+          return (mockState.tasks && mockState.tasks[project]) || [];
+        }
+      },
+
+      async saveTask(task) {
+        const url = getCleanUrl();
+        if (!url) {
+          if (!mockState.tasks) mockState.tasks = {};
+          if (!mockState.tasks[task.project]) mockState.tasks[task.project] = [];
+          const list = mockState.tasks[task.project];
+          const idx = list.findIndex((t) => t.id === task.id);
+          if (idx >= 0) {
+            list[idx] = { ...list[idx], ...task };
+          } else {
+            list.push({ ...task, id: task.id || "task-" + Date.now().toString(36) });
+          }
+          saveMockState();
+          return;
+        }
+        const method = task.id ? "PUT" : "POST";
+        const res = await fetch(`${url}/tasks`, {
+          method,
+          headers: getAuthHeaders(),
+          body: JSON.stringify(task),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar tarea");
+        return data;
+      },
+
+      async deleteTask(project, taskId) {
+        const url = getCleanUrl();
+        if (!url) {
+          if (mockState.tasks && mockState.tasks[project]) {
+            mockState.tasks[project] = mockState.tasks[project].filter((t) => t.id !== taskId);
+            saveMockState();
+          }
+          return;
+        }
+        const res = await fetch(`${url}/tasks?project=${encodeURIComponent(project)}&id=${encodeURIComponent(taskId)}`, {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al eliminar tarea");
+        return data;
+      },
     };
 
     // -------------------------------------------------------------
@@ -1412,9 +1773,11 @@
     };
 
     const scrumModal = setupModal("scrumModal", "modalClose");
+    const taskModal = setupModal("taskModal", "taskModalClose");
     const manageModal = setupModal("manageModal", "manageModalClose");
     const authModal = setupModal("authModal", "authModalClose");
     document.getElementById("btnCancelScrum").addEventListener("click", scrumModal.close);
+    document.getElementById("btnCancelTask").addEventListener("click", taskModal.close);
 
     let activeScrumContext = null;
 
@@ -2190,12 +2553,362 @@
       });
 
       if (!boardSelect.value && projects.length > 0) boardSelect.value = projects[0].name;
-      await renderBoard();
+      if (currentMainView === "daily") {
+        await renderBoard();
+      } else {
+        await renderKanban();
+      }
     };
 
-    document.getElementById("boardProject").addEventListener("change", renderBoard);
+    // -------------------------------------------------------------
+    // View Switcher (Daily Matrix vs Kanban Board)
+    // -------------------------------------------------------------
+    let currentMainView = "daily";
+
+    window.switchMainView = async (view) => {
+      currentMainView = view;
+      const tabDaily = document.getElementById("tabDailyView");
+      const tabKanban = document.getElementById("tabKanbanView");
+      const dailyContainer = document.getElementById("dailyViewContainer");
+      const kanbanContainer = document.getElementById("kanbanViewContainer");
+      const weekGroup = document.getElementById("weekFilterGroup");
+
+      if (view === "daily") {
+        tabDaily.classList.add("active");
+        tabKanban.classList.remove("active");
+        dailyContainer.style.display = "block";
+        kanbanContainer.style.display = "none";
+        if (weekGroup) weekGroup.style.display = "block";
+        await renderBoard();
+      } else {
+        tabDaily.classList.remove("active");
+        tabKanban.classList.add("active");
+        dailyContainer.style.display = "none";
+        kanbanContainer.style.display = "block";
+        if (weekGroup) weekGroup.style.display = "none";
+        await renderKanban();
+      }
+    };
+
+    // -------------------------------------------------------------
+    // Kanban Board Engine (Scrumban)
+    // -------------------------------------------------------------
+    const KANBAN_STATUSES = ["TODO", "DOING", "BLOCKED", "DONE"];
+
+    const getNextStatus = (current) => {
+      const idx = KANBAN_STATUSES.indexOf(current);
+      return idx < KANBAN_STATUSES.length - 1 ? KANBAN_STATUSES[idx + 1] : null;
+    };
+
+    const getPrevStatus = (current) => {
+      const idx = KANBAN_STATUSES.indexOf(current);
+      return idx > 0 ? KANBAN_STATUSES[idx - 1] : null;
+    };
+
+    let draggedTaskId = null;
+
+    window.handleDragStart = (e, taskId) => {
+      draggedTaskId = taskId;
+      e.dataTransfer.setData("text/plain", taskId);
+      e.target.classList.add("dragging");
+    };
+
+    window.handleDragEnd = (e) => {
+      e.target.classList.remove("dragging");
+      document.querySelectorAll(".kanban-col").forEach((col) => col.classList.remove("drag-over"));
+    };
+
+    window.handleDragOver = (e) => {
+      e.preventDefault();
+      const col = e.currentTarget;
+      col.classList.add("drag-over");
+    };
+
+    window.handleDragLeave = (e) => {
+      const col = e.currentTarget;
+      col.classList.remove("drag-over");
+    };
+
+    window.handleDrop = async (e, targetStatus) => {
+      e.preventDefault();
+      const col = e.currentTarget;
+      col.classList.remove("drag-over");
+      const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
+      if (!taskId) return;
+      await moveTaskStatus(taskId, targetStatus);
+    };
+
+    window.moveTaskStatus = async (taskId, nextStatus) => {
+      const project = document.getElementById("boardProject").value;
+      if (!project) return;
+      const tasks = await api.getTasks(project);
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      if (nextStatus === "BLOCKED" && !task.blocker) {
+        const res = await showPrompt({
+          title: "🚨 Registrar Bloqueo",
+          label: "Motivo o impedimento que traba la tarea:",
+          initialValue: "Esperando dependencias",
+        });
+        if (res === null) return;
+        task.blocker = res.value.trim() || "Bloqueo no especificado";
+      }
+
+      task.status = nextStatus;
+      await api.saveTask(task);
+      showToast(`Tarea movida a ${getStatusLabel(nextStatus)}`);
+      await renderKanban();
+    };
+
+    const getStatusLabel = (status) => {
+      switch (status) {
+        case "TODO": return "Por Hacer";
+        case "DOING": return "En Progreso";
+        case "BLOCKED": return "Bloqueado";
+        case "DONE": return "Completado";
+        default: return status;
+      }
+    };
+
+    window.renderKanban = async () => {
+      const project = document.getElementById("boardProject").value;
+      if (!project) return;
+
+      KANBAN_STATUSES.forEach((st) => {
+        const colList = document.getElementById(`col${st}`);
+        const countBadge = document.getElementById(`count${st}`);
+        if (colList) colList.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:12px;">Cargando...</div>`;
+        if (countBadge) countBadge.textContent = "0";
+      });
+
+      const tasks = await api.getTasks(project);
+
+      const statusMap = { TODO: [], DOING: [], BLOCKED: [], DONE: [] };
+      tasks.forEach((t) => {
+        const st = statusMap[t.status] ? t.status : "TODO";
+        statusMap[st].push(t);
+      });
+
+      KANBAN_STATUSES.forEach((st) => {
+        const colList = document.getElementById(`col${st}`);
+        const countBadge = document.getElementById(`count${st}`);
+        const list = statusMap[st];
+        if (countBadge) countBadge.textContent = list.length;
+        if (!colList) return;
+
+        if (list.length === 0) {
+          colList.innerHTML = `<div style="text-align:center; padding:24px 8px; color:var(--text-muted); font-size:11px; border: 1px dashed var(--border); border-radius: 6px;">Sin tareas</div>`;
+          return;
+        }
+
+        colList.innerHTML = "";
+        list.forEach((t) => {
+          const card = document.createElement("div");
+          card.className = "kanban-card";
+          card.draggable = true;
+          card.ondragstart = (e) => handleDragStart(e, t.id);
+          card.ondragend = handleDragEnd;
+
+          const isSelf = currentUser.name && t.assignee && (t.assignee.toLowerCase() === currentUser.name.toLowerCase());
+          const prevStatus = getPrevStatus(t.status);
+          const nextStatus = getNextStatus(t.status);
+
+          const prioClass = (t.priority || "medium").toLowerCase();
+          const prioLabel = t.priority === "HIGH" ? "Alta" : (t.priority === "LOW" ? "Baja" : "Media");
+
+          card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+              <span class="priority-badge ${prioClass}">${prioLabel}</span>
+              <button class="btn-action" onclick="openEditTaskModal('${t.id}')" title="Editar Tarea" style="font-size: 11px;">✏️</button>
+            </div>
+            <div class="kanban-card-title">${escapeHtml(t.title)}</div>
+            ${t.status === "BLOCKED" && t.blocker ? `
+              <div class="kanban-card-blocker">🚨 ${escapeHtml(t.blocker)}</div>
+            ` : ''}
+            <div class="kanban-card-footer">
+              <span class="kanban-assignee">
+                👤 ${escapeHtml(t.assignee || "Sin Asignar")}
+                ${isSelf ? '<span class="member-cell-self" style="font-size:8px;">TÚ</span>' : ''}
+              </span>
+              <div class="kanban-nav-btns">
+                ${prevStatus ? `<button class="kanban-nav-btn" onclick="moveTaskStatus('${t.id}', '${prevStatus}')" title="Mover a ${getStatusLabel(prevStatus)}">◀</button>` : ''}
+                ${nextStatus ? `<button class="kanban-nav-btn" onclick="moveTaskStatus('${t.id}', '${nextStatus}')" title="Mover a ${getStatusLabel(nextStatus)}">▶</button>` : ''}
+              </div>
+            </div>
+          `;
+          colList.appendChild(card);
+        });
+      });
+    };
+
+    // -------------------------------------------------------------
+    // Task Modal Handlers
+    // -------------------------------------------------------------
+    window.openNewTaskModal = async () => {
+      const project = document.getElementById("boardProject").value;
+      if (!project) return;
+      document.getElementById("taskModalTitle").textContent = "➕ Nueva Tarea de Kanban";
+      document.getElementById("taskId").value = "";
+      document.getElementById("taskTitle").value = "";
+      document.getElementById("taskStatus").value = "TODO";
+      document.getElementById("taskPriority").value = "MEDIUM";
+      document.getElementById("taskBlocker").value = "";
+      document.getElementById("taskBlockerGroup").style.display = "none";
+      document.getElementById("btnDeleteTask").style.display = "none";
+
+      await populateTaskAssigneeSelect(project, currentUser.name || "");
+      taskModal.open();
+    };
+
+    window.openEditTaskModal = async (taskId) => {
+      const project = document.getElementById("boardProject").value;
+      if (!project) return;
+      const tasks = await api.getTasks(project);
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      document.getElementById("taskModalTitle").textContent = "✏️ Editar Tarea de Kanban";
+      document.getElementById("taskId").value = task.id;
+      document.getElementById("taskTitle").value = task.title;
+      document.getElementById("taskStatus").value = task.status;
+      document.getElementById("taskPriority").value = task.priority || "MEDIUM";
+      document.getElementById("taskBlocker").value = task.blocker || "";
+      document.getElementById("taskBlockerGroup").style.display = task.status === "BLOCKED" ? "block" : "none";
+      document.getElementById("btnDeleteTask").style.display = "inline-flex";
+
+      await populateTaskAssigneeSelect(project, task.assignee || "");
+      taskModal.open();
+    };
+
+    const populateTaskAssigneeSelect = async (project, selectedName) => {
+      const select = document.getElementById("taskAssignee");
+      select.innerHTML = '<option value="">Sin Asignar</option>';
+      const members = await api.getMembers(project);
+      members.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.name;
+        opt.textContent = m.name + (m.role ? ` (${m.role})` : "");
+        if (m.name.toLowerCase() === selectedName.toLowerCase()) opt.selected = true;
+        select.appendChild(opt);
+      });
+    };
+
+    document.getElementById("taskStatus").addEventListener("change", (e) => {
+      const group = document.getElementById("taskBlockerGroup");
+      group.style.display = e.target.value === "BLOCKED" ? "block" : "none";
+    });
+
+    document.getElementById("btnSaveTask").addEventListener("click", async () => {
+      const project = document.getElementById("boardProject").value;
+      const id = document.getElementById("taskId").value;
+      const title = document.getElementById("taskTitle").value.trim();
+      const assignee = document.getElementById("taskAssignee").value;
+      const status = document.getElementById("taskStatus").value;
+      const priority = document.getElementById("taskPriority").value;
+      const blocker = document.getElementById("taskBlocker").value.trim();
+
+      if (!title) return showToast("El título de la tarea es requerido", "error");
+
+      const btn = document.getElementById("btnSaveTask");
+      btn.disabled = true;
+      btn.textContent = "Guardando...";
+
+      try {
+        await api.saveTask({
+          id: id || undefined,
+          project,
+          title,
+          assignee,
+          status,
+          priority,
+          blocker: status === "BLOCKED" ? blocker : "",
+        });
+        taskModal.close();
+        showToast(id ? "Tarea actualizada." : "Tarea creada con éxito.");
+        await renderKanban();
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "💾 Guardar Tarea";
+      }
+    });
+
+    document.getElementById("btnDeleteTask").addEventListener("click", async () => {
+      const project = document.getElementById("boardProject").value;
+      const taskId = document.getElementById("taskId").value;
+      if (!taskId) return;
+
+      const ok = await showConfirm("Eliminar Tarea", "¿Estás seguro de eliminar esta tarea del tablero?");
+      if (!ok) return;
+
+      try {
+        await api.deleteTask(project, taskId);
+        taskModal.close();
+        showToast("Tarea eliminada.");
+        await renderKanban();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
+
+    // -------------------------------------------------------------
+    // Bridge: Autofill Daily Scrum from Kanban
+    // -------------------------------------------------------------
+    window.autofillScrumFromKanban = async () => {
+      if (!activeScrumContext) return;
+      const { project, member } = activeScrumContext;
+      const tasks = await api.getTasks(project);
+
+      // Filter tasks assigned to this member
+      const memberTasks = tasks.filter(
+        (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+      );
+
+      if (memberTasks.length === 0) {
+        showToast(`No hay tareas de Kanban asignadas a ${member} en ${project}.`, "info");
+        return;
+      }
+
+      const doneTasks = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
+      const doingTasks = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
+      const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker || t.title);
+
+      const ans1 = document.getElementById("modalAns1");
+      const ans2 = document.getElementById("modalAns2");
+      const ans3 = document.getElementById("modalAns3");
+
+      if (doneTasks.length > 0) {
+        ans1.value = doneTasks.join(", ");
+      }
+      if (doingTasks.length > 0) {
+        ans2.value = doingTasks.join(", ");
+      }
+      if (blockedTasks.length > 0) {
+        ans3.value = blockedTasks.join("; ");
+      } else {
+        ans3.value = "Ninguno";
+      }
+
+      showToast("✨ Daily autocompletado con tus tareas de Kanban.");
+    };
+
+    document.getElementById("boardProject").addEventListener("change", () => {
+      if (currentMainView === "daily") {
+        renderBoard();
+      } else {
+        renderKanban();
+      }
+    });
     document.getElementById("boardWeek").addEventListener("change", renderBoard);
-    document.getElementById("btnRefreshBoard").addEventListener("click", renderBoard);
+    document.getElementById("btnRefreshBoard").addEventListener("click", () => {
+      if (currentMainView === "daily") {
+        renderBoard();
+      } else {
+        renderKanban();
+      }
+    });
 
     const initApp = async () => {
       updateModeBadge();
