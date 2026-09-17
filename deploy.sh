@@ -119,7 +119,7 @@ if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --regio
     aws lambda create-function-url-config \
         --function-name "$FUNCTION_NAME" \
         --auth-type NONE \
-        --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","DELETE","OPTIONS"],"AllowHeaders":["Content-Type"]}' \
+        --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","PUT","DELETE","OPTIONS"],"AllowHeaders":["Content-Type"]}' \
         --region "$REGION"
 
     aws lambda add-permission \

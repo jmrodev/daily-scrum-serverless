@@ -25,21 +25,17 @@ Returns an array of all active projects.
 
 ### `POST /projects`
 Creates a new project.
-* **Request Body:**
-  ```json
-  { "name": "Mobile" }
-  ```
-* **Response `201 Created`:**
-  ```json
-  { "message": "Project 'Mobile' created" }
-  ```
+* **Request Body:** `{ "name": "Mobile" }`
+* **Response `201 Created`:** `{ "message": "Project 'Mobile' created" }`
+
+### `PUT /projects/{name}`
+Renames an existing project.
+* **Request Body:** `{ "newName": "MobileApp" }`
+* **Response `200 OK`:** `{ "message": "Project 'Mobile' renamed to 'MobileApp'" }`
 
 ### `DELETE /projects/{name}`
 Deletes a project record.
-* **Response `200 OK`:**
-  ```json
-  { "message": "Project 'Mobile' deleted" }
-  ```
+* **Response `200 OK`:** `{ "message": "Project 'Mobile' deleted" }`
 
 ---
 
@@ -51,7 +47,7 @@ Lists all team members associated with a specific project.
   ```json
   {
     "members": [
-      { "name": "Paz", "project": "Sabato", "role": "Developer" },
+      { "name": "Paz", "project": "Sabato", "role": "Tech Lead" },
       { "name": "Juan", "project": "Sabato", "role": "Developer" }
     ]
   }
@@ -59,28 +55,44 @@ Lists all team members associated with a specific project.
 
 ### `POST /projects/{project}/members`
 Adds a member to a project.
-* **Request Body:**
-  ```json
-  { "project": "Sabato", "name": "Sofía", "role": "QA Engineer" }
-  ```
-* **Response `201 Created`:**
-  ```json
-  { "message": "Member 'Sofía' added to 'Sabato'" }
-  ```
+* **Request Body:** `{ "project": "Sabato", "name": "Sofia", "role": "QA" }`
+* **Response `201 Created`:** `{ "message": "Member 'Sofia' added to 'Sabato'" }`
+
+### `PUT /projects/{project}/members/{name}`
+Updates a member's name and/or role.
+* **Request Body:** `{ "newName": "Sofia R.", "role": "QA Lead" }`
+* **Response `200 OK`:** `{ "message": "Member 'Sofia' updated in 'Sabato'" }`
 
 ### `DELETE /projects/{project}/members/{name}`
 Removes a member from a project.
-* **Response `200 OK`:**
-  ```json
-  { "message": "Member 'Sofía' removed from 'Sabato'" }
-  ```
+* **Response `200 OK`:** `{ "message": "Member 'Sofia' removed from 'Sabato'" }`
 
 ---
 
 ## 3. Daily Scrum Endpoints
 
-### `POST /scrums`
-Records a member's daily scrum update.
+### `GET /scrums?project={project}&week={week}` (Weekly Matrix)
+Retrieves all daily scrums for a project across an entire week using a single DynamoDB query (`begins_with("WEEK#...")`).
+* **Response `200 OK`:**
+  ```json
+  {
+    "project": "Sabato",
+    "week": "WEEK 9",
+    "count": 4,
+    "scrums": [
+      {
+        "project": "Sabato",
+        "week": "WEEK 9",
+        "day": "Lunes",
+        "member": "Paz",
+        "answers": ["Sprint planning", "Architecture design", "None"]
+      }
+    ]
+  }
+  ```
+
+### `POST /scrums` or `PUT /scrums` (Save / Update Daily)
+Records or updates a member's daily scrum.
 * **Request Body:**
   ```json
   {
@@ -88,31 +100,20 @@ Records a member's daily scrum update.
     "week": "WEEK 9",
     "day": "Lunes",
     "member": "Paz",
-    "answers": [
-      "Completed database schema integration",
-      "Building user management modal",
-      "None"
-    ]
+    "answers": ["Completed schema", "Building matrix view", "None"]
   }
   ```
-* **Response `201 Created`:**
-  ```json
-  {
-    "message": "Daily Scrum recorded for Paz (WEEK 9 - Lunes)",
-    "data": { ... }
-  }
-  ```
+* **Response `200 OK` / `201 Created`:** `{ "message": "Daily Scrum recorded for Paz (WEEK 9 - Lunes)" }`
 
-### `GET /scrums?project={project}&week={week}&day={day}&member={member}`
-Fetches the daily scrum responses for a specific member and date.
-* **Response `200 OK`:**
+### `DELETE /scrums` (Delete Daily)
+Deletes a single daily scrum record.
+* **Request Body (or query params):**
   ```json
   {
-    "message": "Daily Scrum loaded for Paz (WEEK 9 - Lunes)",
-    "answers": [
-      "Completed database schema integration",
-      "Building user management modal",
-      "None"
-    ]
+    "project": "Sabato",
+    "week": "WEEK 9",
+    "day": "Lunes",
+    "member": "Paz"
   }
   ```
+* **Response `200 OK`:** `{ "message": "Daily Scrum deleted for Paz (WEEK 9 - Lunes)" }`

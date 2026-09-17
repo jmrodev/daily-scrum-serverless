@@ -13,7 +13,7 @@ table = dynamodb.Table(TABLE_NAME)
 CORS_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
 }
 
@@ -52,7 +52,7 @@ def handler(event, context):
         # =====================================================================
         # 1. PROJECTS CRUD
         # =====================================================================
-        # GET /projects -> List all projects
+        # GET /projects
         if path == "/projects" and method == "GET":
             resp = table.query(
                 KeyConditionExpression=Key("PK").eq("META#PROJECTS")
@@ -63,7 +63,7 @@ def handler(event, context):
             ]
             return create_response(200, {"projects": projects})
 
-        # POST /projects -> Create a project
+        # POST /projects
         elif path == "/projects" and method == "POST":
             body = parse_body(event)
             name = (body.get("name") or "").strip()
@@ -79,7 +79,25 @@ def handler(event, context):
             table.put_item(Item=item)
             return create_response(201, {"message": f"Project '{name}' created", "project": item})
 
-        # DELETE /projects/{name} or DELETE /projects?name=...
+        # PUT /projects/{name} -> Rename project
+        elif re.match(r"^/projects/[^/]+$", path) and method == "PUT":
+            old_name = urllib.parse.unquote(re.match(r"^/projects/([^/]+)$", path).group(1))
+            body = parse_body(event)
+            new_name = (body.get("newName") or "").strip()
+            if not new_name:
+                return create_response(400, {"error": "New project name is required"})
+
+            table.delete_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{old_name}"})
+            item = {
+                "PK": "META#PROJECTS",
+                "SK": f"PROJECT#{new_name}",
+                "name": new_name,
+                "created_at": event.get("requestContext", {}).get("time", ""),
+            }
+            table.put_item(Item=item)
+            return create_response(200, {"message": f"Project '{old_name}' renamed to '{new_name}'", "project": item})
+
+        # DELETE /projects/{name}
         elif (re.match(r"^/projects/[^/]+$", path) or path == "/projects") and method == "DELETE":
             match = re.match(r"^/projects/([^/]+)$", path)
             name = urllib.parse.unquote(match.group(1)) if match else params.get("name")
@@ -92,7 +110,7 @@ def handler(event, context):
         # =====================================================================
         # 2. MEMBERS CRUD
         # =====================================================================
-        # GET /members?project=... or GET /projects/{project}/members
+        # GET /projects/{project}/members
         member_list_match = re.match(r"^/projects/([^/]+)/members$", path)
         if (member_list_match or path == "/members") and method == "GET":
             project = (
@@ -117,7 +135,7 @@ def handler(event, context):
             ]
             return create_response(200, {"members": members})
 
-        # POST /members or POST /projects/{project}/members -> Add member
+        # POST /projects/{project}/members
         member_add_match = re.match(r"^/projects/([^/]+)/members$", path)
         if (member_add_match or path == "/members") and method == "POST":
             body = parse_body(event)
@@ -143,7 +161,30 @@ def handler(event, context):
             table.put_item(Item=item)
             return create_response(201, {"message": f"Member '{name}' added to '{project}'", "member": item})
 
-        # DELETE /members or DELETE /projects/{project}/members/{name}
+        # PUT /projects/{project}/members/{name}
+        member_edit_match = re.match(r"^/projects/([^/]+)/members/([^/]+)$", path)
+        if member_edit_match and method == "PUT":
+            project = urllib.parse.unquote(member_edit_match.group(1))
+            old_name = urllib.parse.unquote(member_edit_match.group(2))
+            body = parse_body(event)
+            new_name = (body.get("newName") or old_name).strip()
+            role = (body.get("role") or "Developer").strip()
+
+            if old_name != new_name:
+                table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{old_name}"})
+
+            item = {
+                "PK": f"PROJECT#{project}",
+                "SK": f"MEMBER#{new_name}",
+                "name": new_name,
+                "project": project,
+                "role": role,
+                "updated_at": event.get("requestContext", {}).get("time", ""),
+            }
+            table.put_item(Item=item)
+            return create_response(200, {"message": f"Member '{old_name}' updated in '{project}'", "member": item})
+
+        # DELETE /projects/{project}/members/{name}
         member_del_match = re.match(r"^/projects/([^/]+)/members/([^/]+)$", path)
         if (member_del_match or path == "/members") and method == "DELETE":
             body = parse_body(event) if method == "DELETE" and event.get("body") else {}
@@ -161,10 +202,10 @@ def handler(event, context):
             return create_response(200, {"message": f"Member '{name}' removed from '{project}'"})
 
         # =====================================================================
-        # 3. DAILY SCRUMS CRUD
+        # 3. DAILY SCRUMS CRUD (Single item or Whole Week Matrix)
         # =====================================================================
-        # POST /scrums or POST / -> Record Daily
-        if (path == "/scrums" or path == "/") and method == "POST":
+        # POST /scrums or PUT /scrums -> Record / Update Daily Scrum
+        if (path == "/scrums" or path == "/") and method in ["POST", "PUT"]:
             body = parse_body(event)
             project = body.get("project")
             week = body.get("week")
@@ -175,33 +216,53 @@ def handler(event, context):
             if not all([project, week, day, member]):
                 return create_response(400, {"error": "Missing fields: project, week, day, member"})
 
-            table.put_item(
-                Item={
-                    "PK": f"PROJECT#{project}",
-                    "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
-                    "project": project,
-                    "week": week,
-                    "day": day,
-                    "member": member,
-                    "answers": answers,
-                    "updated_at": event.get("requestContext", {}).get("time", ""),
-                }
-            )
+            item = {
+                "PK": f"PROJECT#{project}",
+                "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
+                "project": project,
+                "week": week,
+                "day": day,
+                "member": member,
+                "answers": answers,
+                "updated_at": event.get("requestContext", {}).get("time", ""),
+            }
+            table.put_item(Item=item)
             return create_response(
-                201,
+                200 if method == "PUT" else 201,
                 {
                     "message": f"Daily Scrum recorded for {member} ({week} - {day})",
-                    "data": {"project": project, "week": week, "day": day, "member": member, "answers": answers},
+                    "data": item,
                 },
             )
 
-        # GET /scrums or GET / -> Load Daily
+        # GET /scrums -> Either Single Daily or Full Weekly Matrix
         elif (path == "/scrums" or path == "/") and method == "GET":
             project = params.get("project")
             week = params.get("week")
             day = params.get("day")
             member = params.get("member")
 
+            if not project:
+                return create_response(400, {"error": "Project parameter is required"})
+
+            # Case A: Get full weekly matrix for a project (when day/member are omitted)
+            if week and not (day and member):
+                resp = table.query(
+                    KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
+                    & Key("SK").begins_with(f"WEEK#{week}#")
+                )
+                items = resp.get("Items", [])
+                return create_response(
+                    200,
+                    {
+                        "project": project,
+                        "week": week,
+                        "count": len(items),
+                        "scrums": items,
+                    },
+                )
+
+            # Case B: Get single member daily
             if not all([project, week, day, member]):
                 return create_response(400, {"error": "Missing params: project, week, day, member"})
 
@@ -220,7 +281,30 @@ def handler(event, context):
                 {
                     "message": f"Daily Scrum loaded for {member} ({week} - {day})",
                     "answers": item.get("answers", []),
+                    "data": item,
                 },
+            )
+
+        # DELETE /scrums -> Delete a Daily Scrum entry
+        elif (path == "/scrums" or path == "/") and method == "DELETE":
+            body = parse_body(event) if event.get("body") else {}
+            project = params.get("project") or body.get("project")
+            week = params.get("week") or body.get("week")
+            day = params.get("day") or body.get("day")
+            member = params.get("member") or body.get("member")
+
+            if not all([project, week, day, member]):
+                return create_response(400, {"error": "Missing params: project, week, day, member"})
+
+            table.delete_item(
+                Key={
+                    "PK": f"PROJECT#{project}",
+                    "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
+                }
+            )
+            return create_response(
+                200,
+                {"message": f"Daily Scrum deleted for {member} ({week} - {day})"},
             )
 
         return create_response(404, {"error": f"Path '{path}' with method '{method}' not found"})
