@@ -834,15 +834,15 @@
         btnThemeToggle.innerHTML = theme === "dark" ? "☀️ Claro" : "🌙 Oscuro";
         btnThemeToggle.setAttribute("title", `Cambiar a modo ${theme === "dark" ? "claro" : "oscuro"}`);
       }
-      if (typeof initGoogleIdentityServices === "function") {
-        initGoogleIdentityServices();
-      }
     };
 
     const toggleTheme = () => {
       const current = document.documentElement.getAttribute("data-theme") || getPreferredTheme();
       const next = current === "dark" ? "light" : "dark";
       applyTheme(next);
+      if (typeof initGoogleIdentityServices === "function") {
+        initGoogleIdentityServices();
+      }
       showToast(`Modo ${next === "dark" ? "Oscuro" : "Claro"} activado`);
     };
 
@@ -1492,7 +1492,7 @@
       }
     };
 
-    const initGoogleIdentityServices = () => {
+    function initGoogleIdentityServices() {
       const clientId = localStorage.getItem(GOOGLE_CLIENT_KEY);
       const containerLogin = document.getElementById("googleBtnContainerLogin");
       const containerSignup = document.getElementById("googleBtnContainerSignup");
