@@ -1557,7 +1557,9 @@
     // -------------------------------------------------------------
     const DEFAULT_API_URL = "https://2pa3hfii3cirygdrjnyjsit7ve0ybqgy.lambda-url.us-east-1.on.aws/";
     const savedUrl = localStorage.getItem(STORAGE_KEY);
-    apiInput.value = savedUrl !== null ? savedUrl : DEFAULT_API_URL;
+    const effectiveUrl = (savedUrl && savedUrl.trim()) ? savedUrl.trim() : DEFAULT_API_URL;
+    apiInput.value = effectiveUrl;
+    localStorage.setItem(STORAGE_KEY, effectiveUrl);
 
     const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
 
@@ -1829,14 +1831,14 @@
         const url = getCleanUrl();
         if (!url) {
           const lower = email.toLowerCase();
-          if (lower.includes("marcelo")) {
+          if (lower === "marcelo@gmail.com" || lower === "marcelo") {
             return { user: { name: "Marcelo", email: "marcelo@gmail.com", role: "member", title: "Frontend Dev", is_admin: false } };
-          } else if (lower.includes("lucas")) {
+          } else if (lower === "lucas@empresa.com" || lower === "lucas") {
             return { user: { name: "Lucas", email: "lucas@empresa.com", role: "admin", title: "Tech Lead / Admin", is_admin: true } };
-          } else if (lower.includes("jose")) {
+          } else if (lower === "jose@empresa.com" || lower === "jose") {
             return { user: { name: "José", email: "jose@empresa.com", role: "member", title: "Backend Dev", is_admin: false } };
           }
-          throw new Error("En modo local solo están habilitados los 3 usuarios demo: Marcelo (Dev), Lucas (Admin) o José (Dev).");
+          throw new Error("En modo local solo están habilitados los 3 usuarios demo: Marcelo (Dev), Lucas (Admin) o José (Dev). Para ingresar con tu cuenta, conectá el Lambda Function URL.");
         }
         const res = await fetch(`${url}/auth/login`, {
           method: "POST",
