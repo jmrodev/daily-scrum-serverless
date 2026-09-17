@@ -686,6 +686,52 @@
       gap: 2px;
       border: 1px solid rgba(59, 130, 246, 0.3);
     }
+    th.current-day {
+      background: var(--info-bg);
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+    }
+    .badge-today {
+      background: var(--primary);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-left: 4px;
+      display: inline-block;
+      vertical-align: middle;
+      letter-spacing: 0.5px;
+    }
+    td.current-day-cell {
+      background: rgba(59, 130, 246, 0.035);
+      border-left: 1px solid var(--primary);
+      border-right: 1px solid var(--primary);
+    }
+    .tag-synced {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--info-text);
+      background: var(--info-bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .auto-sync-banner {
+      font-size: 11px;
+      padding: 6px 10px;
+      background: var(--info-bg);
+      color: var(--info-text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
   </style>
   <!-- Google Identity Services (Sign-In with Google) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -773,7 +819,7 @@
         <div class="table-container">
           <table id="scrumTable">
             <thead>
-              <tr>
+              <tr id="scrumTableHeadRow">
                 <th class="member-col">Integrante</th>
                 <th class="day-col">Lunes</th>
                 <th class="day-col">Martes</th>
@@ -852,10 +898,11 @@
       </div>
       <div class="modal-body">
         <div class="meta-tags" id="modalMetaTags"></div>
+        <div id="scrumAutoSyncBanner" class="auto-sync-banner" style="display: none;"></div>
 
         <div style="margin-bottom: 12px; display: flex; justify-content: flex-end;">
           <button type="button" id="btnAutofillFromKanban" class="btn btn-secondary btn-sm" style="font-size: 11px; background: var(--info-bg); color: var(--info-text); border: 1px solid var(--border);" onclick="autofillScrumFromKanban()">
-            ✨ Autocompletar desde mi Kanban
+            🔄 Re-sincronizar con mi Kanban
           </button>
         </div>
 
@@ -1141,6 +1188,21 @@
 
   <script>
     const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
+    const getCurrentDayName = () => {
+      const dayIndex = new Date().getDay();
+      const map = {
+        1: "Lunes",
+        2: "Martes",
+        3: "Miercoles",
+        4: "Jueves",
+        5: "Viernes",
+        6: "Sabado",
+        0: "Domingo",
+      };
+      return map[dayIndex] || "Lunes";
+    };
+    window.getCurrentDayName = getCurrentDayName;
+
     const STORAGE_KEY = "daily_scrum_api_url";
     const MOCK_STORAGE_KEY = "daily_scrum_mock_data";
     const AUTH_STORAGE_KEY = "daily_scrum_auth_session";
@@ -2179,6 +2241,21 @@
         scrumsMap[`${s.member}#${s.day}`] = s;
       });
 
+      const today = getCurrentDayName();
+      const headRow = document.getElementById("scrumTableHeadRow");
+      if (headRow) {
+        headRow.innerHTML = `
+          <th class="member-col">Integrante</th>
+          ${DAYS.map((d) => {
+            const isToday = d === today;
+            return `<th class="day-col ${isToday ? 'current-day' : ''}">
+              ${d}
+              ${isToday ? '<span class="badge-today">HOY</span>' : ''}
+            </th>`;
+          }).join("")}
+        `;
+      }
+
       tbody.innerHTML = "";
       members.forEach((m) => {
         const tr = document.createElement("tr");
@@ -2211,7 +2288,9 @@
         tr.appendChild(memberTd);
 
         DAYS.forEach((day) => {
+          const isToday = day === today;
           const dayTd = document.createElement("td");
+          if (isToday) dayTd.classList.add("current-day-cell");
           const scrum = scrumsMap[`${m.name}#${day}`];
 
           if (scrum) {
@@ -2224,7 +2303,10 @@
             dayTd.innerHTML = `
               <div class="scrum-entry">
                 <div class="scrum-top-bar">
-                  ${hasBlocker ? '<span class="tag-blocker">🚨 Bloqueo</span>' : '<span class="tag-clean">✓</span>'}
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    ${hasBlocker ? '<span class="tag-blocker">🚨 Bloqueo</span>' : '<span class="tag-clean">✓</span>'}
+                    ${isToday ? '<span class="tag-synced">⚡ Hoy</span>' : ''}
+                  </div>
                   ${canEditThisRow ? `
                     <div class="actions-mini">
                       <button class="btn-action" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', true)" title="Editar">✏️</button>
@@ -2243,6 +2325,7 @@
               dayTd.innerHTML = `
                 <button class="cell-empty-btn" onclick="openScrumModal('${project}', '${week}', '${day}', '${m.name}', false)">
                   <span>+ Cargar</span>
+                  ${isToday && memberTasks.length > 0 ? `<span style="font-size:9px; color:var(--primary); font-weight:700;">(${memberTasks.length} en Kanban)</span>` : ''}
                 </button>
               `;
             } else {
@@ -2336,6 +2419,17 @@
       const ans3 = document.getElementById("modalAns3");
       const deleteBtn = document.getElementById("btnDeleteScrum");
 
+      let prefilledFromKanban = false;
+      let memberTasks = [];
+      try {
+        const tasks = await api.getTasks(project);
+        memberTasks = tasks.filter(
+          (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+        );
+      } catch (err) {
+        // Silently continue
+      }
+
       if (isEdit) {
         deleteBtn.style.display = "inline-flex";
         const scrums = await api.getWeeklyScrums(project, week);
@@ -2346,26 +2440,41 @@
         ans3.value = answers[2] || "";
       } else {
         deleteBtn.style.display = "none";
-        ans1.value = "";
-        ans2.value = "";
-        ans3.value = "Ninguno";
+        // Automatic dynamic pre-fill from Kanban
+        const doneTasks = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
+        const doingTasks = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
+        const blockedTasks = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker || t.title);
+
+        if (doneTasks.length > 0 || doingTasks.length > 0 || blockedTasks.length > 0) {
+          ans1.value = doneTasks.length > 0 ? doneTasks.join(", ") : "Sin respuesta";
+          ans2.value = doingTasks.length > 0 ? doingTasks.join(", ") : "Sin respuesta";
+          ans3.value = blockedTasks.length > 0 ? blockedTasks.join("; ") : "Ninguno";
+          prefilledFromKanban = true;
+        } else {
+          ans1.value = "";
+          ans2.value = "";
+          ans3.value = "Ninguno";
+        }
       }
 
       const syncCheckbox = document.getElementById("syncKanbanOnSave");
       if (syncCheckbox) syncCheckbox.checked = true;
 
-      // Update autofill button with count of tasks for this member
-      try {
-        const tasks = await api.getTasks(project);
-        const count = tasks.filter(
-          (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
-        ).length;
-        const btnAutofill = document.getElementById("btnAutofillFromKanban");
-        if (btnAutofill) {
-          btnAutofill.textContent = count > 0 ? `✨ Autocompletar desde mi Kanban (${count})` : `✨ Autocompletar desde mi Kanban`;
+      const btnAutofill = document.getElementById("btnAutofillFromKanban");
+      if (btnAutofill) {
+        btnAutofill.textContent = memberTasks.length > 0
+          ? `🔄 Re-sincronizar con mi Kanban (${memberTasks.length})`
+          : `🔄 Re-sincronizar con mi Kanban`;
+      }
+
+      const banner = document.getElementById("scrumAutoSyncBanner");
+      if (banner) {
+        if (prefilledFromKanban) {
+          banner.style.display = "flex";
+          banner.innerHTML = `⚡ <strong>Sincronización automática:</strong> Respuestas auto-cargadas desde tus tareas de Kanban.`;
+        } else {
+          banner.style.display = "none";
         }
-      } catch (err) {
-        // Silently continue
       }
 
       scrumModal.open();
@@ -2721,6 +2830,74 @@
       await moveTaskStatus(taskId, targetStatus);
     };
 
+    // -------------------------------------------------------------
+    // Automatic Dynamic Bridge: Kanban -> Daily Scrum
+    // -------------------------------------------------------------
+    async function syncKanbanToDaily(project, member) {
+      if (!project || !member) return;
+      const week = (document.getElementById("boardWeek") && document.getElementById("boardWeek").value) || "Semana 1";
+      const today = getCurrentDayName();
+
+      const [tasks, scrums] = await Promise.all([
+        api.getTasks(project),
+        api.getWeeklyScrums(project, week),
+      ]);
+
+      const memberTasks = (tasks || []).filter(
+        (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+      );
+
+      const doneTitles = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
+      const doingTitles = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
+      const blockedTitles = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker || t.title);
+
+      const existingScrum = (scrums || []).find(
+        (s) => s.member && s.member.toLowerCase() === member.toLowerCase() && s.day === today
+      );
+
+      let ans1 = doneTitles.length > 0 ? doneTitles.join(", ") : "";
+      let ans2 = doingTitles.length > 0 ? doingTitles.join(", ") : "";
+      let ans3 = blockedTitles.length > 0 ? blockedTitles.join("; ") : "Ninguno";
+
+      if (existingScrum && existingScrum.answers) {
+        const prev1 = existingScrum.answers[0] || "";
+        const prev2 = existingScrum.answers[1] || "";
+        const prev3 = existingScrum.answers[2] || "";
+
+        if (prev1 && prev1 !== "Sin respuesta") {
+          const items = prev1.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+          doneTitles.forEach((t) => {
+            if (!items.some((i) => i.toLowerCase() === t.toLowerCase())) items.push(t);
+          });
+          ans1 = items.join(", ");
+        }
+
+        if (prev2 && prev2 !== "Sin respuesta") {
+          const items = prev2.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+          const filtered = items.filter((i) => !doneTitles.some((d) => d.toLowerCase() === i.toLowerCase()));
+          doingTitles.forEach((t) => {
+            if (!filtered.some((i) => i.toLowerCase() === t.toLowerCase())) filtered.push(t);
+          });
+          ans2 = filtered.join(", ");
+        }
+
+        if (prev3 && prev3 !== "Ninguno" && blockedTitles.length === 0) {
+          ans3 = prev3;
+        }
+      }
+
+      try {
+        await api.saveScrum(project, week, today, member, [
+          ans1 || "Sin respuesta",
+          ans2 || "Sin respuesta",
+          ans3 || "Ninguno",
+        ]);
+      } catch (err) {
+        console.warn("Auto-sync Kanban to Daily error:", err);
+      }
+    }
+    window.syncKanbanToDaily = syncKanbanToDaily;
+
     window.moveTaskStatus = async (taskId, nextStatus) => {
       const project = document.getElementById("boardProject").value;
       if (!project) return;
@@ -2740,7 +2917,10 @@
 
       task.status = nextStatus;
       await api.saveTask(task);
-      showToast(`Tarea movida a ${getStatusLabel(nextStatus)}`);
+      if (task.assignee) {
+        await syncKanbanToDaily(project, task.assignee);
+      }
+      showToast(`Tarea movida a ${getStatusLabel(nextStatus)} y sincronizada con Daily (${getCurrentDayName()}).`);
       await renderKanban();
     };
 
@@ -2922,8 +3102,11 @@
           priority,
           blocker: status === "BLOCKED" ? blocker : "",
         });
+        if (assignee) {
+          await syncKanbanToDaily(project, assignee);
+        }
         taskModal.close();
-        showToast(id ? "Tarea actualizada." : "Tarea creada con éxito.");
+        showToast(id ? `Tarea actualizada y sincronizada con Daily (${getCurrentDayName()}).` : `Tarea creada y sincronizada con Daily (${getCurrentDayName()}).`);
         await renderKanban();
       } catch (err) {
         showToast(err.message, "error");
@@ -2942,9 +3125,14 @@
       if (!ok) return;
 
       try {
+        const tasks = await api.getTasks(project);
+        const task = tasks.find((t) => t.id === taskId);
         await api.deleteTask(project, taskId);
+        if (task && task.assignee) {
+          await syncKanbanToDaily(project, task.assignee);
+        }
         taskModal.close();
-        showToast("Tarea eliminada.");
+        showToast("Tarea eliminada y Daily actualizada.");
         await renderKanban();
       } catch (err) {
         showToast(err.message, "error");
