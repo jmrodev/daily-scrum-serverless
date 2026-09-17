@@ -68,6 +68,7 @@ if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
         "dynamodb:PutItem",
         "dynamodb:GetItem",
         "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
         "dynamodb:Query"
       ],
       "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${TABLE_NAME}"
@@ -118,7 +119,7 @@ if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --regio
     aws lambda create-function-url-config \
         --function-name "$FUNCTION_NAME" \
         --auth-type NONE \
-        --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","OPTIONS"],"AllowHeaders":["Content-Type"]}' \
+        --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","DELETE","OPTIONS"],"AllowHeaders":["Content-Type"]}' \
         --region "$REGION"
 
     aws lambda add-permission \

@@ -17,6 +17,8 @@
       --success-bg: #dcfce7;
       --error: #dc2626;
       --error-bg: #fee2e2;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
       --radius: 10px;
     }
 
@@ -31,7 +33,7 @@
     }
 
     .container {
-      max-width: 680px;
+      max-width: 720px;
       margin: 0 auto;
     }
 
@@ -62,10 +64,16 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
+    .card-header-flex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
     .card-title {
       font-size: 18px;
       font-weight: 700;
-      margin-bottom: 16px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -77,7 +85,7 @@
       gap: 14px;
     }
 
-    @media (max-width: 540px) {
+    @media (max-width: 560px) {
       .grid-2 { grid-template-columns: 1fr; }
     }
 
@@ -122,36 +130,31 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
-      padding: 12px 16px;
-      font-size: 15px;
+      padding: 11px 16px;
+      font-size: 14px;
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
       border: none;
-      transition: background 0.15s ease, transform 0.05s ease;
+      transition: all 0.15s ease;
       gap: 8px;
     }
 
     .btn:active { transform: scale(0.99); }
+    .btn-block { width: 100%; padding: 12px; font-size: 15px; }
 
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-    }
+    .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
 
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #334155;
-      border: 1px solid #cbd5e1;
-    }
+    .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
     .btn-secondary:hover { background: #e2e8f0; }
 
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); }
+
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .status-msg {
       margin-top: 14px;
@@ -162,6 +165,36 @@
     }
     .status-msg.success { display: block; background: var(--success-bg); color: var(--success); }
     .status-msg.error { display: block; background: var(--error-bg); color: var(--error); }
+
+    /* Items List for CRUD */
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      background: #e2e8f0;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .chip-delete {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+    }
+    .chip-delete:hover { color: var(--danger); }
 
     /* Modal Backdrop and Box */
     .modal-overlay {
@@ -179,25 +212,20 @@
       transition: opacity 0.2s ease, visibility 0.2s ease;
     }
 
-    .modal-overlay.open {
-      opacity: 1;
-      visibility: visible;
-    }
+    .modal-overlay.open { opacity: 1; visibility: visible; }
 
     .modal-box {
       background: #fff;
       border-radius: 12px;
       width: 100%;
-      max-width: 540px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      max-width: 560px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
       overflow: hidden;
       transform: translateY(12px);
       transition: transform 0.2s ease;
     }
 
-    .modal-overlay.open .modal-box {
-      transform: translateY(0);
-    }
+    .modal-overlay.open .modal-box { transform: translateY(0); }
 
     .modal-header {
       padding: 18px 24px;
@@ -207,10 +235,7 @@
       justify-content: space-between;
     }
 
-    .modal-header h3 {
-      font-size: 18px;
-      font-weight: 700;
-    }
+    .modal-header h3 { font-size: 18px; font-weight: 700; }
 
     .modal-close {
       background: none;
@@ -225,7 +250,7 @@
 
     .modal-body {
       padding: 24px;
-      max-height: 70vh;
+      max-height: 75vh;
       overflow-y: auto;
     }
 
@@ -266,18 +291,37 @@
       color: var(--text);
       white-space: pre-wrap;
     }
+
+    .sub-section {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .sub-section h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>Daily Scrum Serverless</h1>
-      <p>Arquitectura 100% permanente en AWS Free Tier</p>
+      <p>Gestión de equipo, proyectos y dailies con AWS Lambda & DynamoDB</p>
     </header>
 
     <!-- Config Card -->
     <div class="card">
-      <div class="card-title">⚙️ Conexión Backend</div>
+      <div class="card-header-flex">
+        <div class="card-title">⚙️ Conexión Backend</div>
+        <button id="btnOpenManageModal" class="btn btn-secondary btn-sm">
+          👥 Administrar Proyectos e Integrantes
+        </button>
+      </div>
       <div class="form-group" style="margin-bottom: 0;">
         <label for="apiUrl">Lambda Function URL</label>
         <input type="text" id="apiUrl" placeholder="https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.lambda-url.us-east-1.on.aws/" />
@@ -291,12 +335,7 @@
       <div class="grid-2">
         <div class="form-group">
           <label for="postProject">Proyecto</label>
-          <select id="postProject">
-            <option value="Sabato">Sabato</option>
-            <option value="Core">Core</option>
-            <option value="Mobile">Mobile</option>
-            <option value="DevOps">DevOps</option>
-          </select>
+          <select id="postProject"></select>
         </div>
 
         <div class="form-group">
@@ -334,13 +373,7 @@
 
         <div class="form-group">
           <label for="postMember">Integrante</label>
-          <select id="postMember">
-            <option value="Paz" selected>Paz</option>
-            <option value="Juan">Juan</option>
-            <option value="Marcelo">Marcelo</option>
-            <option value="Sofia">Sofía</option>
-            <option value="Lucas">Lucas</option>
-          </select>
+          <select id="postMember"></select>
         </div>
       </div>
 
@@ -359,7 +392,7 @@
         <textarea id="ans3" placeholder="Ninguno / Describí el impedimento..."></textarea>
       </div>
 
-      <button id="btnSubmit" class="btn btn-primary">
+      <button id="btnSubmit" class="btn btn-primary btn-block">
         <span>Guardar en AWS DynamoDB</span>
       </button>
       <div id="postStatus" class="status-msg"></div>
@@ -372,12 +405,7 @@
       <div class="grid-2">
         <div class="form-group">
           <label for="getProject">Proyecto</label>
-          <select id="getProject">
-            <option value="Sabato">Sabato</option>
-            <option value="Core">Core</option>
-            <option value="Mobile">Mobile</option>
-            <option value="DevOps">DevOps</option>
-          </select>
+          <select id="getProject"></select>
         </div>
 
         <div class="form-group">
@@ -415,28 +443,22 @@
 
         <div class="form-group">
           <label for="getMember">Integrante</label>
-          <select id="getMember">
-            <option value="Paz" selected>Paz</option>
-            <option value="Juan">Juan</option>
-            <option value="Marcelo">Marcelo</option>
-            <option value="Sofia">Sofía</option>
-            <option value="Lucas">Lucas</option>
-          </select>
+          <select id="getMember"></select>
         </div>
       </div>
 
-      <button id="btnLoad" class="btn btn-secondary">
+      <button id="btnLoad" class="btn btn-secondary btn-block">
         <span>Abrir y Ver en Modal</span>
       </button>
       <div id="getStatus" class="status-msg"></div>
     </div>
   </div>
 
-  <!-- Modal for Results -->
+  <!-- Modal: View Scrum Results -->
   <div id="modalOverlay" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 id="modalTitle">Daily Scrum Cargada</h3>
+        <h3 id="modalTitle">Daily Scrum Registrada</h3>
         <button id="modalCloseBtn" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -460,33 +482,318 @@
     </div>
   </div>
 
+  <!-- Modal: Manage Projects & Members (CRUD) -->
+  <div id="manageModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>👥 Gestión de Proyectos e Integrantes</h3>
+        <button id="manageModalClose" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Projects Section -->
+        <div class="sub-section">
+          <h4>📁 Proyectos</h4>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="newProjectName" placeholder="Nombre nuevo proyecto..." />
+            <button id="btnAddProject" class="btn btn-primary btn-sm">Agregar</button>
+          </div>
+          <div id="projectsChipList" class="chip-list">
+            <span style="font-size: 13px; color: var(--text-muted);">Cargando...</span>
+          </div>
+        </div>
+
+        <!-- Members Section -->
+        <div class="sub-section">
+          <h4>👤 Integrantes</h4>
+          <label style="margin-bottom: 4px;">Seleccionar Proyecto:</label>
+          <select id="manageProjectSelect" style="margin-bottom: 10px;"></select>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="newMemberName" placeholder="Nombre del integrante..." />
+            <button id="btnAddMember" class="btn btn-primary btn-sm">Agregar</button>
+          </div>
+          <div id="membersChipList" class="chip-list">
+            <span style="font-size: 13px; color: var(--text-muted);">Elegí un proyecto...</span>
+          </div>
+        </div>
+
+        <!-- Seed Demo Data -->
+        <div style="text-align: center; margin-top: 10px;">
+          <button id="btnSeed" class="btn btn-secondary btn-sm">
+            🌱 Cargar Datos Iniciales de Ejemplo (Seed)
+          </button>
+        </div>
+        <div id="manageStatus" class="status-msg"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = "daily_scrum_api_url";
     const apiInput = document.getElementById("apiUrl");
 
-    // Persist API URL in localStorage for convenience
+    // Persist API URL
     const savedUrl = localStorage.getItem(STORAGE_KEY);
     if (savedUrl) apiInput.value = savedUrl;
     apiInput.addEventListener("input", () => {
       localStorage.setItem(STORAGE_KEY, apiInput.value.trim());
+      refreshAll();
     });
 
     const getCleanUrl = () => apiInput.value.trim().replace(/\/+$/, "");
 
-    // Modal Controls
-    const modal = document.getElementById("modalOverlay");
-    const closeModal = () => modal.classList.remove("open");
-    const openModal = () => modal.classList.add("open");
+    // Generic Modal Handler
+    const setupModal = (overlayId, closeBtnId) => {
+      const overlay = document.getElementById(overlayId);
+      const closeBtn = document.getElementById(closeBtnId);
+      const open = () => overlay.classList.add("open");
+      const close = () => overlay.classList.remove("open");
 
-    document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) closeModal();
-    });
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeModal();
+      if (closeBtn) closeBtn.addEventListener("click", close);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      return { open, close };
+    };
+
+    const scrumModal = setupModal("modalOverlay", "modalCloseBtn");
+    const manageModal = setupModal("manageModal", "manageModalClose");
+
+    document.getElementById("btnOpenManageModal").addEventListener("click", () => {
+      manageModal.open();
+      loadProjectsCrud();
     });
 
-    // 1. Submit POST
+    // In-memory state for fallback or loaded data
+    let currentProjects = [];
+    let membersByProject = {};
+
+    // -------------------------------------------------------------
+    // Synchronize Dropdowns & UI
+    // -------------------------------------------------------------
+    const populateSelect = (selectEl, items, selectedValue) => {
+      selectEl.innerHTML = "";
+      items.forEach((item) => {
+        const opt = document.createElement("option");
+        opt.value = item;
+        opt.textContent = item;
+        if (item === selectedValue) opt.selected = true;
+        selectEl.appendChild(opt);
+      });
+    };
+
+    const refreshDropdowns = () => {
+      const projectNames = currentProjects.map((p) => p.name);
+      const activeProjectPost = document.getElementById("postProject").value || projectNames[0] || "Sabato";
+      const activeProjectGet = document.getElementById("getProject").value || projectNames[0] || "Sabato";
+
+      populateSelect(document.getElementById("postProject"), projectNames, activeProjectPost);
+      populateSelect(document.getElementById("getProject"), projectNames, activeProjectGet);
+      populateSelect(document.getElementById("manageProjectSelect"), projectNames, activeProjectPost);
+
+      updateMembersDropdown("post");
+      updateMembersDropdown("get");
+    };
+
+    const updateMembersDropdown = async (mode) => {
+      const projectSelectId = mode === "post" ? "postProject" : "getProject";
+      const memberSelectId = mode === "post" ? "postMember" : "getMember";
+      const project = document.getElementById(projectSelectId).value;
+
+      if (!project) return;
+      let members = membersByProject[project];
+
+      if (!members) {
+        members = await fetchMembers(project);
+        membersByProject[project] = members;
+      }
+
+      const memberNames = members.map((m) => m.name);
+      populateSelect(document.getElementById(memberSelectId), memberNames, memberNames[0]);
+    };
+
+    document.getElementById("postProject").addEventListener("change", () => updateMembersDropdown("post"));
+    document.getElementById("getProject").addEventListener("change", () => updateMembersDropdown("get"));
+
+    // -------------------------------------------------------------
+    // API Calls: Projects & Members
+    // -------------------------------------------------------------
+    const fetchProjects = async () => {
+      const url = getCleanUrl();
+      if (!url) return [{ name: "Sabato" }, { name: "Core" }, { name: "Mobile" }];
+      try {
+        const res = await fetch(`${url}/projects`);
+        const data = await res.json();
+        if (data.projects && data.projects.length > 0) return data.projects;
+      } catch (err) {
+        console.warn("Could not fetch projects from AWS, using fallback", err);
+      }
+      return [{ name: "Sabato" }, { name: "Core" }, { name: "Mobile" }];
+    };
+
+    const fetchMembers = async (project) => {
+      const url = getCleanUrl();
+      if (!url) return [{ name: "Paz" }, { name: "Juan" }, { name: "Marcelo" }];
+      try {
+        const res = await fetch(`${url}/projects/${encodeURIComponent(project)}/members`);
+        const data = await res.json();
+        if (data.members && data.members.length > 0) return data.members;
+      } catch (err) {
+        console.warn("Could not fetch members from AWS, using fallback", err);
+      }
+      return [{ name: "Paz" }, { name: "Juan" }, { name: "Marcelo" }];
+    };
+
+    const refreshAll = async () => {
+      currentProjects = await fetchProjects();
+      membersByProject = {};
+      refreshDropdowns();
+    };
+
+    // -------------------------------------------------------------
+    // Management Modal Logic (CRUD)
+    // -------------------------------------------------------------
+    const loadProjectsCrud = async () => {
+      const listDiv = document.getElementById("projectsChipList");
+      listDiv.innerHTML = "";
+      currentProjects = await fetchProjects();
+
+      currentProjects.forEach((p) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.innerHTML = `📁 ${p.name} <button class="chip-delete" onclick="deleteProject('${p.name}')">&times;</button>`;
+        listDiv.appendChild(chip);
+      });
+
+      refreshDropdowns();
+      loadMembersCrud();
+    };
+
+    const loadMembersCrud = async () => {
+      const listDiv = document.getElementById("membersChipList");
+      const project = document.getElementById("manageProjectSelect").value;
+      listDiv.innerHTML = "";
+
+      if (!project) {
+        listDiv.innerHTML = `<span style="font-size: 13px; color: var(--text-muted);">Sin proyectos creados.</span>`;
+        return;
+      }
+
+      const members = await fetchMembers(project);
+      membersByProject[project] = members;
+
+      if (members.length === 0) {
+        listDiv.innerHTML = `<span style="font-size: 13px; color: var(--text-muted);">No hay integrantes en ${project}.</span>`;
+        return;
+      }
+
+      members.forEach((m) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.innerHTML = `👤 ${m.name} <button class="chip-delete" onclick="deleteMember('${project}', '${m.name}')">&times;</button>`;
+        listDiv.appendChild(chip);
+      });
+    };
+
+    document.getElementById("manageProjectSelect").addEventListener("change", loadMembersCrud);
+
+    // Add Project
+    document.getElementById("btnAddProject").addEventListener("click", async () => {
+      const name = document.getElementById("newProjectName").value.trim();
+      const url = getCleanUrl();
+      if (!name) return;
+      if (!url) { alert("Ingresá tu Lambda URL primero."); return; }
+
+      await fetch(`${url}/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+
+      document.getElementById("newProjectName").value = "";
+      await loadProjectsCrud();
+    });
+
+    window.deleteProject = async (name) => {
+      const url = getCleanUrl();
+      if (!confirm(`¿Eliminar proyecto '${name}'?`)) return;
+      if (!url) return;
+
+      await fetch(`${url}/projects/${encodeURIComponent(name)}`, { method: "DELETE" });
+      await loadProjectsCrud();
+    };
+
+    // Add Member
+    document.getElementById("btnAddMember").addEventListener("click", async () => {
+      const project = document.getElementById("manageProjectSelect").value;
+      const name = document.getElementById("newMemberName").value.trim();
+      const url = getCleanUrl();
+      if (!name || !project) return;
+      if (!url) { alert("Ingresá tu Lambda URL primero."); return; }
+
+      await fetch(`${url}/projects/${encodeURIComponent(project)}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project, name }),
+      });
+
+      document.getElementById("newMemberName").value = "";
+      membersByProject[project] = null;
+      await loadMembersCrud();
+      refreshDropdowns();
+    });
+
+    window.deleteMember = async (project, name) => {
+      const url = getCleanUrl();
+      if (!confirm(`¿Eliminar '${name}' de '${project}'?`)) return;
+      if (!url) return;
+
+      await fetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+
+      membersByProject[project] = null;
+      await loadMembersCrud();
+      refreshDropdowns();
+    };
+
+    // Seed Demo Data
+    document.getElementById("btnSeed").addEventListener("click", async () => {
+      const url = getCleanUrl();
+      const statusBox = document.getElementById("manageStatus");
+      if (!url) { alert("Ingresá tu Lambda URL primero."); return; }
+
+      statusBox.className = "status-msg";
+      statusBox.style.display = "block";
+      statusBox.textContent = "Sembrando datos iniciales en DynamoDB...";
+
+      const demoProjects = ["Sabato", "Core", "Mobile"];
+      const demoMembers = {
+        Sabato: ["Paz", "Juan", "Marcelo"],
+        Core: ["Lucas", "Sofia"],
+        Mobile: ["Paz", "Mateo"],
+      };
+
+      for (const p of demoProjects) {
+        await fetch(`${url}/projects`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: p }),
+        });
+        for (const m of demoMembers[p] || []) {
+          await fetch(`${url}/projects/${encodeURIComponent(p)}/members`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project: p, name: m }),
+          });
+        }
+      }
+
+      statusBox.className = "status-msg success";
+      statusBox.textContent = "✅ Datos iniciales cargados con éxito.";
+      await loadProjectsCrud();
+    });
+
+    // -------------------------------------------------------------
+    // Daily Scrums: POST & GET
+    // -------------------------------------------------------------
     document.getElementById("btnSubmit").addEventListener("click", async () => {
       const url = getCleanUrl();
       const statusBox = document.getElementById("postStatus");
@@ -515,7 +822,7 @@
         submitBtn.querySelector("span").textContent = "Guardando en DynamoDB...";
         statusBox.className = "status-msg";
 
-        const res = await fetch(url, {
+        const res = await fetch(`${url}/scrums`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -535,7 +842,6 @@
       }
     });
 
-    // 2. Load GET and Open Modal
     document.getElementById("btnLoad").addEventListener("click", async () => {
       const url = getCleanUrl();
       const statusBox = document.getElementById("getStatus");
@@ -557,13 +863,12 @@
         loadBtn.querySelector("span").textContent = "Consultando DynamoDB...";
         statusBox.className = "status-msg";
 
-        const queryUrl = `${url}?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}&day=${encodeURIComponent(day)}&member=${encodeURIComponent(member)}`;
+        const queryUrl = `${url}/scrums?project=${encodeURIComponent(project)}&week=${encodeURIComponent(week)}&day=${encodeURIComponent(day)}&member=${encodeURIComponent(member)}`;
         const res = await fetch(queryUrl, { method: "GET" });
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || "No se encontró registro para estos datos.");
 
-        // Populate Modal Tags
         document.getElementById("modalTags").innerHTML = `
           <span class="meta-tag">📁 ${project}</span>
           <span class="meta-tag">📅 ${week}</span>
@@ -571,14 +876,12 @@
           <span class="meta-tag">👤 ${member}</span>
         `;
 
-        // Populate Modal Answers
         const answers = data.answers || [];
         document.getElementById("modalAns1").textContent = answers[0] || "Sin respuesta";
         document.getElementById("modalAns2").textContent = answers[1] || "Sin respuesta";
         document.getElementById("modalAns3").textContent = answers[2] || "Sin respuesta";
 
-        // Open Modal
-        openModal();
+        scrumModal.open();
       } catch (err) {
         statusBox.className = "status-msg error";
         statusBox.textContent = "❌ " + err.message;
@@ -587,6 +890,9 @@
         loadBtn.querySelector("span").textContent = "Abrir y Ver en Modal";
       }
     });
+
+    // Initial load
+    refreshAll();
   </script>
 </body>
 </html>
