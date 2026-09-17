@@ -1014,6 +1014,7 @@
             <div>
               <label for="taskAssignee">Responsable</label>
               <select id="taskAssignee" style="width: 100%;"></select>
+              <span id="taskAssigneeHelp" style="display:none; font-size: 10px; color: var(--text-muted); margin-top: 2px;"></span>
             </div>
             <div>
               <label for="taskStatus">Estado</label>
@@ -3352,6 +3353,12 @@
     // Task Modal Handlers
     // -------------------------------------------------------------
     window.openNewTaskModal = async () => {
+      if (!currentUser.name || currentUser.role === "guest") {
+        showToast("Iniciá sesión para crear tareas en el tablero.", "info");
+        switchAuthView("login");
+        authModal.open();
+        return;
+      }
       const project = document.getElementById("boardProject").value;
       if (!project) return;
       document.getElementById("taskModalTitle").textContent = "➕ Nueva Tarea de Kanban";
@@ -3390,21 +3397,41 @@
       document.getElementById("taskBlockerGroup").style.display = task.status === "BLOCKED" ? "block" : "none";
       document.getElementById("btnDeleteTask").style.display = "inline-flex";
 
-      await populateTaskAssigneeSelect(project, task.assignee || "");
+      await populateTaskAssigneeSelect(project, task.assignee || currentUser.name || "");
       taskModal.open();
     };
 
     const populateTaskAssigneeSelect = async (project, selectedName) => {
       const select = document.getElementById("taskAssignee");
-      select.innerHTML = '<option value="">Sin Asignar</option>';
-      const members = await api.getMembers(project);
-      members.forEach((m) => {
-        const opt = document.createElement("option");
-        opt.value = m.name;
-        opt.textContent = m.name + (m.role ? ` (${m.role})` : "");
-        if (m.name.toLowerCase() === selectedName.toLowerCase()) opt.selected = true;
-        select.appendChild(opt);
-      });
+      const helpSpan = document.getElementById("taskAssigneeHelp");
+      const isAdmin = currentUser.role === "admin";
+
+      if (isAdmin) {
+        select.innerHTML = '<option value="">Sin Asignar</option>';
+        const members = await api.getMembers(project);
+        members.forEach((m) => {
+          const opt = document.createElement("option");
+          opt.value = m.name;
+          opt.textContent = m.name + (m.role ? ` (${m.role})` : "");
+          if (m.name.toLowerCase() === (selectedName || "").toLowerCase()) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.disabled = false;
+        if (helpSpan) {
+          helpSpan.style.display = "block";
+          helpSpan.textContent = "🛡️ Modo Admin: Podés asignar a cualquier miembro o dejar sin asignar.";
+        }
+      } else {
+        // Regular user: can only create and manage their own tasks
+        select.innerHTML = `
+          <option value="${escapeHtml(currentUser.name)}" selected>👤 ${escapeHtml(currentUser.name)} (Mis tareas)</option>
+        `;
+        select.disabled = true;
+        if (helpSpan) {
+          helpSpan.style.display = "block";
+          helpSpan.textContent = "Creás tus propias tareas (no las de otros usuarios).";
+        }
+      }
     };
 
     document.getElementById("taskStatus").addEventListener("change", (e) => {
@@ -3416,12 +3443,19 @@
       const project = document.getElementById("boardProject").value;
       const id = document.getElementById("taskId").value;
       const title = document.getElementById("taskTitle").value.trim();
-      const assignee = document.getElementById("taskAssignee").value;
       const status = document.getElementById("taskStatus").value;
       const priority = document.getElementById("taskPriority").value;
       const blocker = document.getElementById("taskBlocker").value.trim();
 
       if (!title) return showToast("El título de la tarea es requerido", "error");
+
+      const isAdmin = currentUser.role === "admin";
+      let assignee = document.getElementById("taskAssignee").value;
+
+      // Enforce assignment rule: Admin can assign to anyone or none; user creates their own tasks
+      if (!isAdmin) {
+        assignee = currentUser.name;
+      }
 
       const btn = document.getElementById("btnSaveTask");
       btn.disabled = true;
@@ -3441,7 +3475,7 @@
           await syncKanbanToDaily(project, assignee);
         }
         taskModal.close();
-        showToast(id ? `Tarea actualizada y sincronizada con Daily (${getCurrentDayName()}).` : `Tarea creada y sincronizada con Daily (${getCurrentDayName()}).`);
+        showToast(id ? `Tarea actualizada y sincronizada con Daily (${getCurrentDayName()}).` : `Tarea creada para ${assignee || 'el equipo'} y sincronizada con Daily (${getCurrentDayName()}).`);
         await renderKanban();
       } catch (err) {
         showToast(err.message, "error");
