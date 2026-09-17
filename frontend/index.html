@@ -648,6 +648,44 @@
       color: #fff;
       border-color: var(--primary);
     }
+    .member-kanban-badges {
+      margin-top: 5px;
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .badge-kanban-mini {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      line-height: 1.4;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      user-select: none;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .badge-kanban-mini:hover {
+      transform: scale(1.05);
+    }
+    .badge-kanban-mini.doing { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--border); }
+    .badge-kanban-mini.blocked { background: var(--error-bg); color: var(--error); border: 1px solid var(--error); }
+    .badge-kanban-mini.done { background: rgba(22, 163, 74, 0.15); color: var(--success); border: 1px solid rgba(22, 163, 74, 0.3); }
+    .badge-kanban-mini.empty { color: var(--text-muted); font-size: 9px; font-weight: 500; }
+    .badge-in-daily {
+      font-size: 9px;
+      font-weight: 700;
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--primary);
+      padding: 1px 5px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
   </style>
   <!-- Google Identity Services (Sign-In with Google) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -834,6 +872,13 @@
         <div style="margin-bottom: 14px;">
           <label for="modalAns3">3. ¿Bloqueos o Impedimentos?</label>
           <textarea id="modalAns3" placeholder="Ninguno / Describí el impedimento..."></textarea>
+        </div>
+
+        <div style="margin-top: 10px; margin-bottom: 14px; padding: 8px 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; user-select: none; margin: 0; color: var(--text);">
+            <input type="checkbox" id="syncKanbanOnSave" checked style="width: auto; cursor: pointer;" />
+            <span>🔄 <strong>Sincronizar con Tablero Kanban</strong> (actualizar o crear tareas automáticamente)</span>
+          </label>
         </div>
 
         <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 18px;">
@@ -1721,13 +1766,16 @@
           if (!mockState.tasks[task.project]) mockState.tasks[task.project] = [];
           const list = mockState.tasks[task.project];
           const idx = list.findIndex((t) => t.id === task.id);
+          let saved;
           if (idx >= 0) {
             list[idx] = { ...list[idx], ...task };
+            saved = list[idx];
           } else {
-            list.push({ ...task, id: task.id || "task-" + Date.now().toString(36) });
+            saved = { ...task, id: task.id || "task-" + Date.now().toString(36) };
+            list.push(saved);
           }
           saveMockState();
-          return;
+          return saved;
         }
         const method = task.id ? "PUT" : "POST";
         const res = await fetch(`${url}/tasks`, {
@@ -1737,7 +1785,7 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al guardar tarea");
-        return data;
+        return data.task || task;
       },
 
       async deleteTask(project, taskId) {
@@ -2061,10 +2109,11 @@
 
       if (!project) return;
 
-      const [allProjects, members, scrums] = await Promise.all([
+      const [allProjects, members, scrums, tasks] = await Promise.all([
         api.getProjects(),
         api.getMembers(project),
         api.getWeeklyScrums(project, week),
+        api.getTasks(project),
       ]);
 
       const currentProjObj = allProjects.find((p) => p.name === project) || {
@@ -2138,6 +2187,13 @@
         const isSelf = currentUser.name && (m.name.toLowerCase() === currentUser.name.toLowerCase());
         const canEditThisRow = (currentUser.role === "admin") || isSelf;
 
+        const memberTasks = (tasks || []).filter(
+          (t) => t.assignee && t.assignee.toLowerCase() === m.name.toLowerCase()
+        );
+        const doingCount = memberTasks.filter((t) => t.status === "DOING").length;
+        const blockedCount = memberTasks.filter((t) => t.status === "BLOCKED").length;
+        const doneCount = memberTasks.filter((t) => t.status === "DONE").length;
+
         const memberTd = document.createElement("td");
         memberTd.innerHTML = `
           <div class="member-cell-name">
@@ -2145,6 +2201,12 @@
             ${isSelf ? '<span class="member-cell-self">TÚ</span>' : ''}
           </div>
           <div class="member-cell-role">${escapeHtml(m.role || "Developer")}</div>
+          <div class="member-kanban-badges" onclick="switchMainView('kanban')" title="Ver tareas de ${escapeHtml(m.name)} en el Tablero Kanban">
+            ${blockedCount > 0 ? `<span class="badge-kanban-mini blocked" title="${blockedCount} tarea(s) bloqueada(s)">🚨 ${blockedCount}</span>` : ''}
+            ${doingCount > 0 ? `<span class="badge-kanban-mini doing" title="${doingCount} tarea(s) en progreso">⚡ ${doingCount}</span>` : ''}
+            ${doneCount > 0 ? `<span class="badge-kanban-mini done" title="${doneCount} tarea(s) completada(s)">✅ ${doneCount}</span>` : ''}
+            ${blockedCount === 0 && doingCount === 0 && doneCount === 0 ? `<span class="badge-kanban-mini empty" title="Sin tareas activas">0 tareas</span>` : ''}
+          </div>
         `;
         tr.appendChild(memberTd);
 
@@ -2289,6 +2351,23 @@
         ans3.value = "Ninguno";
       }
 
+      const syncCheckbox = document.getElementById("syncKanbanOnSave");
+      if (syncCheckbox) syncCheckbox.checked = true;
+
+      // Update autofill button with count of tasks for this member
+      try {
+        const tasks = await api.getTasks(project);
+        const count = tasks.filter(
+          (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+        ).length;
+        const btnAutofill = document.getElementById("btnAutofillFromKanban");
+        if (btnAutofill) {
+          btnAutofill.textContent = count > 0 ? `✨ Autocompletar desde mi Kanban (${count})` : `✨ Autocompletar desde mi Kanban`;
+        }
+      } catch (err) {
+        // Silently continue
+      }
+
       scrumModal.open();
     };
 
@@ -2300,6 +2379,7 @@
         document.getElementById("modalAns2").value.trim() || "Sin respuesta",
         document.getElementById("modalAns3").value.trim() || "Ninguno",
       ];
+      const shouldSync = document.getElementById("syncKanbanOnSave")?.checked;
 
       const saveBtn = document.getElementById("btnSaveScrum");
       saveBtn.disabled = true;
@@ -2307,9 +2387,12 @@
 
       try {
         await api.saveScrum(project, week, day, member, answers);
+        if (shouldSync) {
+          await syncDailyToKanban(project, member, answers);
+        }
         scrumModal.close();
         await renderBoard();
-        showToast(`Daily guardada para ${member} (${day}).`);
+        showToast(shouldSync ? `Daily guardada y sincronizada con el Tablero Kanban.` : `Daily guardada para ${member} (${day}).`);
       } catch (err) {
         showToast(err.message, "error");
       } finally {
@@ -2674,6 +2757,7 @@
     window.renderKanban = async () => {
       const project = document.getElementById("boardProject").value;
       if (!project) return;
+      const week = (document.getElementById("boardWeek") && document.getElementById("boardWeek").value) || "Semana 1";
 
       KANBAN_STATUSES.forEach((st) => {
         const colList = document.getElementById(`col${st}`);
@@ -2682,7 +2766,10 @@
         if (countBadge) countBadge.textContent = "0";
       });
 
-      const tasks = await api.getTasks(project);
+      const [tasks, scrums] = await Promise.all([
+        api.getTasks(project),
+        api.getWeeklyScrums(project, week),
+      ]);
 
       const statusMap = { TODO: [], DOING: [], BLOCKED: [], DONE: [] };
       tasks.forEach((t) => {
@@ -2717,9 +2804,20 @@
           const prioClass = (t.priority || "medium").toLowerCase();
           const prioLabel = t.priority === "HIGH" ? "Alta" : (t.priority === "LOW" ? "Baja" : "Media");
 
+          const isMentionedInDaily = (scrums || []).some((s) => {
+            if (!s.answers || !t.assignee) return false;
+            if (s.member.toLowerCase() !== t.assignee.toLowerCase()) return false;
+            const fullAnswers = s.answers.join(" ").toLowerCase();
+            const taskTitle = (t.title || "").toLowerCase().trim();
+            return taskTitle.length > 2 && (fullAnswers.includes(taskTitle) || (t.blocker && fullAnswers.includes(t.blocker.toLowerCase())));
+          });
+
           card.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-              <span class="priority-badge ${prioClass}">${prioLabel}</span>
+              <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                <span class="priority-badge ${prioClass}">${prioLabel}</span>
+                ${isMentionedInDaily ? '<span class="badge-in-daily" title="Reportada en el Daily Scrum de esta semana">📅 En Daily</span>' : ''}
+              </div>
               <button class="btn-action" onclick="openEditTaskModal('${t.id}')" title="Editar Tarea" style="font-size: 11px;">✏️</button>
             </div>
             <div class="kanban-card-title">${escapeHtml(t.title)}</div>
@@ -2892,6 +2990,123 @@
       }
 
       showToast("✨ Daily autocompletado con tus tareas de Kanban.");
+    };
+
+    // -------------------------------------------------------------
+    // Bidirectional Sync: Daily Scrum -> Kanban Board
+    // -------------------------------------------------------------
+    window.syncDailyToKanban = async (project, member, answers) => {
+      const doneText = answers[0] || "";
+      const doingText = answers[1] || "";
+      const blockerText = answers[2] || "";
+
+      const splitItems = (text) => {
+        if (!text) return [];
+        return text
+          .split(/[\n,;]+/)
+          .map((s) => s.replace(/^[-*•\d.)\s]+/, "").trim())
+          .filter((s) => {
+            if (!s || s.length < 2) return false;
+            const lower = s.toLowerCase();
+            return !["ninguno", "ninguna", "no", "nada", "sin respuesta", "sin novedades", "n/a", "none", "ok"].includes(lower);
+          });
+      };
+
+      const doneItems = splitItems(doneText);
+      const doingItems = splitItems(doingText);
+      const hasBlocker = blockerText && !["ninguno", "ninguna", "no", "nada", "sin respuesta", "sin bloqueos", "n/a", "none"].includes(blockerText.toLowerCase().trim());
+
+      const tasks = await api.getTasks(project);
+      const memberTasks = (tasks || []).filter(
+        (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+      );
+
+      const findMatchingTask = (title) => {
+        const lower = title.toLowerCase();
+        return memberTasks.find((t) => {
+          const tLower = (t.title || "").toLowerCase();
+          return tLower === lower || tLower.includes(lower) || lower.includes(tLower);
+        });
+      };
+
+      // 1. Synchronize DONE tasks
+      for (const item of doneItems) {
+        const match = findMatchingTask(item);
+        if (match) {
+          if (match.status !== "DONE") {
+            match.status = "DONE";
+            match.blocker = "";
+            await api.saveTask(match);
+          }
+        } else {
+          const created = await api.saveTask({
+            project,
+            title: item,
+            assignee: member,
+            status: "DONE",
+            priority: "MEDIUM",
+          });
+          if (created) memberTasks.push(created);
+        }
+      }
+
+      // 2. Synchronize DOING tasks
+      const activeDoingTasks = [];
+      for (const item of doingItems) {
+        const match = findMatchingTask(item);
+        if (match) {
+          if (match.status === "TODO") {
+            match.status = "DOING";
+            await api.saveTask(match);
+          }
+          activeDoingTasks.push(match);
+        } else {
+          const created = await api.saveTask({
+            project,
+            title: item,
+            assignee: member,
+            status: "DOING",
+            priority: "MEDIUM",
+          });
+          if (created) {
+            memberTasks.push(created);
+            activeDoingTasks.push(created);
+          }
+        }
+      }
+
+      // 3. Synchronize Blockers
+      if (hasBlocker) {
+        const targets = activeDoingTasks.length > 0
+          ? activeDoingTasks
+          : memberTasks.filter((t) => t.status === "DOING");
+
+        if (targets.length > 0) {
+          for (const t of targets) {
+            t.status = "BLOCKED";
+            t.blocker = blockerText;
+            await api.saveTask(t);
+          }
+        } else {
+          await api.saveTask({
+            project,
+            title: blockerText.length > 60 ? blockerText.slice(0, 57) + "..." : blockerText,
+            assignee: member,
+            status: "BLOCKED",
+            priority: "HIGH",
+            blocker: blockerText,
+          });
+        }
+      } else {
+        // Unblock tasks that were listed as in progress if daily indicates no blocker
+        for (const t of activeDoingTasks) {
+          if (t.status === "BLOCKED") {
+            t.status = "DOING";
+            t.blocker = "";
+            await api.saveTask(t);
+          }
+        }
+      }
     };
 
     document.getElementById("boardProject").addEventListener("change", () => {
