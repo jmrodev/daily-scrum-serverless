@@ -4,7 +4,7 @@
  * 1. Live Interactive PERT/CPM Task Dependency DAG with Critical Path analysis
  * 2. Team Flow Diagnostics ("¿Quién traba a quién?") and Bottleneck KPIs
  * 3. Member Activity Audit with Login/Signup Tracking (Admin/Evaluator only)
- * 4. Academic Evaluation Report & Grading Rubric for the Course Professor
+ * 4. Project Progress and Flow Report
  */
 import { api } from "../services/api.js";
 import { state, isAdmin } from "../state.js";
@@ -427,11 +427,11 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
           </button>
           ${isAdmin() ? `
             <button type="button" class="diag-subnav-btn ${activeSubTab === 'audit' ? 'active' : ''}" data-subtab="audit">
-              👥 Auditoría de Actividad (Admin)
+              👥 Auditoría de Actividad
             </button>
           ` : ''}
           <button type="button" class="diag-subnav-btn ${activeSubTab === 'report' ? 'active' : ''}" data-subtab="report">
-            🎓 Rúbrica & Informe Cátedra
+            📊 Informe de Avance
           </button>
         </div>
 
@@ -973,10 +973,10 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
             <div class="diag-section-header">
               <div>
                 <h3 class="diag-section-title">
-                  📊 Auditoría de Accesos y Presencia Individual (Solo Docente / Admin)
+                  📊 Auditoría de Accesos y Presencia Individual
                 </h3>
                 <span style="font-size: 11px; color: var(--text-muted);">
-                  Métrica objetiva de trazabilidad para corroborar la participación real de cada alumno en el TP.
+                  Trazabilidad cronológica de accesos y sesiones en el sistema.
                 </span>
               </div>
             </div>
@@ -1055,7 +1055,7 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
     }
 
     // =========================================================================
-    // 7. SUBTAB 4: PROFESSOR TP EVALUATION REPORT
+    // 7. SUBTAB 4: PROJECT PROGRESS REPORT
     // =========================================================================
     else if (activeSubTab === "report") {
       const completedTasks = tasks.filter((t) => t.status === "DONE").length;
@@ -1065,14 +1065,11 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
         <div class="diag-table-card" style="padding: 24px; background: var(--surface);">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
             <div>
-              <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 800;">
-                Documento Oficial de Evaluación de Cátedra
-              </span>
-              <h2 style="margin: 4px 0 6px; font-size: 22px; color: var(--text);">
-                🎓 Informe de Evaluación del TP • Observabilidad & Gestión Ágil
+              <h2 style="margin: 0 0 6px; font-size: 20px; color: var(--text);">
+                📊 Informe de Avance del Proyecto
               </h2>
               <div style="font-size: 13px; color: var(--text-muted);">
-                Proyecto Evaluado: <strong>${escapeHtml(currentProject)}</strong> &bull; Período: <strong>${escapeHtml(currentWeek)}</strong> &bull; Emisión: <strong>${new Date().toLocaleDateString()}</strong>
+                Proyecto: <strong>${escapeHtml(currentProject)}</strong> &bull; Período: <strong>${escapeHtml(currentWeek)}</strong> &bull; Emisión: <strong>${new Date().toLocaleDateString()}</strong>
               </div>
             </div>
             <button type="button" class="btn btn-primary" id="btnPrintProfReport" style="background: var(--primary); display: inline-flex; align-items: center; gap: 6px;">
@@ -1080,27 +1077,22 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
             </button>
           </div>
 
-          <!-- Academic Rationale -->
-          <div style="background: var(--surface-alt); border-left: 4px solid var(--primary); padding: 14px 16px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
-            <strong>Nota metodológica para el docente:</strong> Este sistema fue concebido como el <em>entorno de observabilidad y control de gestión</em> del Trabajo Práctico. Su propósito es proveerle a la cátedra métricas cuantitativas e irrefutables sobre el trabajo en equipo, cadencia de entrega, resolución de impedimentos y autoría real de cada estudiante.
-          </div>
-
           <!-- Summary Metrics -->
           <div class="diag-kpi-grid" style="margin-bottom: 20px;">
             <div class="diag-kpi-card">
-              <span class="diag-kpi-label">Integrantes Evaluados</span>
+              <span class="diag-kpi-label">Integrantes del Equipo</span>
               <span class="diag-kpi-val">${totalMembers}</span>
-              <span class="diag-kpi-desc">Alumnos registrados</span>
+              <span class="diag-kpi-desc">Miembros activos</span>
             </div>
             <div class="diag-kpi-card diag-kpi-success">
               <span class="diag-kpi-label">Tareas Resueltas</span>
               <span class="diag-kpi-val">${completedTasks} / ${tasks.length}</span>
-              <span class="diag-kpi-desc">${Math.round((completedTasks / (tasks.length || 1)) * 100)}% entregadas</span>
+              <span class="diag-kpi-desc">${Math.round((completedTasks / (tasks.length || 1)) * 100)}% completadas</span>
             </div>
             <div class="diag-kpi-card ${criticalCount > 0 ? 'diag-kpi-warning' : 'diag-kpi-success'}">
               <span class="diag-kpi-label">Ruta Crítica Activa</span>
               <span class="diag-kpi-val">${criticalCount}</span>
-              <span class="diag-kpi-desc">Tareas bloqueantes</span>
+              <span class="diag-kpi-desc">Tareas críticas</span>
             </div>
             <div class="diag-kpi-card">
               <span class="diag-kpi-label">Dailies Registradas</span>
@@ -1109,56 +1101,11 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
             </div>
           </div>
 
-          <!-- Grading Rubric Table -->
-          <h3 style="font-size: 16px; margin: 24px 0 8px; color: var(--text);">
-            📐 Rúbrica de Calificación del Trabajo Práctico (Sugerida 10/10)
-          </h3>
-          <table class="rubric-table">
-            <thead>
-              <tr>
-                <th style="width: 25%;">Dimensión Evaluada</th>
-                <th style="width: 15%;">Puntaje</th>
-                <th style="width: 45%;">Evidencia Verificable en la Plataforma</th>
-                <th style="width: 15%;">Nota Asignada</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>1. Arquitectura Cloud & Serverless</strong></td>
-                <td><strong>2.5 pts</strong></td>
-                <td>DynamoDB Single Table Design, AWS Lambda Python 3.11 sin dependencias de terceros, sesión HMAC-SHA256, SMTP transaccional en AWS Free Tier.</td>
-                <td style="color: var(--success); font-weight: 700;">2.5 / 2.5</td>
-              </tr>
-              <tr>
-                <td><strong>2. Metodología Ágil & Scrum</strong></td>
-                <td><strong>2.5 pts</strong></td>
-                <td>Cadencia regular de Daily Scrums semanales, sincronización automática bidireccional Scrumban con el Tablero Kanban.</td>
-                <td style="color: var(--success); font-weight: 700;">2.5 / 2.5</td>
-              </tr>
-              <tr>
-                <td><strong>3. Gestión de Dependencias & PERT/CPM</strong></td>
-                <td><strong>2.5 pts</strong></td>
-                <td>Grafo interactivo de actividades en nodo, visualización de Ruta Crítica y análisis algorítmico de cuellos de botella ("¿Quién traba a quién?").</td>
-                <td style="color: var(--success); font-weight: 700;">2.5 / 2.5</td>
-              </tr>
-              <tr>
-                <td><strong>4. Trazabilidad & Participación Individual</strong></td>
-                <td><strong>2.5 pts</strong></td>
-                <td>Auditoría criptográfica con timestamps e IPs de logins, historial de signups y métrica de presencia real de cada estudiante.</td>
-                <td style="color: var(--success); font-weight: 700;">2.5 / 2.5</td>
-              </tr>
-              <tr style="background: var(--surface-alt); font-size: 14px;">
-                <td colspan="3"><strong>CALIFICACIÓN TOTAL PROPUESTA</strong></td>
-                <td style="color: var(--success); font-weight: 800; font-size: 16px;">10 / 10</td>
-              </tr>
-            </tbody>
-          </table>
-
           <!-- Member Contribution Summary -->
-          <h3 style="font-size: 16px; margin: 24px 0 8px; color: var(--text);">
-            👥 Participación y Compromiso por Integrante
+          <h3 style="font-size: 15px; margin: 20px 0 10px; color: var(--text);">
+            👥 Participación y Entregas por Integrante
           </h3>
-          <table class="diag-table">
+          <table class="diag-table" style="margin-bottom: 24px;">
             <thead>
               <tr>
                 <th>Integrante</th>
@@ -1185,6 +1132,47 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
                     <td>${memDoing}</td>
                     <td style="color: var(--success); font-weight: 700;">${memDone}</td>
                     <td>${memBlocked > 0 ? '<span class="diag-status-badge blocked">Con impedimento</span>' : '<span class="diag-status-badge fluent">En flujo</span>'}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+
+          <!-- Project Tasks Detail -->
+          <h3 style="font-size: 15px; margin: 20px 0 10px; color: var(--text);">
+            📋 Detalle de Tareas del Proyecto
+          </h3>
+          <table class="diag-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">ID</th>
+                <th>Título</th>
+                <th>Responsable</th>
+                <th>Estado</th>
+                <th>Criticidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tasks.length === 0 ? `
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">No hay tareas registradas.</td></tr>
+              ` : tasks.map((t) => {
+                const mapped = taskMap[t.id] || t;
+                let critBadge = `<span class="diag-status-badge fluent">🟢 Normal</span>`;
+                if (mapped.isCritical) {
+                  critBadge = `<span class="diag-status-badge blocked">🔴 Ruta Crítica</span>`;
+                } else if (t.status === "DOING") {
+                  critBadge = `<span class="diag-status-badge warning">⚡ En Curso</span>`;
+                } else if (t.status === "DONE") {
+                  critBadge = `<span class="diag-status-badge fluent">✅ Resuelta</span>`;
+                }
+
+                return `
+                  <tr>
+                    <td style="font-family: monospace; font-size: 11px; font-weight: 700;">#${escapeHtml(t.id)}</td>
+                    <td><strong>${escapeHtml(t.title)}</strong></td>
+                    <td>${escapeHtml(t.assignee || "Sin asignar")}</td>
+                    <td><span class="diag-status-badge ${t.status.toLowerCase()}">${t.status}</span></td>
+                    <td>${critBadge}</td>
                   </tr>
                 `;
               }).join("")}
