@@ -552,6 +552,7 @@ def handler(event, context):
             email = (body.get("email") or "").strip().lower()
             code = (body.get("code") or "").strip()
             password = body.get("password") or ""
+            print(f"[AUTH CONFIRM] Attempt for email='{email}', code='{code}'")
 
             if not email or not code:
                 return create_response(400, {"error": "Email y código de verificación son requeridos"})
@@ -559,17 +560,24 @@ def handler(event, context):
             user_resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
             user_item = user_resp.get("Item")
             if not user_item:
+                print(f"[AUTH CONFIRM] User not found: {email}")
                 return create_response(404, {"error": "Usuario no encontrado"})
 
             # Check verification code & expiry
-            stored_code = user_item.get("verification_code")
-            code_ttl = user_item.get("code_ttl", 0)
+            stored_code = str(user_item.get("verification_code") or "").strip()
+            norm_code = code.replace(" ", "").replace("-", "")
+            norm_stored = stored_code.replace(" ", "").replace("-", "")
+            code_ttl = int(user_item.get("code_ttl") or 0)
             now = int(time.time())
 
-            if not stored_code or stored_code != code:
+            print(f"[AUTH CONFIRM] Verification check: email='{email}', received='{code}', stored='{stored_code}', match={norm_code == norm_stored}, now={now}, ttl={code_ttl}")
+
+            if not stored_code or norm_code != norm_stored:
+                print(f"[AUTH CONFIRM] Code mismatch: received='{norm_code}', stored='{norm_stored}'")
                 return create_response(400, {"error": "Código de verificación incorrecto"})
 
             if code_ttl and now > code_ttl:
+                print(f"[AUTH CONFIRM] Code expired: now={now} > ttl={code_ttl}")
                 return create_response(400, {"error": "El código de verificación ha expirado. Solicitá uno nuevo registrándote de nuevo."})
 
             # If user was invited (FORCE_CHANGE_PASSWORD) or registering, update status and set password
