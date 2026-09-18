@@ -265,6 +265,50 @@ def send_email(to_email, subject, html_body):
             return False, f"Fallo al enviar correo con Gmail SMTP: {str(e2)}"
 
 
+def log_user_activity(email, action, event=None):
+    """Record user activity (LOGIN, SIGNUP, CONFIRM, OTP_VERIFY) in DynamoDB.
+    Updates USER#{email} PROFILE (last_login, login_count) and logs to AUDIT#USER#{email}.
+    """
+    if not email:
+        return
+    email = email.strip().lower()
+    now_iso = datetime.datetime.utcnow().isoformat()
+    ip = ""
+    ua = ""
+    if event:
+        http_ctx = event.get("requestContext", {}).get("http", {})
+        ip = http_ctx.get("sourceIp") or event.get("requestContext", {}).get("identity", {}).get("sourceIp", "")
+        headers = event.get("headers") or {}
+        ua = headers.get("user-agent", "")
+
+    # 1. Update USER#{email} PROFILE item
+    try:
+        table.update_item(
+            Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+            UpdateExpression="SET last_login = :now, updated_at = :now ADD login_count :inc",
+            ExpressionAttributeValues={":now": now_iso, ":inc": 1},
+        )
+    except Exception as e:
+        print(f"Error updating user profile login count for {email}: {e}")
+
+    # 2. Record chronological audit item
+    try:
+        event_id = str(uuid.uuid4())[:8]
+        audit_item = {
+            "PK": f"AUDIT#USER#{email}",
+            "SK": f"EVENT#{now_iso}#{event_id}",
+            "action": action,
+            "email": email,
+            "timestamp": now_iso,
+            "ip": ip,
+            "user_agent": ua[:160],
+            "ttl": int(time.time()) + (86400 * 90),
+        }
+        table.put_item(Item=audit_item)
+    except Exception as e:
+        print(f"Error recording audit event for {email}: {e}")
+
+
 def handler(event, context):
     http_context = event.get("requestContext", {}).get("http", {})
     method = http_context.get("method", "GET")
@@ -350,6 +394,7 @@ def handler(event, context):
                     "error": f"Fallo al despachar email de verificación ({res})."
                 })
 
+            log_user_activity(email, "SIGNUP", event)
             return create_response(201, {
                 "message": "Usuario registrado. Te enviamos el código de 6 dígitos a tu correo.",
                 "email": email,
@@ -368,40 +413,46 @@ def handler(event, context):
 
             user_resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
             user_item = user_resp.get("Item")
-
             if not user_item:
-                return create_response(400, {"error": "No hay un registro pendiente para este correo."})
+                return create_response(404, {"error": "Usuario no encontrado"})
 
+            # Check verification code & expiry
+            stored_code = user_item.get("verification_code")
+            code_ttl = user_item.get("code_ttl", 0)
             now = int(time.time())
-            if user_item.get("code_ttl", 0) < now:
-                return create_response(400, {"error": "El código de verificación ha expirado. Solicitá una nueva invitación o registrate nuevamente."})
 
-            if user_item.get("verification_code") != code:
-                return create_response(400, {"error": "Código de verificación incorrecto. Revisá los 6 dígitos."})
+            if not stored_code or stored_code != code:
+                return create_response(400, {"error": "Código de verificación incorrecto"})
 
-            status = user_item.get("status")
-            if status == "FORCE_CHANGE_PASSWORD" or password:
-                if not password or len(password) < 8:
-                    return create_response(400, {"error": "La contraseña debe tener al menos 8 caracteres."})
-                pwd_hash = hash_password(password)
-                table.update_item(
-                    Key={"PK": f"USER#{email}", "SK": "PROFILE"},
-                    UpdateExpression="SET #st = :st, password_hash = :ph REMOVE verification_code, code_ttl",
-                    ExpressionAttributeNames={"#st": "status"},
-                    ExpressionAttributeValues={":st": "CONFIRMED", ":ph": pwd_hash},
-                )
-            else:
-                table.update_item(
-                    Key={"PK": f"USER#{email}", "SK": "PROFILE"},
-                    UpdateExpression="SET #st = :st REMOVE verification_code, code_ttl",
-                    ExpressionAttributeNames={"#st": "status"},
-                    ExpressionAttributeValues={":st": "CONFIRMED"},
-                )
+            if code_ttl and now > code_ttl:
+                return create_response(400, {"error": "El código de verificación ha expirado. Solicitá uno nuevo registrándote de nuevo."})
 
-            # Mint token for immediate login upon confirmation / activation
+            # If user was invited (FORCE_CHANGE_PASSWORD), require new password
+            update_expr = "SET #st = :status, updated_at = :up REMOVE verification_code, code_ttl"
+            expr_names = {"#st": "status"}
+            expr_values = {
+                ":status": "CONFIRMED",
+                ":up": datetime.datetime.utcnow().isoformat(),
+            }
+
+            if password:
+                if len(password) < 8:
+                    return create_response(400, {"error": "La contraseña debe tener al menos 8 caracteres"})
+                update_expr += ", password_hash = :ph"
+                expr_values[":ph"] = hash_password(password)
+
+            table.update_item(
+                Key={"PK": f"USER#{email}", "SK": "PROFILE"},
+                UpdateExpression=update_expr,
+                ExpressionAttributeNames=expr_names,
+                ExpressionAttributeValues=expr_values,
+            )
+
+            # Role comes from DDB groups, never from the email address.
             groups = get_user_groups(email)
             is_admin = "Admins" in groups
             name = user_item.get("name") or email.split("@")[0].capitalize()
+            now = int(time.time())
             sub = str(uuid.uuid4())
             payload = {
                 "sub": sub,
@@ -419,6 +470,7 @@ def handler(event, context):
             except Exception:
                 token = None
 
+            log_user_activity(email, "CONFIRM", event)
             return create_response(200, {
                 "message": "¡Cuenta activada y verificada exitosamente!",
                 "idToken": token,
@@ -486,6 +538,7 @@ def handler(event, context):
                 except RuntimeError:
                     return create_response(500, {"error": "Server auth is misconfigured (TOKEN_SECRET)"})
 
+                log_user_activity(email, "LOGIN", event)
                 return create_response(200, {
                     "message": "Login exitoso",
                     "idToken": token,
@@ -652,6 +705,7 @@ def handler(event, context):
                 "sub": sub,
             }
 
+            log_user_activity(email, "OTP_VERIFY", event)
             return create_response(200, {
                 "message": "Login exitoso",
                 "idToken": token,
@@ -747,6 +801,90 @@ def handler(event, context):
                 return create_response(200, {"message": f"Email de prueba enviado exitosamente a {to_email}"})
             else:
                 return create_response(400, {"error": f"Fallo al enviar correo con Gmail: {res}"})
+
+        # GET /admin/audit/activity (Admin only) -> Member login & signup activity metrics
+        elif path == "/admin/audit/activity" and method == "GET":
+            if not user_claims or not user_claims.get("is_admin"):
+                return create_response(403, {"error": "Forbidden: Solo administradores pueden ver la auditoría de actividad."})
+
+            project = params.get("project")
+            member_emails = set()
+            member_details = {}
+
+            if project:
+                resp = table.query(
+                    KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
+                    & Key("SK").begins_with("MEMBER#")
+                )
+                for item in resp.get("Items", []):
+                    em = (item.get("email") or "").strip().lower()
+                    if em:
+                        member_emails.add(em)
+                        member_details[em] = {
+                            "name": item.get("name") or em.split("@")[0],
+                            "role": item.get("role") or "Developer",
+                            "is_admin": bool(item.get("is_admin", False)),
+                        }
+
+            # If no project specified or no member emails found, scan all USER# profiles
+            if not member_emails:
+                users_scan = table.scan(
+                    FilterExpression=Key("PK").begins_with("USER#") & Key("SK").eq("PROFILE")
+                )
+                for item in users_scan.get("Items", []):
+                    em = (item.get("email") or "").strip().lower()
+                    if em:
+                        member_emails.add(em)
+                        groups = item.get("groups") or []
+                        member_details[em] = {
+                            "name": item.get("name") or em.split("@")[0],
+                            "role": "Admin" if "Admins" in groups else "Member",
+                            "is_admin": "Admins" in groups,
+                        }
+
+            activity_records = []
+            for em in sorted(member_emails):
+                p_resp = table.get_item(Key={"PK": f"USER#{em}", "SK": "PROFILE"})
+                p_item = p_resp.get("Item") or {}
+
+                a_resp = table.query(
+                    KeyConditionExpression=Key("PK").eq(f"AUDIT#USER#{em}")
+                    & Key("SK").begins_with("EVENT#"),
+                    ScanIndexForward=False,
+                    Limit=30,
+                )
+                events = [
+                    {
+                        "action": ev.get("action", "LOGIN"),
+                        "timestamp": ev.get("timestamp", ""),
+                        "ip": ev.get("ip", ""),
+                    }
+                    for ev in a_resp.get("Items", [])
+                ]
+
+                created_at = p_item.get("created_at") or ""
+                last_login = p_item.get("last_login") or (events[0]["timestamp"] if events else created_at)
+                login_count = int(p_item.get("login_count") or (len(events) if events else (1 if last_login else 0)))
+                status = p_item.get("status") or ("CONFIRMED" if p_item.get("password_hash") else "INVITED")
+                info = member_details.get(em, {})
+
+                activity_records.append({
+                    "email": em,
+                    "name": p_item.get("name") or info.get("name") or em.split("@")[0],
+                    "role": info.get("role") or "Developer",
+                    "is_admin": bool(info.get("is_admin", False) or "Admins" in (p_item.get("groups") or [])),
+                    "status": status,
+                    "created_at": created_at,
+                    "last_login": last_login,
+                    "login_count": login_count,
+                    "events": events,
+                })
+
+            return create_response(200, {
+                "project": project or "ALL",
+                "activity": activity_records,
+                "server_time": datetime.datetime.utcnow().isoformat(),
+            })
 
 
         # =====================================================================
@@ -1131,6 +1269,9 @@ def handler(event, context):
                         },
                     )
 
+            blocking_task_id = (body.get("blocking_task_id") or "").strip()
+            blocking_task_title = (body.get("blocking_task_title") or "").strip()
+
             item = {
                 "PK": f"PROJECT#{project}",
                 "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
@@ -1139,7 +1280,9 @@ def handler(event, context):
                 "day": day,
                 "member": member,
                 "answers": answers,
-                "updated_at": event.get("requestContext", {}).get("time", ""),
+                "blocking_task_id": blocking_task_id,
+                "blocking_task_title": blocking_task_title,
+                "updated_at": event.get("requestContext", {}).get("time", "") or datetime.datetime.utcnow().isoformat(),
             }
             table.put_item(Item=item)
             return create_response(
@@ -1284,6 +1427,11 @@ def handler(event, context):
             status = body.get("status") or "TODO"
             priority = body.get("priority") or "MEDIUM"
             blocker = (body.get("blocker") or "").strip()
+            depends_on = body.get("depends_on") or []
+            if isinstance(depends_on, str):
+                depends_on = [depends_on] if depends_on else []
+            blocked_by_task_id = (body.get("blocked_by_task_id") or "").strip()
+            blocked_by_task_title = (body.get("blocked_by_task_title") or "").strip()
 
             if not project or not title:
                 return create_response(400, {"error": "Missing 'project' or 'title'"})
@@ -1299,6 +1447,10 @@ def handler(event, context):
                 "status": status,
                 "priority": priority,
                 "blocker": blocker,
+                "depends_on": depends_on,
+                "blocked_by_task_id": blocked_by_task_id,
+                "blocked_by_task_title": blocked_by_task_title,
+                "created_at": datetime.datetime.utcnow().isoformat(),
                 "updated_at": datetime.datetime.utcnow().isoformat(),
             }
             table.put_item(Item=item)
@@ -1337,6 +1489,21 @@ def handler(event, context):
             if "blocker" in body:
                 update_parts.append("blocker = :blk")
                 expr_values[":blk"] = body["blocker"]
+
+            if "depends_on" in body:
+                deps = body["depends_on"]
+                if isinstance(deps, str):
+                    deps = [deps] if deps else []
+                update_parts.append("depends_on = :deps")
+                expr_values[":deps"] = deps
+
+            if "blocked_by_task_id" in body:
+                update_parts.append("blocked_by_task_id = :bbtid")
+                expr_values[":bbtid"] = body["blocked_by_task_id"]
+
+            if "blocked_by_task_title" in body:
+                update_parts.append("blocked_by_task_title = :bbttl")
+                expr_values[":bbttl"] = body["blocked_by_task_title"]
 
             update_expr = "SET " + ", ".join(update_parts)
             kwargs = {

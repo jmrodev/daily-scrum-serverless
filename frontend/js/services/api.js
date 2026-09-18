@@ -230,11 +230,11 @@ export const api = {
     }
   },
 
-  async saveScrum(project, week, day, member, answers) {
+  async saveScrum(project, week, day, member, answers, blocking_task_id = "", blocking_task_title = "") {
     const url = getCleanUrl();
     const res = await authFetch(`${url}/scrums`, {
       method: "POST",
-      body: JSON.stringify({ project, week, day, member, answers }),
+      body: JSON.stringify({ project, week, day, member, answers, blocking_task_id, blocking_task_title }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al guardar Daily Scrum");
@@ -316,6 +316,16 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al enviar email de prueba");
+    return data;
+  },
+
+  // Admin Activity Audit
+  async getActivityAudit(project = "") {
+    const url = getCleanUrl();
+    const query = project ? `?project=${encodeURIComponent(project)}` : "";
+    const res = await authFetch(`${url}/admin/audit/activity${query}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al obtener auditoría de actividad");
     return data;
   },
 };

@@ -319,3 +319,186 @@
 .diag-cause-badge.external {
   color: var(--text-muted);
 }
+
+/* Sub-navigation bar inside Diagnostics */
+.diag-subnav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.diag-subnav-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diag-subnav-btn:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+  border-color: var(--border-dark);
+}
+
+.diag-subnav-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+/* PERT / CPM Specifics */
+.pert-container-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.pert-svg-container {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  min-height: 380px;
+}
+
+.pert-node {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.pert-node:hover {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+.pert-edge {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 2;
+  transition: stroke 0.2s ease;
+}
+
+.pert-edge-critical {
+  stroke: #ef4444 !important;
+  stroke-width: 3 !important;
+  stroke-dasharray: 6, 4;
+  animation: pert-dash 1.2s linear infinite;
+}
+
+@keyframes pert-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.pert-edge-done {
+  stroke: #10b981;
+  stroke-width: 2;
+}
+
+/* User Activity Audit Card & Heatmap */
+.audit-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.audit-user-row {
+  display: grid;
+  grid-template-columns: 200px 140px 90px 1fr 110px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.15s ease;
+}
+
+.audit-user-row:hover {
+  background: var(--surface-alt);
+}
+
+.audit-user-row:last-child {
+  border-bottom: none;
+}
+
+.audit-heatmap {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.audit-day-dot {
+  width: 14px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  position: relative;
+  transition: transform 0.1s ease;
+}
+
+.audit-day-dot.active-1 {
+  background: #a7f3d0;
+  border-color: #34d399;
+}
+
+.audit-day-dot.active-2 {
+  background: #34d399;
+  border-color: #10b981;
+}
+
+.audit-day-dot.active-3 {
+  background: #059669;
+  border-color: #047857;
+}
+
+.audit-day-dot:hover {
+  transform: scale(1.25);
+  z-index: 5;
+}
+
+/* Cátedra Evaluation Modal & Rubric */
+.rubric-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 12px;
+}
+
+.rubric-table th, .rubric-table td {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.rubric-table th {
+  background: var(--surface-alt);
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .audit-user-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}

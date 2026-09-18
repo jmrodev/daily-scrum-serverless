@@ -413,19 +413,54 @@ export const refreshModalBlockedTasks = async (project, member) => {
   }
 
   if (blockedSelect) {
-    blockedSelect.innerHTML = '<option value="">🟢 No agregar otro bloqueo</option>';
-    const candidateTasks = memberTasks.filter((t) => t.status === "TODO" || t.status === "DOING");
-    candidateTasks.forEach((t) => {
-      const opt = document.createElement("option");
-      opt.value = t.id;
-      const statusIcon = t.status === "DOING" ? "⚡ [En Progreso]" : "📝 [Por Hacer]";
-      opt.textContent = `${statusIcon} Bloquear mi tarea: ${t.title}`;
-      blockedSelect.appendChild(opt);
-    });
+    blockedSelect.innerHTML = "";
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = "🟢 Sin nuevo bloqueo (Avanzando con normalidad)";
+    blockedSelect.appendChild(defaultOpt);
+
+    // Group 1: Other project tasks that might be blocking me (in TODO or DOING)
+    const otherTasks = (allProjectTasks || []).filter(
+      (t) => (!t.assignee || t.assignee.toLowerCase() !== member.toLowerCase()) && (t.status === "TODO" || t.status === "DOING")
+    );
+    if (otherTasks.length > 0) {
+      const groupOther = document.createElement("optgroup");
+      groupOther.label = "⏳ Tarea del Proyecto que me traba (en curso o por hacer):";
+      otherTasks.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = `BLOCKS_ME#${t.id}`;
+        const assigneeLabel = t.assignee ? `[${t.assignee}]` : "[Sin asignar en Por Hacer]";
+        const statusIcon = t.status === "DOING" ? "⚡ [DOING]" : "📝 [TODO]";
+        opt.textContent = `${statusIcon} ${assigneeLabel} ${t.title}`;
+        groupOther.appendChild(opt);
+      });
+      blockedSelect.appendChild(groupOther);
+    }
+
+    // Group 2: My own tasks (if I want to mark my task as BLOCKED)
+    const myActiveTasks = memberTasks.filter((t) => t.status === "TODO" || t.status === "DOING");
+    if (myActiveTasks.length > 0) {
+      const groupMy = document.createElement("optgroup");
+      groupMy.label = "🚨 Marcar como bloqueada una de mis tareas:";
+      myActiveTasks.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = `MY_TASK#${t.id}`;
+        const statusIcon = t.status === "DOING" ? "⚡ [DOING]" : "📝 [TODO]";
+        opt.textContent = `${statusIcon} ${t.title}`;
+        groupMy.appendChild(opt);
+      });
+      blockedSelect.appendChild(groupMy);
+    }
+
+    // Group 3: Create new blocking task
+    const groupNew = document.createElement("optgroup");
+    groupNew.label = "➕ Si la tarea requerida no existe todavía:";
     const newOpt = document.createElement("option");
     newOpt.value = "__NEW__";
-    newOpt.textContent = "➕ Crear tarea en 'Por Hacer' (para que alguien la elija y me destrabe)";
-    blockedSelect.appendChild(newOpt);
+    newOpt.textContent = "➕ Crear tarea en 'Por Hacer' (para que alguien del equipo la tome y me destrabe)";
+    groupNew.appendChild(newOpt);
+    blockedSelect.appendChild(groupNew);
+
     blockedSelect.value = "";
   }
 };
@@ -586,16 +621,45 @@ export const syncDailyToKanban = async (project, member, answers, explicitBlocke
   if (explicitBlockedTaskId === "__NEW__" && explicitNewBlockedTitle) {
     const reason = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno")
       ? explicitBlockerReason : "Requiere que alguien tome esta tarea en Kanban";
-    savePromises.push(api.saveTask({
+    const createdTask = await api.saveTask({
       project,
       title: explicitNewBlockedTitle,
       assignee: "",
       status: "TODO",
       priority: "HIGH",
       blocker: `Bloquea a ${member}: ${reason}`,
-    }));
-  } else if (explicitBlockedTaskId && explicitBlockedTaskId !== "") {
-    const target = memberTasks.find((t) => t.id === explicitBlockedTaskId);
+    });
+    const myDoing = memberTasks.find((t) => t.status === "DOING");
+    if (myDoing && createdTask && createdTask.id) {
+      const deps = myDoing.depends_on || [];
+      if (!deps.includes(createdTask.id)) deps.push(createdTask.id);
+      myDoing.depends_on = deps;
+      myDoing.blocked_by_task_id = createdTask.id;
+      myDoing.blocked_by_task_title = createdTask.title;
+      savePromises.push(api.saveTask(myDoing));
+    }
+  } else if (explicitBlockedTaskId && explicitBlockedTaskId.startsWith("BLOCKS_ME#")) {
+    const targetId = explicitBlockedTaskId.replace("BLOCKS_ME#", "");
+    const blockingTask = (tasks || []).find((t) => t.id === targetId);
+    if (blockingTask) {
+      const reason = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno")
+        ? explicitBlockerReason : "Dependencia requerida";
+      blockingTask.blocker = `Bloquea a ${member}: ${reason}`;
+      savePromises.push(api.saveTask(blockingTask));
+
+      const myDoing = memberTasks.find((t) => t.status === "DOING");
+      if (myDoing) {
+        const deps = myDoing.depends_on || [];
+        if (!deps.includes(targetId)) deps.push(targetId);
+        myDoing.depends_on = deps;
+        myDoing.blocked_by_task_id = targetId;
+        myDoing.blocked_by_task_title = blockingTask.title;
+        savePromises.push(api.saveTask(myDoing));
+      }
+    }
+  } else if (explicitBlockedTaskId && (explicitBlockedTaskId.startsWith("MY_TASK#") || explicitBlockedTaskId !== "")) {
+    const targetId = explicitBlockedTaskId.replace("MY_TASK#", "");
+    const target = memberTasks.find((t) => t.id === targetId);
     if (target) {
       target.status = "BLOCKED";
       target.blocker = (explicitBlockerReason && explicitBlockerReason.toLowerCase() !== "ninguno")
@@ -673,13 +737,26 @@ export const initDailyMatrixListeners = () => {
       } else if (val === "") {
         if (container) container.style.display = "none";
         if (newTitleInput) newTitleInput.value = "";
-      } else {
+      } else if (val.startsWith("BLOCKS_ME#")) {
         if (container) container.style.display = "none";
         if (newTitleInput) newTitleInput.value = "";
+        const targetId = val.replace("BLOCKS_ME#", "");
         if (activeScrumContext) {
           const tasks = await api.getTasks(activeScrumContext.project);
-          const t = tasks.find((x) => x.id === val);
+          const t = (tasks || []).find((x) => x.id === targetId);
+          if (t && ans3) {
+            ans3.value = `Esperando resolución de tarea [${t.title}] (${t.assignee || 'Sin asignar en Por Hacer'})`;
+          }
+        }
+      } else if (val.startsWith("MY_TASK#")) {
+        if (container) container.style.display = "none";
+        if (newTitleInput) newTitleInput.value = "";
+        const targetId = val.replace("MY_TASK#", "");
+        if (activeScrumContext) {
+          const tasks = await api.getTasks(activeScrumContext.project);
+          const t = (tasks || []).find((x) => x.id === targetId);
           if (t && t.blocker && ans3) ans3.value = t.blocker;
+          else if (t && ans3) ans3.value = `Bloqueo en mi tarea [${t.title}]`;
         }
       }
     });
@@ -713,11 +790,25 @@ export const initDailyMatrixListeners = () => {
           blockerEntries.push(`[${t.title}] ${t.blocker || "Bloqueada"}`);
         });
 
+        let blockingTaskId = "";
+        let blockingTaskTitle = "";
+
         if (blockedTaskId === "__NEW__" && newBlockedTitle) {
           const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Requiere que alguien tome esta tarea";
           blockerEntries.push(`[Esperando: ${newBlockedTitle}] ${reason}`);
-        } else if (blockedTaskId && blockedTaskId !== "") {
-          const target = memberTasks.find((t) => t.id === blockedTaskId);
+          blockingTaskTitle = newBlockedTitle;
+        } else if (blockedTaskId && blockedTaskId.startsWith("BLOCKS_ME#")) {
+          const targetId = blockedTaskId.replace("BLOCKS_ME#", "");
+          const target = (tasks || []).find((t) => t.id === targetId);
+          if (target) {
+            const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Dependencia requerida";
+            blockerEntries.push(`[Esperando: ${target.title}] ${reason}`);
+            blockingTaskId = target.id;
+            blockingTaskTitle = target.title;
+          }
+        } else if (blockedTaskId && (blockedTaskId.startsWith("MY_TASK#") || blockedTaskId !== "")) {
+          const targetId = blockedTaskId.replace("MY_TASK#", "");
+          const target = memberTasks.find((t) => t.id === targetId);
           if (target && target.status !== "BLOCKED") {
             const reason = (inputBlockerReason && inputBlockerReason.toLowerCase() !== "ninguno") ? inputBlockerReason : "Bloqueada";
             blockerEntries.push(`[${target.title}] ${reason}`);
@@ -736,7 +827,7 @@ export const initDailyMatrixListeners = () => {
         ];
         const shouldSync = document.getElementById("syncKanbanOnSave")?.checked;
 
-        await api.saveScrum(project, week, day, member, answers);
+        await api.saveScrum(project, week, day, member, answers, blockingTaskId, blockingTaskTitle);
         if (shouldSync) {
           await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, inputBlockerReason);
         }
