@@ -12,6 +12,7 @@ import { renderBoard, initDailyMatrixListeners, setDailyMatrixCallbacks } from "
 import { renderKanban, initKanbanListeners } from "./components/kanbanBoard.js";
 import { renderDiagnosticsView } from "./components/diagnosticsView.js";
 import { initAdminModalListeners, setAdminModalRefreshCallback, loadManageModal } from "./components/adminModal.js";
+import { startSyncService, stopSyncService } from "./services/syncService.js";
 
 export const switchMainView = async (view) => {
   if (view === "diagnostics" && !isAdmin()) {
@@ -80,13 +81,13 @@ export const initProjectSelectors = async () => {
   }
 };
 
-export const refreshCurrentView = async () => {
+export const refreshCurrentView = async (silent = false) => {
   if (state.currentMainView === "daily") {
-    await renderBoard();
+    await renderBoard(silent);
   } else if (state.currentMainView === "kanban") {
-    await renderKanban();
+    await renderKanban(silent);
   } else if (state.currentMainView === "diagnostics") {
-    await renderDiagnosticsView();
+    await renderDiagnosticsView(null, null, silent);
   }
 };
 
@@ -99,6 +100,7 @@ const startAuthenticatedApp = async () => {
     state.currentMainView = "daily";
   }
   await initProjectSelectors();
+  startSyncService(refreshCurrentView);
 };
 
 // Global App Initialization

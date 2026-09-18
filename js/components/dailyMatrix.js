@@ -19,14 +19,16 @@ export const setDailyMatrixCallbacks = ({ onRenderKanban, onReloadAdminModal }) 
   requestAdminModalReload = onReloadAdminModal;
 };
 
-export const renderBoard = async () => {
+export const renderBoard = async (silent = false) => {
   const project = document.getElementById("boardProject")?.value || state.activeProject;
   const week = document.getElementById("boardWeek")?.value || state.activeWeek;
   const tbody = document.getElementById("scrumTableBody");
   const bannerContainer = document.getElementById("projectSelfAssignContainer");
 
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">Cargando matriz...</td></tr>`;
+  if (!silent) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">Cargando matriz...</td></tr>`;
+  }
 
   if (!project) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">No hay proyectos disponibles.</td></tr>`;
@@ -109,8 +111,6 @@ export const renderBoard = async () => {
     }
   });
 
-  tbody.innerHTML = "";
-
   if (members.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">No hay integrantes asignados a este proyecto.</td></tr>`;
     return;
@@ -121,6 +121,7 @@ export const renderBoard = async () => {
     scrumsMap[`${s.member}#${s.day}`] = s;
   });
 
+  const fragment = document.createDocumentFragment();
   members.forEach((m) => {
     const tr = document.createElement("tr");
 
@@ -205,8 +206,11 @@ export const renderBoard = async () => {
       tr.appendChild(dayTd);
     });
 
-    tbody.appendChild(tr);
+    fragment.appendChild(tr);
   });
+
+  tbody.innerHTML = "";
+  tbody.appendChild(fragment);
 };
 
 export const joinProjectAction = async (project) => {

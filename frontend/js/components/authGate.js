@@ -7,6 +7,7 @@ import { state, setCurrentUser } from "../state.js";
 import { api } from "../services/api.js";
 import { showToast } from "./uiFeedback.js";
 import { updateHeaderUI } from "./header.js";
+import { stopSyncService } from "../services/syncService.js";
 
 let onAuthSuccessCallback = null;
 
@@ -317,6 +318,7 @@ export const initAuthGateListeners = () => {
   const btnLogout = document.getElementById("btnLogout");
   if (btnLogout) {
     btnLogout.addEventListener("click", () => {
+      stopSyncService();
       clearStoredAuth();
       setCurrentUser(null);
 

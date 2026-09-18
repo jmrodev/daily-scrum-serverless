@@ -23,17 +23,23 @@ const getPrevStatus = (current) => {
   return idx > 0 ? KANBAN_STATUSES[idx - 1] : null;
 };
 
-export const renderKanban = async () => {
+export const isDraggingTask = () => draggedTaskId !== null;
+
+export const renderKanban = async (silent = false) => {
   const project = document.getElementById("boardProject")?.value || state.activeProject;
   if (!project) return;
   const week = document.getElementById("boardWeek")?.value || state.activeWeek || "WEEK 1";
 
-  KANBAN_STATUSES.forEach((st) => {
-    const colList = document.getElementById(`col${st}`);
-    const countBadge = document.getElementById(`count${st}`);
-    if (colList) colList.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:12px;">Cargando...</div>`;
-    if (countBadge) countBadge.textContent = "0";
-  });
+  if (draggedTaskId !== null) return;
+
+  if (!silent) {
+    KANBAN_STATUSES.forEach((st) => {
+      const colList = document.getElementById(`col${st}`);
+      const countBadge = document.getElementById(`count${st}`);
+      if (colList) colList.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:12px;">Cargando...</div>`;
+      if (countBadge) countBadge.textContent = "0";
+    });
+  }
 
   const [tasks, scrums] = await Promise.all([
     api.getTasks(project),
@@ -59,7 +65,7 @@ export const renderKanban = async () => {
       return;
     }
 
-    colList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
     list.forEach((t) => {
       const card = document.createElement("div");
       card.className = "kanban-card";
@@ -130,8 +136,10 @@ export const renderKanban = async () => {
         card.querySelector(".btn-claim-task")?.addEventListener("click", () => claimTaskAction(t.id));
       }
 
-      colList.appendChild(card);
+      fragment.appendChild(card);
     });
+    colList.innerHTML = "";
+    colList.appendChild(fragment);
   });
 };
 

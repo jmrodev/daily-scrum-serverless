@@ -220,7 +220,7 @@ export const openTaskLifecycleModal = (taskId, taskMap, scrums, activityData, cu
   });
 };
 
-export const renderDiagnosticsView = async (project = null, week = null) => {
+export const renderDiagnosticsView = async (project = null, week = null, silent = false) => {
   const container = document.getElementById("diagnosticsViewContainer");
   if (!container) return;
 
@@ -248,12 +248,14 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
     return;
   }
 
-  container.innerHTML = `
-    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
-      <div class="spinner" style="margin: 0 auto 12px;"></div>
-      <p>Calculando red PERT/CPM, diagnósticos y auditoría...</p>
-    </div>
-  `;
+  if (!silent) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+        <div class="spinner" style="margin: 0 auto 12px;"></div>
+        <p>Calculando red PERT/CPM, diagnósticos y auditoría...</p>
+      </div>
+    `;
+  }
 
   try {
     const [members, scrums, tasks] = await Promise.all([

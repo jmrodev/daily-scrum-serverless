@@ -95,13 +95,15 @@ export const loadManageModal = async (selectedProj = null) => {
   await loadMembersChipList();
 };
 
-export const loadMembersChipList = async () => {
+export const loadMembersChipList = async (silent = false) => {
   const projSelect = document.getElementById("manageProjectSelect");
   const chipContainer = document.getElementById("membersChipList");
   if (!projSelect || !chipContainer) return;
 
   const project = projSelect.value;
-  chipContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">Cargando integrantes...</span>`;
+  if (!silent) {
+    chipContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">Cargando integrantes...</span>`;
+  }
 
   if (!project) {
     chipContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">Seleccioná un proyecto.</span>`;
@@ -109,13 +111,12 @@ export const loadMembersChipList = async () => {
   }
 
   const members = await api.getMembers(project);
-  chipContainer.innerHTML = "";
-
   if (members.length === 0) {
     chipContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">Sin integrantes. Agregá uno arriba.</span>`;
     return;
   }
 
+  const fragment = document.createDocumentFragment();
   members.forEach((m) => {
     const chip = document.createElement("div");
     chip.className = "chip";
@@ -130,8 +131,11 @@ export const loadMembersChipList = async () => {
     chip.querySelector(".btn-edit-member")?.addEventListener("click", () => editMemberAction(project, m.name, m.role, m.email, m.is_admin));
     chip.querySelector(".btn-delete-member")?.addEventListener("click", () => deleteMemberAction(project, m.name));
 
-    chipContainer.appendChild(chip);
+    fragment.appendChild(chip);
   });
+
+  chipContainer.innerHTML = "";
+  chipContainer.appendChild(fragment);
 };
 
 const toggleProjectLock = async (name, currentVal) => {
