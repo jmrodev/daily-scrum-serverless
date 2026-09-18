@@ -60,6 +60,160 @@ const formatRelativeTime = (isoString) => {
   return new Date(isoString).toLocaleDateString();
 };
 
+export const openTaskLifecycleModal = (taskId, taskMap, scrums, activityData, currentProject) => {
+  const t = taskMap[taskId];
+  if (!t) return;
+
+  let modal = document.getElementById("pertLifecycleModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "pertLifecycleModal";
+    modal.className = "modal-overlay";
+    document.body.appendChild(modal);
+  }
+
+  const assigneeName = t.assignee || "Sin Asignar";
+  const userAudit = (activityData || []).find(
+    (u) => (u.name && u.name.toLowerCase() === assigneeName.toLowerCase()) ||
+           (u.email && u.email.toLowerCase() === assigneeName.toLowerCase())
+  );
+
+  // 1. Session / Login audit step
+  let loginText = "Sin sesión previa auditada en el sistema.";
+  let loginTime = "—";
+  if (userAudit) {
+    loginTime = userAudit.last_login ? new Date(userAudit.last_login).toLocaleString() : "Registrado";
+    const ip = userAudit.events && userAudit.events[0] ? userAudit.events[0].ip : "";
+    loginText = `<strong>${escapeHtml(userAudit.name)}</strong> ingresó al sistema (${userAudit.login_count || 1} accesos registrados${ip ? `, IP: ${escapeHtml(ip)}` : ""}).`;
+  } else if (t.assignee) {
+    loginText = `Integrante <strong>${escapeHtml(t.assignee)}</strong> activo en el proyecto <strong>${escapeHtml(currentProject)}</strong>.`;
+  } else {
+    loginText = "Tarea creada en 'Por Hacer' disponible para asignación del equipo.";
+  }
+
+  // 2. Task creation / doing step
+  const createdTime = t.created_at ? new Date(t.created_at).toLocaleString() : "Registro de Sprint";
+  const taskCreatedText = `Se registró la tarea <strong>"${escapeHtml(t.title)}"</strong> en estado <strong>${t.status}</strong> con prioridad <strong>${t.priority || "MEDIUM"}</strong>. Asignada a: <em>${escapeHtml(assigneeName)}</em>.`;
+
+  // 3. Daily Scrum / Blocker declaration step
+  const matchingDaily = (scrums || []).find((s) => {
+    if (!s.answers) return false;
+    const isOwner = s.member && s.member.toLowerCase() === assigneeName.toLowerCase();
+    const mentionsTask = (s.answers[2] && s.answers[2].toLowerCase().includes((t.title || "").toLowerCase())) ||
+                         s.blocking_task_id === t.id;
+    return isOwner || mentionsTask;
+  });
+
+  let dailyText = "No se declararon bloqueos en la última Daily Scrum. La tarea avanza sin fricción.";
+  let dailyTime = "Daily Scrum";
+  let isDailyBlocker = false;
+
+  if (t.predecessors && t.predecessors.length > 0) {
+    isDailyBlocker = true;
+    const predTitles = t.predecessors.map((pid) => taskMap[pid]?.title || pid).join(", ");
+    dailyText = `⚠️ <strong>Impedimento activo:</strong> La entrega está detenida a la espera de que se complete la tarea previa: <em>${escapeHtml(predTitles)}</em>.`;
+    if (matchingDaily && matchingDaily.answers && isRealBlocker(matchingDaily.answers[2])) {
+      dailyTime = `Daily ${matchingDaily.day} (${matchingDaily.member})`;
+      dailyText += `<br/><small style="color:var(--text-muted); margin-top:4px; display:block;">Reportado en Daily: "${escapeHtml(matchingDaily.answers[2])}"</small>`;
+    }
+  } else if (t.blocker && isRealBlocker(t.blocker)) {
+    isDailyBlocker = true;
+    dailyText = `🚨 <strong>Bloqueo registrado:</strong> ${escapeHtml(t.blocker)}`;
+  }
+
+  // 4. PERT / CPM Critical Path Impact
+  const isCritical = t.isCritical;
+  let pertText = "";
+  if (isCritical) {
+    pertText = `<strong>🔴 NODO EN RUTA CRÍTICA:</strong> Cualquier retraso en esta tarea posterga directamente la fecha final del sprint. ${t.successors && t.successors.length > 0 ? `Frena la entrega de ${t.successors.length} tarea(s) subsiguiente(s).` : 'Se encuentra detenida esperando destrabe.'}`;
+  } else if (t.status === "DONE") {
+    pertText = `<strong>✅ ENTREGADA:</strong> Tarea completada. Ha liberado el flujo y las dependencias subsiguientes en la red.`;
+  } else {
+    pertText = `<strong>🟢 FLUJO NORMAL:</strong> Tarea en desarrollo u orden regular con holgura en el cronograma.`;
+  }
+
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width: 560px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <span style="font-size: 10px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px;">
+            Auditoría de Nodo & Trazabilidad
+          </span>
+          <h3 style="margin: 2px 0 0; font-size: 16px;">
+            🔍 [#${escapeHtml(t.id)}] ${escapeHtml(t.title)}
+          </h3>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseLifecycleModal">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+          <span class="diag-status-badge ${t.status.toLowerCase()}">${t.status}</span>
+          <span class="priority-badge ${(t.priority || 'medium').toLowerCase()}">${t.priority || 'Media'}</span>
+          <span class="diag-time-pill">👤 ${escapeHtml(assigneeName)}</span>
+          ${isCritical ? '<span class="diag-status-badge blocked">🔴 RUTA CRÍTICA</span>' : ''}
+        </div>
+
+        <div class="pert-timeline">
+          <!-- Step 1: Login / Session -->
+          <div class="pert-timeline-item login">
+            <div class="pert-timeline-dot">🔑</div>
+            <div class="pert-timeline-time">${loginTime}</div>
+            <div class="pert-timeline-title">1. Ingreso & Sesión Autenticada</div>
+            <div class="pert-timeline-desc">${loginText}</div>
+          </div>
+
+          <!-- Step 2: Task Creation / Doing -->
+          <div class="pert-timeline-item task">
+            <div class="pert-timeline-dot">📝</div>
+            <div class="pert-timeline-time">${createdTime}</div>
+            <div class="pert-timeline-title">2. Actuación en Tablero / Creación</div>
+            <div class="pert-timeline-desc">${taskCreatedText}</div>
+          </div>
+
+          <!-- Step 3: Daily Scrum / Blocker -->
+          <div class="pert-timeline-item ${isDailyBlocker ? 'blocker' : 'daily'}">
+            <div class="pert-timeline-dot">${isDailyBlocker ? '🚨' : '💬'}</div>
+            <div class="pert-timeline-time">${dailyTime}</div>
+            <div class="pert-timeline-title">3. Registro de Daily Scrum & Dependencia</div>
+            <div class="pert-timeline-desc">${dailyText}</div>
+          </div>
+
+          <!-- Step 4: PERT / CPM Impact -->
+          <div class="pert-timeline-item ${isCritical ? 'pert' : ''}">
+            <div class="pert-timeline-dot">🕸️</div>
+            <div class="pert-timeline-time">Análisis de Red en Vivo</div>
+            <div class="pert-timeline-title">4. Proyección en Grafo PERT / CPM</div>
+            <div class="pert-timeline-desc">${pertText}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnLifecycleClose">
+            Cerrar
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnLifecycleGoKanban">
+            📋 Gestionar en Tablero Kanban ➔
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = "flex";
+
+  const closeModal = () => {
+    modal.style.display = "none";
+  };
+
+  document.getElementById("btnCloseLifecycleModal")?.addEventListener("click", closeModal);
+  document.getElementById("btnLifecycleClose")?.addEventListener("click", closeModal);
+  document.getElementById("btnLifecycleGoKanban")?.addEventListener("click", () => {
+    closeModal();
+    switchMainView("kanban");
+  });
+};
+
 export const renderDiagnosticsView = async (project = null, week = null) => {
   const container = document.getElementById("diagnosticsViewContainer");
   if (!container) return;
@@ -429,6 +583,23 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
           </div>
         </div>
 
+        <!-- Storyline Breadcrumbs -->
+        <div class="pert-story-banner">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <strong style="font-size: 12px; color: var(--text);">Cadena de Vida y Trazabilidad Operativa:</strong>
+            <span style="font-size: 11px; color: var(--text-muted);">Cómo las actuaciones de los alumnos se proyectan en el grafo (hacé clic en cualquier nodo para ver su vida):</span>
+          </div>
+          <div class="pert-steps-track">
+            <span class="pert-step-pill step-1">1. 🔑 Ingreso Auditado</span>
+            <span class="pert-step-arrow">➔</span>
+            <span class="pert-step-pill step-2">2. 📝 Tarea Creada / Asignada</span>
+            <span class="pert-step-arrow">➔</span>
+            <span class="pert-step-pill step-3">3. 🚨 Declaración de Traba en Daily</span>
+            <span class="pert-step-arrow">➔</span>
+            <span class="pert-step-pill step-4">4. 🕸️ Ruta Crítica en Grafo</span>
+          </div>
+        </div>
+
         <!-- Interactive SVG PERT DAG -->
         <div class="pert-container-card" style="margin-bottom: 20px;">
           <div class="diag-section-header">
@@ -437,7 +608,7 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
                 🕸️ Grafo de Dependencias PERT / CPM en Vivo
               </h3>
               <span style="font-size: 11px; color: var(--text-muted);">
-                Líneas rojas punteadas animadas: <strong>Ruta Crítica</strong> (tareas no resueltas que frenan entregas posteriores).
+                Líneas rojas punteadas animadas: <strong>Ruta Crítica</strong> (tareas no resueltas que frenan entregas posteriores). Hacé clic en cualquier nodo para abrir su trazabilidad.
               </span>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -524,8 +695,11 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
                       <td>${preds}</td>
                       <td>${succs}</td>
                       <td>${critBadge}</td>
-                      <td style="text-align: right;">
-                        <button type="button" class="btn btn-secondary btn-sm btn-view-in-kanban" data-task-id="${escapeHtml(t.id)}">
+                      <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn btn-primary btn-sm btn-view-lifecycle" data-task-id="${escapeHtml(t.id)}" style="background: var(--primary); margin-right: 4px; font-size: 11px; padding: 3px 8px;">
+                          🔍 Trazabilidad
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm btn-view-in-kanban" data-task-id="${escapeHtml(t.id)}" style="font-size: 11px; padding: 3px 8px;">
                           📋 Kanban
                         </button>
                       </td>
@@ -543,7 +717,14 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
         btn.addEventListener("click", () => switchMainView("kanban"));
       });
       subTabContent.querySelectorAll(".pert-node").forEach((node) => {
-        node.addEventListener("click", () => switchMainView("kanban"));
+        node.addEventListener("click", () => {
+          openTaskLifecycleModal(node.dataset.taskId, taskMap, scrums, activityData, currentProject);
+        });
+      });
+      subTabContent.querySelectorAll(".btn-view-lifecycle").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openTaskLifecycleModal(btn.dataset.taskId, taskMap, scrums, activityData, currentProject);
+        });
       });
     }
 
