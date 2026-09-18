@@ -338,4 +338,13 @@ export const api = {
     if (!res.ok) throw new Error(data.error || "Error al obtener auditoría de actividad");
     return data;
   },
+
+  // Admin Registered Users
+  async getAdminUsers() {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/admin/users`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al obtener usuarios registrados");
+    return data.users || [];
+  },
 };

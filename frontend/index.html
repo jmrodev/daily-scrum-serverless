@@ -410,6 +410,17 @@
             <h4>👤 Integrantes por Proyecto</h4>
             <label style="margin-bottom: 4px;">Proyecto:</label>
             <select id="manageProjectSelect" style="margin-bottom: 8px; width: 100%;"></select>
+            <div style="background: var(--surface-alt, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label for="selectRegisteredUser" style="font-size: 11px; color: var(--text-muted); font-weight: 700;">
+                  👥 Autocompletar con usuario registrado en la plataforma:
+                </label>
+                <span id="registeredUsersCountBadge" style="font-size: 10px; color: var(--text-muted);"></span>
+              </div>
+              <select id="selectRegisteredUser" style="width: 100%; font-size: 12px; padding: 6px 8px;">
+                <option value="">-- Seleccionar usuario registrado para autocompletar --</option>
+              </select>
+            </div>
             <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
               <input type="text" id="newMemberName" placeholder="Nombre (ej: Juan)..." style="flex: 2; min-width: 130px;" />
               <input type="text" id="newMemberRole" placeholder="Rol en proyecto (ej: Frontend)..." style="flex: 2; min-width: 130px;" />

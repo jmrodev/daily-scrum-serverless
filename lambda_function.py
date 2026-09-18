@@ -184,6 +184,11 @@ def require_auth(event, admin_only=False):
     return claims, None
 
 
+def require_admin(event):
+    """Convenience helper for admin-only gating."""
+    return require_auth(event, admin_only=True)
+
+
 def hash_password(password, salt=None):
     if not salt:
         salt = secrets.token_hex(16)
@@ -1049,6 +1054,26 @@ def handler(event, context):
                 "activity": activity_records,
                 "server_time": datetime.datetime.utcnow().isoformat(),
             })
+
+        # GET /admin/users (Admin only) -> List all registered user accounts
+        elif path == "/admin/users" and method == "GET":
+            _, err = require_admin(event)
+            if err:
+                return err
+            scan_users = table.scan(FilterExpression=Key("PK").begins_with("USER#") & Attr("SK").eq("PROFILE"))
+            user_list = []
+            for u in scan_users.get("Items", []):
+                groups = u.get("groups") or []
+                user_list.append({
+                    "email": u.get("email"),
+                    "name": u.get("name") or (u.get("email") or "").split("@")[0],
+                    "status": u.get("status", "CONFIRMED"),
+                    "is_admin": "Admins" in groups,
+                    "created_at": u.get("created_at"),
+                    "last_login": u.get("last_login"),
+                })
+            user_list.sort(key=lambda x: (x.get("name") or "").lower())
+            return create_response(200, {"users": user_list})
 
         # DELETE /admin/users/{email} (Admin only) -> Purge user account and start from scratch
         user_del_match = re.match(r"^/admin/users/([^/]+)$", path)

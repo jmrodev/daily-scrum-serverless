@@ -46,9 +46,39 @@ export const switchAdminTab = (tab) => {
     loadEmailConfig();
   }
 
+  if (tab === "members") {
+    populateRegisteredUsersSelect();
+  }
+
   if (tab === "endpoint") {
     const input = document.getElementById("adminApiUrlInput");
     if (input) input.value = getCleanUrl();
+  }
+};
+
+export const populateRegisteredUsersSelect = async () => {
+  const select = document.getElementById("selectRegisteredUser");
+  const badge = document.getElementById("registeredUsersCountBadge");
+  if (!select) return;
+
+  try {
+    const users = await api.getAdminUsers();
+    if (badge) badge.textContent = `${users.length} cuenta(s) registrada(s)`;
+    select.innerHTML = '<option value="">-- Seleccionar usuario registrado para autocompletar --</option>';
+
+    users.forEach((u) => {
+      const opt = document.createElement("option");
+      opt.value = u.email;
+      opt.dataset.name = u.name || "";
+      opt.dataset.email = u.email || "";
+      opt.dataset.role = u.is_admin ? "admin" : "member";
+      const roleTxt = u.is_admin ? "Admin" : "Dev";
+      const statusTxt = u.status === "CONFIRMED" ? "✅ Activo" : "⏳ Pendiente";
+      opt.textContent = `${u.name} <${u.email}> [${roleTxt}] (${statusTxt})`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.warn("Could not load registered users for autocomplete:", err);
   }
 };
 
@@ -92,7 +122,10 @@ export const loadManageModal = async (selectedProj = null) => {
   if (projSelect && active) {
     projSelect.value = active;
   }
-  await loadMembersChipList();
+  await Promise.all([
+    loadMembersChipList(),
+    populateRegisteredUsersSelect(),
+  ]);
 };
 
 export const loadMembersChipList = async (silent = false) => {
@@ -264,6 +297,19 @@ export const initAdminModalListeners = () => {
     loadMembersChipList();
   });
 
+  // Registered User Autocomplete in Members Tab
+  document.getElementById("selectRegisteredUser")?.addEventListener("change", (e) => {
+    const sel = e.target;
+    const opt = sel.selectedOptions ? sel.selectedOptions[0] : null;
+    if (!opt || !opt.value) return;
+    const nameInput = document.getElementById("newMemberName");
+    const emailInput = document.getElementById("newMemberEmail");
+    const systemRoleSelect = document.getElementById("newMemberSystemRole");
+    if (nameInput && opt.dataset.name) nameInput.value = opt.dataset.name;
+    if (emailInput && opt.dataset.email) emailInput.value = opt.dataset.email;
+    if (systemRoleSelect && opt.dataset.role) systemRoleSelect.value = opt.dataset.role;
+  });
+
   // Add Member
   document.getElementById("btnAddMember")?.addEventListener("click", async () => {
     const project = document.getElementById("manageProjectSelect")?.value;
@@ -292,7 +338,13 @@ export const initAdminModalListeners = () => {
       nameInput.value = "";
       roleInput.value = "";
       emailInput.value = "";
-      await loadMembersChipList();
+      const regSelect = document.getElementById("selectRegisteredUser");
+      if (regSelect) regSelect.value = "";
+
+      await Promise.all([
+        loadMembersChipList(),
+        populateRegisteredUsersSelect(),
+      ]);
       if (onRequestRefreshBoard) await onRequestRefreshBoard();
 
       if (res?.invite_sent) {
