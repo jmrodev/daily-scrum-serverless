@@ -21,8 +21,10 @@ export const loadEmailConfig = async () => {
     const userEl = document.getElementById("gmailUser");
     const nameEl = document.getElementById("gmailSenderName");
     const passEl = document.getElementById("gmailAppPassword");
+    const urlEl = document.getElementById("gmailAppUrl");
     if (userEl && cfg.gmailUser) userEl.value = cfg.gmailUser;
     if (nameEl && cfg.senderName) nameEl.value = cfg.senderName;
+    if (urlEl) urlEl.value = cfg.appUrl || window.location.origin + window.location.pathname;
     if (passEl && cfg.hasPassword && !passEl.value) {
       passEl.placeholder = cfg.passwordMasked || "••••••••";
     }
@@ -302,6 +304,7 @@ export const initAdminModalListeners = () => {
   const gmailUserInput = document.getElementById("gmailUser");
   const gmailPassInput = document.getElementById("gmailAppPassword");
   const gmailSenderInput = document.getElementById("gmailSenderName");
+  const gmailUrlInput = document.getElementById("gmailAppUrl");
 
   document.getElementById("btnToggleGmailPassword")?.addEventListener("click", () => {
     if (!gmailPassInput) return;
@@ -312,6 +315,7 @@ export const initAdminModalListeners = () => {
     const gmailUser = gmailUserInput?.value.trim();
     const gmailPassword = gmailPassInput?.value.trim();
     const senderName = gmailSenderInput?.value.trim() || "Daily Scrum";
+    const appUrl = (gmailUrlInput?.value.trim()) || (window.location.origin + window.location.pathname);
 
     if (!gmailUser) {
       showToast("Ingresá tu correo de Gmail", "error");
@@ -319,7 +323,7 @@ export const initAdminModalListeners = () => {
     }
 
     try {
-      await api.saveEmailConfig(gmailUser, gmailPassword, senderName);
+      await api.saveEmailConfig(gmailUser, gmailPassword, senderName, appUrl);
       showToast("Configuración de Gmail SMTP guardada en el backend.");
       await loadEmailConfig();
     } catch (err) {

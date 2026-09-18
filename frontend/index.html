@@ -445,9 +445,16 @@
                   Generala en: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" style="color: var(--primary);">myaccount.google.com/apppasswords</a>
                 </small>
               </div>
-              <div style="margin-bottom: 10px;">
+              <div style="margin-bottom: 8px;">
                 <label for="gmailSenderName">Nombre del Remitente:</label>
                 <input type="text" id="gmailSenderName" placeholder="Daily Scrum" style="width: 100%;" />
+              </div>
+              <div style="margin-bottom: 10px;">
+                <label for="gmailAppUrl">URL de la Aplicación (enlace incluido en los emails):</label>
+                <input type="url" id="gmailAppUrl" placeholder="https://jmrodev.github.io/daily-scrum-serverless/" style="width: 100%;" />
+                <small style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 3px;">
+                  Dirección web a la que accederán los usuarios desde los botones y enlaces del correo.
+                </small>
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                 <button type="button" id="btnSaveEmailConfig" class="btn btn-primary btn-sm">💾 Guardar Configuración</button>

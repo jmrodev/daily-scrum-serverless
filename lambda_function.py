@@ -205,6 +205,7 @@ def get_email_config():
     gmail_user = os.environ.get("GMAIL_USER", "")
     gmail_password = os.environ.get("GMAIL_APP_PASSWORD", "")
     sender_name = os.environ.get("GMAIL_SENDER_NAME", "Daily Scrum")
+    app_url = os.environ.get("APP_URL", "https://jmrodev.github.io/daily-scrum-serverless/")
 
     try:
         resp = table.get_item(Key={"PK": "CONFIG#SYSTEM", "SK": "CONFIG#EMAIL"})
@@ -213,6 +214,7 @@ def get_email_config():
             gmail_user = item.get("gmail_user") or gmail_user
             gmail_password = item.get("gmail_password") or gmail_password
             sender_name = item.get("sender_name") or sender_name
+            app_url = item.get("app_url") or app_url
     except Exception:
         pass
 
@@ -220,6 +222,7 @@ def get_email_config():
         "gmail_user": gmail_user.strip(),
         "gmail_password": gmail_password.strip().replace(" ", ""),
         "sender_name": sender_name.strip(),
+        "app_url": app_url.strip(),
     }
 
 
@@ -325,15 +328,20 @@ def handler(event, context):
             table.put_item(Item=user_item)
 
             # Send verification code
+            app_url = email_cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
             subject = f"{code} es tu código de activación - Daily Scrum"
             html = f"""
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 460px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
               <h2 style="color: #0284c7; margin-top: 0; font-size: 20px;">¡Bienvenido a Daily Scrum, {name}!</h2>
               <p style="color: #334155; font-size: 14px;">Para activar tu cuenta, ingresá el siguiente código de verificación de 6 dígitos:</p>
-              <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 24px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
+              <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 20px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
                 {code}
               </div>
-              <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">Este código vence en 15 minutos. Si no te registraste, podés desestimar este email.</p>
+              <div style="text-align: center; margin: 24px 0;">
+                <a href="{app_url}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Abrir Daily Scrum</a>
+              </div>
+              <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo: <a href="{app_url}" style="color: #0284c7;">{app_url}</a></p>
+              <p style="color: #64748b; font-size: 12px; margin-top: 16px; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 12px;">Este código vence en 15 minutos. Si no te registraste, podés desestimar este email.</p>
             </div>
             """
             success, res = send_email(email, subject, html)
@@ -558,15 +566,20 @@ def handler(event, context):
             }
             table.put_item(Item=otp_item)
 
+            app_url = email_cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
             subject = f"{code} es tu código de acceso a Daily Scrum"
             html = f"""
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 460px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
               <h2 style="color: #0284c7; margin-top: 0; font-size: 20px;">Daily Scrum & Kanban</h2>
               <p style="color: #334155; font-size: 14px;">Tu código de verificación de un solo uso para iniciar sesión es:</p>
-              <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 24px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
+              <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 20px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
                 {code}
               </div>
-              <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">Válido por 10 minutos.</p>
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="{app_url}" style="background-color: #0284c7; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 13px; display: inline-block;">Ingresar a la Plataforma</a>
+              </div>
+              <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo: <a href="{app_url}" style="color: #0284c7;">{app_url}</a></p>
+              <p style="color: #64748b; font-size: 12px; margin-top: 14px; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 10px;">Válido por 10 minutos.</p>
             </div>
             """
             success, res = send_email(email, subject, html)
@@ -655,11 +668,13 @@ def handler(event, context):
             gmail_user = cfg.get("gmail_user") or ""
             has_pwd = bool(cfg.get("gmail_password"))
             sender_name = cfg.get("sender_name") or "Daily Scrum"
+            app_url = cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
 
             return create_response(200, {
                 "configured": bool(gmail_user and has_pwd),
                 "gmailUser": gmail_user,
                 "senderName": sender_name,
+                "appUrl": app_url,
                 "hasPassword": has_pwd,
                 "passwordMasked": "••••••••" if has_pwd else "",
             })
@@ -673,12 +688,15 @@ def handler(event, context):
             gmail_user = (body.get("gmailUser") or body.get("gmail_user") or "").strip().lower()
             gmail_password = (body.get("gmailPassword") or body.get("gmail_password") or body.get("apiKey") or body.get("api_key") or "").strip().replace(" ", "")
             sender_name = (body.get("senderName") or body.get("sender_name") or body.get("fromEmail") or "Daily Scrum").strip()
+            app_url = (body.get("appUrl") or body.get("app_url") or "").strip()
 
             existing = get_email_config()
             if not gmail_user and existing.get("gmail_user"):
                 gmail_user = existing.get("gmail_user")
             if not gmail_password and existing.get("gmail_password"):
                 gmail_password = existing.get("gmail_password")
+            if not app_url:
+                app_url = existing.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
 
             if not gmail_user or not gmail_password:
                 return create_response(400, {"error": "Correo de Gmail y Contraseña de Aplicación (16 letras) son requeridos."})
@@ -689,6 +707,7 @@ def handler(event, context):
                 "gmail_user": gmail_user,
                 "gmail_password": gmail_password,
                 "sender_name": sender_name,
+                "app_url": app_url,
                 "updated_at": datetime.datetime.utcnow().isoformat(),
                 "updated_by": user_claims.get("email"),
             }
@@ -709,12 +728,17 @@ def handler(event, context):
             if not cfg.get("gmail_user") or not cfg.get("gmail_password"):
                 return create_response(400, {"error": "No hay credenciales de Gmail SMTP configuradas aún."})
 
+            app_url = cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
             subject = "🧪 Prueba de Configuración - Daily Scrum"
             html = f"""
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 460px; margin: 0 auto; padding: 24px; border: 1px solid #10b981; border-radius: 12px; background: #ffffff;">
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #10b981; border-radius: 12px; background: #ffffff;">
               <h2 style="color: #10b981; margin-top: 0; font-size: 20px;">¡Conexión Exitosa con Gmail SMTP!</h2>
               <p style="color: #334155; font-size: 14px;">Este es un correo de prueba generado desde el panel de administración de <strong>Daily Scrum & Kanban</strong>.</p>
               <p style="color: #334155; font-size: 14px;">La cuenta <code>{cfg.get('gmail_user')}</code> y el remitente <strong>{cfg.get('sender_name')}</strong> están funcionando a la perfección.</p>
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="{app_url}" style="background-color: #10b981; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 13px; display: inline-block;">Abrir Daily Scrum</a>
+              </div>
+              <p style="color: #64748b; font-size: 12px; text-align: center;">URL configurada: <a href="{app_url}" style="color: #0284c7;">{app_url}</a></p>
               <p style="color: #64748b; font-size: 12px; margin-top: 24px; margin-bottom: 0;">Enviado vía Gmail SMTP: {datetime.datetime.utcnow().isoformat()}</p>
             </div>
             """
@@ -918,6 +942,7 @@ def handler(event, context):
                 # Send invitation via Email (Gmail SMTP)
                 email_cfg = get_email_config()
                 if email_cfg.get("gmail_user") and email_cfg.get("gmail_password"):
+                    app_url = email_cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
                     role_badge = "Administrador" if is_admin else "Integrante"
                     subject = f"Invitación a Daily Scrum ({project}) - Activá tu cuenta"
                     html = f"""
@@ -932,8 +957,12 @@ def handler(event, context):
                       <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 20px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
                         {code}
                       </div>
-                      <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">
-                        Ingresá a la plataforma, seleccioná <strong>Activar Cuenta</strong>, ingresá tu correo ({email}), este código y tu nueva contraseña.
+                      <div style="text-align: center; margin: 24px 0;">
+                        <a href="{app_url}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Activar mi Cuenta en Daily Scrum</a>
+                      </div>
+                      <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo a la app: <a href="{app_url}" style="color: #0284c7;">{app_url}</a></p>
+                      <p style="color: #64748b; font-size: 12px; margin-top: 16px; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                        Ingresá a la plataforma, seleccioná <strong>Activar Cuenta</strong>, colocá tu correo (<strong>{email}</strong>), este código de 6 dígitos y definí tu nueva contraseña.
                       </p>
                     </div>
                     """

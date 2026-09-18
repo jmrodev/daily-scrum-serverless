@@ -297,11 +297,11 @@ export const api = {
     return data;
   },
 
-  async saveEmailConfig(gmailUser, gmailPassword, senderName) {
+  async saveEmailConfig(gmailUser, gmailPassword, senderName, appUrl) {
     const url = getCleanUrl();
     const res = await authFetch(`${url}/admin/config/email`, {
       method: "POST",
-      body: JSON.stringify({ gmailUser, gmailPassword, senderName }),
+      body: JSON.stringify({ gmailUser, gmailPassword, senderName, appUrl }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al guardar configuración de Email");
