@@ -69,6 +69,18 @@ export const handleSessionExpired = () => {
 
 export const enforceAuthGate = (onSuccess) => {
   onAuthSuccessCallback = onSuccess;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const hash = window.location.hash || "";
+  const isActivationRequested =
+    urlParams.get("action") === "activate" ||
+    urlParams.get("action") === "confirm" ||
+    urlParams.get("tab") === "confirm" ||
+    urlParams.get("tab") === "activate" ||
+    Boolean(urlParams.get("code")) ||
+    hash.includes("activate") ||
+    hash.includes("confirm");
+
   const stored = getStoredAuth();
 
   const authGateEl = document.getElementById("authGate");
@@ -76,8 +88,8 @@ export const enforceAuthGate = (onSuccess) => {
 
   const token = stored ? (stored.token || stored.idToken || stored.accessToken) : null;
 
-  if (stored && stored.user && token) {
-    // Authenticated session exists
+  if (stored && stored.user && token && !isActivationRequested) {
+    // Authenticated session exists and no activation was requested in URL
     setCurrentUser({ ...stored.user, token });
 
     authGateEl.style.display = "none";
@@ -88,12 +100,31 @@ export const enforceAuthGate = (onSuccess) => {
       onAuthSuccessCallback();
     }
   } else {
-    // Unauthenticated or invalid token: Hard Gate
+    // Unauthenticated or explicit activation request
     clearStoredAuth();
     setCurrentUser(null);
     authGateEl.style.display = "flex";
     appShellEl.style.display = "none";
     updateHeaderUI();
+
+    if (isActivationRequested) {
+      switchAuthTab("confirm");
+      const email = urlParams.get("email");
+      const code = urlParams.get("code");
+      if (email) {
+        const inputEmail = document.getElementById("confirmEmail");
+        if (inputEmail) inputEmail.value = email;
+      }
+      if (code) {
+        const inputCode = document.getElementById("confirmCode");
+        if (inputCode) inputCode.value = code;
+      }
+      const inputPassword = document.getElementById("confirmPassword");
+      if (inputPassword) {
+        setTimeout(() => inputPassword.focus(), 200);
+      }
+      showToast("Completá tu contraseña para activar tu cuenta.");
+    }
   }
 };
 
@@ -106,6 +137,39 @@ export const initAuthGateListeners = () => {
   if (btnTabLogin) btnTabLogin.addEventListener("click", () => switchAuthTab("login"));
   if (btnTabSignup) btnTabSignup.addEventListener("click", () => switchAuthTab("signup"));
   if (btnTabConfirm) btnTabConfirm.addEventListener("click", () => switchAuthTab("confirm"));
+
+  // Check URL activation params on initial load
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hash = window.location.hash || "";
+    if (
+      urlParams.get("action") === "activate" ||
+      urlParams.get("action") === "confirm" ||
+      urlParams.get("tab") === "confirm" ||
+      urlParams.get("tab") === "activate" ||
+      Boolean(urlParams.get("code")) ||
+      hash.includes("activate") ||
+      hash.includes("confirm")
+    ) {
+      switchAuthTab("confirm");
+      const email = urlParams.get("email");
+      const code = urlParams.get("code");
+      if (email) {
+        const inputEmail = document.getElementById("confirmEmail");
+        if (inputEmail) inputEmail.value = email;
+      }
+      if (code) {
+        const inputCode = document.getElementById("confirmCode");
+        if (inputCode) inputCode.value = code;
+      }
+      const inputPassword = document.getElementById("confirmPassword");
+      if (inputPassword) {
+        setTimeout(() => inputPassword.focus(), 200);
+      }
+    }
+  } catch (e) {
+    console.warn("URL activation check error:", e);
+  }
 
   const linkToSignup = document.getElementById("authLinkToSignup");
   if (linkToSignup) linkToSignup.addEventListener("click", () => switchAuthTab("signup"));

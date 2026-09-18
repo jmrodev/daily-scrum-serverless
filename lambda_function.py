@@ -516,19 +516,21 @@ def handler(event, context):
 
             # Send verification code
             app_url = email_cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
+            sep = "&" if "?" in app_url else "?"
+            activation_url = f"{app_url}{sep}action=activate&email={urllib.parse.quote(email)}&code={code}"
             subject = f"{code} es tu código de activación - Daily Scrum"
             html = f"""
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
               <h2 style="color: #0284c7; margin-top: 0; font-size: 20px;">¡Bienvenido a Daily Scrum, {name}!</h2>
-              <p style="color: #334155; font-size: 14px;">Para activar tu cuenta, ingresá el siguiente código de verificación de 6 dígitos:</p>
+              <p style="color: #334155; font-size: 14px;">Para activar tu cuenta, hacé clic en el botón a continuación:</p>
               <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 20px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
                 {code}
               </div>
               <div style="text-align: center; margin: 24px 0;">
-                <a href="{app_url}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Abrir Daily Scrum</a>
+                <a href="{activation_url}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Activar mi Cuenta en Daily Scrum</a>
               </div>
-              <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo: <a href="{app_url}" style="color: #0284c7;">{app_url}</a></p>
-              <p style="color: #64748b; font-size: 12px; margin-top: 16px; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 12px;">Este código vence en 15 minutos. Si no te registraste, podés desestimar este email.</p>
+              <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo: <a href="{activation_url}" style="color: #0284c7;">{activation_url}</a></p>
+              <p style="color: #64748b; font-size: 12px; margin-top: 16px; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 12px;">Este enlace abre directamente la pestaña de activación con tu código listo. Este código vence en 15 minutos.</p>
             </div>
             """
             success, res = send_email(email, subject, html)
@@ -1256,6 +1258,8 @@ def handler(event, context):
                 email_cfg = get_email_config()
                 if email_cfg.get("gmail_user") and email_cfg.get("gmail_password"):
                     app_url = email_cfg.get("app_url") or "https://jmrodev.github.io/daily-scrum-serverless/"
+                    sep = "&" if "?" in app_url else "?"
+                    activation_url = f"{app_url}{sep}action=activate&email={urllib.parse.quote(email)}&code={code}"
                     role_badge = "Administrador" if is_admin else "Integrante"
                     subject = f"Invitación a Daily Scrum ({project}) - Activá tu cuenta"
                     html = f"""
@@ -1265,17 +1269,17 @@ def handler(event, context):
                         Hola <strong>{name}</strong>, te han asignado al proyecto <strong>{project}</strong> como <strong>{role}</strong> (Rol del sistema: <em>{role_badge}</em>).
                       </p>
                       <p style="color: #334155; font-size: 14px;">
-                        Para activar tu cuenta y definir tu contraseña personal, usá el siguiente código de 6 dígitos:
+                        Para activar tu cuenta y definir tu contraseña personal, hacé clic en el botón a continuación:
                       </p>
                       <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 20px 0; padding: 14px; background: #f8fafc; border: 1px solid #cbd5e1; text-align: center; border-radius: 8px;">
                         {code}
                       </div>
                       <div style="text-align: center; margin: 24px 0;">
-                        <a href="{app_url}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Activar mi Cuenta en Daily Scrum</a>
+                        <a href="{activation_url}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Activar mi Cuenta en Daily Scrum</a>
                       </div>
-                      <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo a la app: <a href="{app_url}" style="color: #0284c7;">{app_url}</a></p>
+                      <p style="color: #64748b; font-size: 12px; text-align: center; margin: 8px 0;">Enlace directo a la app: <a href="{activation_url}" style="color: #0284c7;">{activation_url}</a></p>
                       <p style="color: #64748b; font-size: 12px; margin-top: 16px; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                        Ingresá a la plataforma, seleccioná <strong>Activar Cuenta</strong>, colocá tu correo (<strong>{email}</strong>), este código de 6 dígitos y definí tu nueva contraseña.
+                        El enlace te lleva directamente a la pestaña <strong>Activar Cuenta</strong> con tu correo y código precompletados. Solo tenés que ingresar tu contraseña.
                       </p>
                     </div>
                     """
