@@ -25,59 +25,38 @@
           🌙 Oscuro
         </button>
         <h2>📊 Daily Scrum</h2>
-        <p id="authStepTitle">Matriz Semanal de Equipo &bull; Acceso Obligatorio</p>
-        <div class="auth-steps" id="authStepsBar" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font-size: 11px; font-weight: 700;">
-          <span class="auth-step-pill" data-step="email">1. Correo</span>
-          <span style="color: var(--text-muted);">➔</span>
-          <span class="auth-step-pill" data-step="verify">2. Verificación</span>
-          <span style="color: var(--text-muted);">➔</span>
-          <span class="auth-step-pill" data-step="done">3. Entrar</span>
-        </div>
+        <p id="authStepTitle">Ingresá con tu cuenta de equipo</p>
       </div>
 
       <div class="auth-card-body">
-        <!-- Paso 1: Correo -->
-        <form id="stepEmail" onsubmit="return false;">
-          <p class="auth-help-text">
-            Ingresá tu correo y te llevamos al paso que corresponda: entrar, crear tu cuenta o activarla.
-          </p>
+        <!-- Login (pantalla principal, como cualquier app) -->
+        <form id="stepLogin" onsubmit="return false;">
+          <div style="margin-bottom: 12px;">
+            <label for="stepLoginEmail">Correo Electrónico</label>
+            <input type="email" id="stepLoginEmail" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="username email" required />
+          </div>
           <div style="margin-bottom: 18px;">
-            <label for="stepEmailInput">Correo Electrónico</label>
-            <input type="email" id="stepEmailInput" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="username email" required />
+            <label for="stepLoginPassword">Contraseña</label>
+            <input type="password" id="stepLoginPassword" placeholder="••••••••" style="width: 100%;" autocomplete="current-password" required />
           </div>
-          <button type="button" id="btnEmailContinue" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
-            Continuar ➔
-          </button>
-          <div style="text-align: center;">
-            <button type="button" id="linkHaveCode" class="btn-link">Tengo un código de invitación</button>
-          </div>
-        </form>
-
-        <!-- Paso 2a: Contraseña (cuenta existente) -->
-        <form id="stepPassword" style="display: none;" onsubmit="return false;">
-          <div id="stepPassWho" class="auth-who-chip"></div>
-          <p class="auth-help-text">Ingresá tu contraseña para entrar.</p>
-          <div style="margin-bottom: 18px;">
-            <label for="stepPassInput">Contraseña</label>
-            <input type="password" id="stepPassInput" placeholder="••••••••" style="width: 100%;" autocomplete="current-password" required />
-          </div>
-          <div id="loginUnknownBox" style="display: none; margin-bottom: 12px; padding: 10px 12px; background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; font-size: 12px;">
-            Ese correo no tiene cuenta todavía.
-            <button type="button" id="btnGoRegister" class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;">Crear cuenta con este correo</button>
+          <div id="loginErrorBox" style="display: none; margin-bottom: 12px; padding: 10px 12px; background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; font-size: 12px;">
+            <span id="loginErrorText">Revisá tu correo y contraseña.</span>
+            <button type="button" id="btnGoRegister" class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%; display: none;">Crear cuenta con este correo</button>
           </div>
           <button type="button" id="btnLoginSubmit" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
             Ingresar
           </button>
-          <div style="text-align: center;">
-            <button type="button" id="btnBackToEmailPass" class="btn-link">← Usar otro correo</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <button type="button" id="linkGoRegister" class="btn-link">¿No tenés cuenta? Creala acá</button>
+            <button type="button" id="linkHaveCode" class="btn-link">Tengo un código</button>
           </div>
         </form>
 
-        <!-- Paso 2b: Crear cuenta (correo nuevo) -->
+        <!-- Crear cuenta -->
         <form id="stepRegister" style="display: none;" onsubmit="return false;">
           <div id="stepRegWho" class="auth-who-chip"></div>
           <p class="auth-help-text">
-            Ese correo no está registrado. Creá tu cuenta y te enviamos un código de 6 dígitos.
+            Completá tus datos. Te enviamos un código de 6 dígitos para activar tu cuenta.
           </p>
           <div style="margin-bottom: 12px;">
             <label for="stepRegName">Nombre y Apellido</label>
@@ -91,11 +70,11 @@
             Crear Cuenta
           </button>
           <div style="text-align: center;">
-            <button type="button" id="btnBackToEmailReg" class="btn-link">← Usar otro correo</button>
+            <button type="button" id="btnBackToLoginReg" class="btn-link">← Volver a ingresar</button>
           </div>
         </form>
 
-        <!-- Paso 2c: Activar con código (invitación o pendiente) -->
+        <!-- Activar con código (invitación o pendiente) -->
         <form id="stepCode" style="display: none;" onsubmit="return false;">
           <div id="stepCodeWho" class="auth-who-chip"></div>
           <p class="auth-help-text">
@@ -113,7 +92,7 @@
             Activar y Entrar
           </button>
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-            <button type="button" id="btnBackToEmailCode" class="btn-link">← Usar otro correo</button>
+            <button type="button" id="btnBackToLoginCode" class="btn-link">← Volver a ingresar</button>
             <button type="button" id="btnResendCode" class="btn-link">Reenviar código</button>
           </div>
         </form>

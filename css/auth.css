@@ -52,26 +52,6 @@
   right: 16px;
 }
 
-.auth-step-pill {
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-}
-
-.auth-step-pill.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.auth-step-pill.done {
-  background: var(--success-bg);
-  border-color: var(--success);
-  color: var(--success);
-}
-
 .auth-who-chip {
   font-size: 12px;
   font-weight: 700;

@@ -1,6 +1,7 @@
 /**
- * Stepped Auth Gate Controller (email-first, no tabs).
- * Step 1: email -> identify routes to password / register / code.
+ * Auth Gate Controller: classic login-first card (email + password together),
+ * with register and code-activation as secondary paths. No tabs, no identify
+ * round-trip: one login attempt routes everywhere (enter / activate / create).
  * Invite links (?action=activate&email&code) land straight on the code step.
  */
 import { AUTH_STORAGE_KEY } from "../config.js";
@@ -55,11 +56,10 @@ export const clearStoredAuth = () => {
   localStorage.removeItem(AUTH_STORAGE_KEY);
 };
 
-const STEPS = ["stepEmail", "stepPassword", "stepRegister", "stepCode"];
+const STEPS = ["stepLogin", "stepRegister", "stepCode"];
 const STEP_TITLES = {
-  stepEmail: "Matriz Semanal de Equipo • Acceso Obligatorio",
-  stepPassword: "Cuenta encontrada — ingresá tu contraseña",
-  stepRegister: "Cuenta nueva — completemos tu registro",
+  stepLogin: "Ingresá con tu cuenta de equipo",
+  stepRegister: "Creá tu cuenta en un paso",
   stepCode: "Activá tu cuenta con el código de 6 dígitos",
 };
 
@@ -69,14 +69,7 @@ export const showStep = (step) => {
     if (el) el.style.display = s === step ? "block" : "none";
   });
   const title = document.getElementById("authStepTitle");
-  if (title) title.textContent = STEP_TITLES[step] || STEP_TITLES.stepEmail;
-  document.querySelectorAll("#authStepsBar .auth-step-pill").forEach((pill) => {
-    const kind = pill.dataset.step;
-    pill.classList.remove("active", "done");
-    if (step === "stepEmail" && kind === "email") pill.classList.add("active");
-    if (step !== "stepEmail" && kind === "verify") pill.classList.add("active");
-    if (step !== "stepEmail" && kind === "email") pill.classList.add("done");
-  });
+  if (title) title.textContent = STEP_TITLES[step] || STEP_TITLES.stepLogin;
 };
 
 const setWho = (elId, email, name) => {
@@ -84,19 +77,19 @@ const setWho = (elId, email, name) => {
   if (el) el.textContent = `👤 ${name ? `${name} — ` : ""}${email}`;
 };
 
-const resetFlowToEmail = () => {
+const resetFlowToLogin = () => {
   flow.email = "";
   flow.name = "";
   flow.needPasswordOnCode = false;
   flow.lastRegisterCreds = null;
-  ["stepPassInput", "stepRegName", "stepRegPassword", "stepCodeInput", "stepCodePassword"].forEach((id) => {
+  ["stepLoginPassword", "stepRegName", "stepRegPassword", "stepCodeInput", "stepCodePassword"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
-  const box = document.getElementById("loginUnknownBox");
+  const box = document.getElementById("loginErrorBox");
   if (box) box.style.display = "none";
-  showStep("stepEmail");
-  setTimeout(() => document.getElementById("stepEmailInput")?.focus(), 100);
+  showStep("stepLogin");
+  setTimeout(() => document.getElementById("stepLoginEmail")?.focus(), 100);
 };
 
 const unlockApp = (res, welcomeMsg) => {
@@ -120,7 +113,7 @@ export const handleSessionExpired = () => {
   if (authGateEl) authGateEl.style.display = "flex";
   if (appShellEl) appShellEl.style.display = "none";
   updateHeaderUI();
-  resetFlowToEmail();
+  resetFlowToLogin();
   showToast("Sesión expirada o no autorizada. Por favor ingresá nuevamente.", "error");
 };
 
@@ -138,6 +131,13 @@ const goCodeStep = ({ email, name, needPassword, hint }) => {
   showStep("stepCode");
   if (hint) showToast(hint);
   setTimeout(() => document.getElementById("stepCodeInput")?.focus(), 100);
+};
+
+const goRegisterStep = (email) => {
+  flow.email = email || flow.email;
+  setWho("stepRegWho", flow.email, "");
+  showStep("stepRegister");
+  setTimeout(() => document.getElementById("stepRegName")?.focus(), 100);
 };
 
 const onEnter = (inputId, btnId) => {
@@ -209,96 +209,58 @@ export const enforceAuthGate = (onSuccess) => {
       });
       setTimeout(() => document.getElementById("stepCodePassword")?.focus(), 200);
     } else {
-      resetFlowToEmail();
+      resetFlowToLogin();
     }
   }
 };
 
 export const initAuthGateListeners = () => {
-  // ---- Step 1: email -> identify ----
-  const btnEmailContinue = document.getElementById("btnEmailContinue");
-  if (btnEmailContinue) {
-    btnEmailContinue.addEventListener("click", async () => {
-      const email = document.getElementById("stepEmailInput").value.trim().toLowerCase();
-      if (!email || !email.includes("@")) {
-        showToast("Ingresá un correo válido.", "error");
-        return;
-      }
-      btnEmailContinue.disabled = true;
-      btnEmailContinue.textContent = "Verificando...";
-      try {
-        const res = await api.identify(email);
-        flow.email = email;
-        flow.name = res.name || "";
-        flow.lastRegisterCreds = null;
-        if (res.status === "login") {
-          setWho("stepPassWho", email, res.name);
-          const box = document.getElementById("loginUnknownBox");
-          if (box) box.style.display = "none";
-          const pass = document.getElementById("stepPassInput");
-          if (pass) pass.value = "";
-          showStep("stepPassword");
-          setTimeout(() => document.getElementById("stepPassInput")?.focus(), 100);
-        } else if (res.status === "confirm") {
-          goCodeStep({
-            email,
-            name: res.name,
-            needPassword: true,
-            hint: "Esa cuenta está pendiente de activación. Ingresá el código que te enviamos.",
-          });
-        } else {
-          setWho("stepRegWho", email, "");
-          showStep("stepRegister");
-          setTimeout(() => document.getElementById("stepRegName")?.focus(), 100);
-        }
-      } catch (err) {
-        showToast(err.message, "error");
-      } finally {
-        btnEmailContinue.disabled = false;
-        btnEmailContinue.textContent = "Continuar ➔";
-      }
-    });
-  }
-
-  const linkHaveCode = document.getElementById("linkHaveCode");
-  if (linkHaveCode) {
-    linkHaveCode.addEventListener("click", () => {
-      const typed = document.getElementById("stepEmailInput").value.trim().toLowerCase();
-      goCodeStep({ email: typed, name: "", needPassword: true });
-    });
-  }
-
-  // ---- Step 2a: password -> login (smart failures) ----
+  // ---- Login (main screen): one attempt routes everywhere ----
   const btnLoginSubmit = document.getElementById("btnLoginSubmit");
   if (btnLoginSubmit) {
     btnLoginSubmit.addEventListener("click", async () => {
-      const email = flow.email;
-      const password = document.getElementById("stepPassInput").value;
-      if (!email || !password) {
-        showToast("Ingresá tu contraseña.", "error");
+      const email = document.getElementById("stepLoginEmail").value.trim().toLowerCase();
+      const password = document.getElementById("stepLoginPassword").value;
+      const box = document.getElementById("loginErrorBox");
+      const errText = document.getElementById("loginErrorText");
+      const btnGoRegister = document.getElementById("btnGoRegister");
+      if (box) box.style.display = "none";
+      if (btnGoRegister) btnGoRegister.style.display = "none";
+
+      if (!email || !email.includes("@") || !password) {
+        showToast("Ingresá tu correo y contraseña.", "error");
         return;
       }
       btnLoginSubmit.disabled = true;
       btnLoginSubmit.textContent = "Ingresando...";
       try {
         const res = await api.login(email, password);
+        flow.email = email;
         unlockApp(res);
       } catch (err) {
         const payload = err.payload || {};
         if (payload.requires_activation || payload.requires_confirmation) {
           // Account exists but needs activation: jump to code step, no dead end
+          flow.email = email;
+          flow.name = "";
           goCodeStep({
             email,
-            name: flow.name,
+            name: "",
             needPassword: true,
             hint: err.message,
           });
-        } else if (err.code === 401 && /no encontrado|not found|incorrecta|inválidas/i.test(err.message)) {
-          // Unknown email or wrong password: offer one-click account creation
-          const box = document.getElementById("loginUnknownBox");
-          if (box) box.style.display = "block";
-          showToast("Revisá los datos. Si no tenés cuenta, creala con un clic.", "error");
         } else {
+          // Wrong password OR unknown email (backend won't tell which):
+          // show the error and offer one-click account creation.
+          if (errText) errText.textContent = "Revisá tu correo y contraseña.";
+          if (box) box.style.display = "block";
+          if (btnGoRegister) {
+            btnGoRegister.style.display = "block";
+            btnGoRegister.onclick = () => {
+              const loginEmail = document.getElementById("stepLoginEmail").value.trim().toLowerCase();
+              goRegisterStep(loginEmail);
+            };
+          }
           showToast(err.message, "error");
         }
       } finally {
@@ -308,22 +270,33 @@ export const initAuthGateListeners = () => {
     });
   }
 
-  const btnGoRegister = document.getElementById("btnGoRegister");
-  if (btnGoRegister) {
-    btnGoRegister.addEventListener("click", () => {
-      setWho("stepRegWho", flow.email, "");
-      showStep("stepRegister");
-      setTimeout(() => document.getElementById("stepRegName")?.focus(), 100);
+  const linkGoRegister = document.getElementById("linkGoRegister");
+  if (linkGoRegister) {
+    linkGoRegister.addEventListener("click", () => {
+      const typed = document.getElementById("stepLoginEmail").value.trim().toLowerCase();
+      goRegisterStep(typed);
     });
   }
 
-  // ---- Step 2b: register -> signup -> code step ----
+  const linkHaveCode = document.getElementById("linkHaveCode");
+  if (linkHaveCode) {
+    linkHaveCode.addEventListener("click", () => {
+      const typed = document.getElementById("stepLoginEmail").value.trim().toLowerCase();
+      goCodeStep({ email: typed, name: "", needPassword: true });
+    });
+  }
+
+  // ---- Register -> signup -> code step ----
   const btnRegisterSubmit = document.getElementById("btnRegisterSubmit");
   if (btnRegisterSubmit) {
     btnRegisterSubmit.addEventListener("click", async () => {
       const name = document.getElementById("stepRegName").value.trim();
       const password = document.getElementById("stepRegPassword").value;
       const email = flow.email;
+      if (!email || !email.includes("@")) {
+        showToast("Volvé atrás e ingresá un correo válido.", "error");
+        return;
+      }
       if (!name || !password) {
         showToast("Completá tu nombre y contraseña.", "error");
         return;
@@ -350,7 +323,7 @@ export const initAuthGateListeners = () => {
     });
   }
 
-  // ---- Step 2c: code -> confirm ----
+  // ---- Code -> confirm ----
   const btnConfirmSubmit = document.getElementById("btnConfirmSubmit");
   if (btnConfirmSubmit) {
     btnConfirmSubmit.addEventListener("click", async () => {
@@ -373,11 +346,12 @@ export const initAuthGateListeners = () => {
         if (token && res.user) {
           unlockApp(res, `¡Bienvenido/a, ${res.user.name}! Tu cuenta está activada.`);
         } else {
-          showToast(res.message || "Cuenta activada. Ingresá tu contraseña.");
-          setWho("stepPassWho", email, res.user?.name || flow.name);
-          const box = document.getElementById("loginUnknownBox");
-          if (box) box.style.display = "none";
-          showStep("stepPassword");
+          showToast(res.message || "Cuenta activada. Ingresá con tu contraseña.");
+          const loginEmail = document.getElementById("stepLoginEmail");
+          if (loginEmail) loginEmail.value = email;
+          flow.email = email;
+          resetFlowToLogin();
+          if (loginEmail) loginEmail.value = email;
         }
       } catch (err) {
         showToast(err.message, "error");
@@ -408,13 +382,19 @@ export const initAuthGateListeners = () => {
   }
 
   // ---- Back links ----
-  ["btnBackToEmailPass", "btnBackToEmailReg", "btnBackToEmailCode"].forEach((id) => {
-    document.getElementById(id)?.addEventListener("click", resetFlowToEmail);
+  ["btnBackToLoginReg", "btnBackToLoginCode"].forEach((id) => {
+    const emailInput = document.getElementById("stepLoginEmail");
+    document.getElementById(id)?.addEventListener("click", () => {
+      const keep = flow.email;
+      resetFlowToLogin();
+      if (keep && emailInput) emailInput.value = keep;
+    });
   });
 
   // ---- Enter key submits each step ----
-  onEnter("stepEmailInput", "btnEmailContinue");
-  onEnter("stepPassInput", "btnLoginSubmit");
+  onEnter("stepLoginEmail", "btnLoginSubmit");
+  onEnter("stepLoginPassword", "btnLoginSubmit");
+  onEnter("stepRegName", "btnRegisterSubmit");
   onEnter("stepRegPassword", "btnRegisterSubmit");
   onEnter("stepCodeInput", "btnConfirmSubmit");
   onEnter("stepCodePassword", "btnConfirmSubmit");
@@ -440,7 +420,7 @@ export const initAuthGateListeners = () => {
       });
 
       updateHeaderUI();
-      resetFlowToEmail();
+      resetFlowToLogin();
       showToast("Sesión cerrada.");
     });
   }

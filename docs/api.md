@@ -88,12 +88,6 @@ Retrieves the active user session claims based on the Bearer token.
   }
   ```
 
-### `POST /auth/identify`
-Email-first routing for the stepped gate (public, pre-auth).
-* **Request Body:** `{ "email": "juan@empresa.com" }`
-* **Response `200 OK`:** `{ "status": "login" | "confirm" | "signup", "email": "...", "name": "..." }`
-* Anti-enumeration: 10 req/min por IP (`429` si se excede, contadores con TTL gratis) y una sola lectura en todos los caminos para no filtrar por timing. Nunca exponer listas de usuarios.
-
 ### `POST /auth/otp/request`
 Passwordless OTP por email (Gmail SMTP).
 * Throttle: 1 envío/minuto por email (`429`); bloqueo 5 min tras 5 fallos.

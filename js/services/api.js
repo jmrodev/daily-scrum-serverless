@@ -54,18 +54,6 @@ export const api = {
     return data;
   },
 
-  async identify(email) {
-    const url = getCleanUrl();
-    const res = await fetch(`${url}/auth/identify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "No pudimos verificar ese correo");
-    return data;
-  },
-
   async signup(email, password, name) {
     const url = getCleanUrl();
     const res = await fetch(`${url}/auth/signup`, {
