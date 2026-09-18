@@ -572,8 +572,8 @@ def handler(event, context):
             if code_ttl and now > code_ttl:
                 return create_response(400, {"error": "El código de verificación ha expirado. Solicitá uno nuevo registrándote de nuevo."})
 
-            # If user was invited (FORCE_CHANGE_PASSWORD), require new password
-            update_expr = "SET #st = :status, updated_at = :up REMOVE verification_code, code_ttl"
+            # If user was invited (FORCE_CHANGE_PASSWORD) or registering, update status and set password
+            set_clauses = ["#st = :status", "updated_at = :up"]
             expr_names = {"#st": "status"}
             expr_values = {
                 ":status": "CONFIRMED",
@@ -583,8 +583,10 @@ def handler(event, context):
             if password:
                 if len(password) < 8:
                     return create_response(400, {"error": "La contraseña debe tener al menos 8 caracteres"})
-                update_expr += ", password_hash = :ph"
+                set_clauses.append("password_hash = :ph")
                 expr_values[":ph"] = hash_password(password)
+
+            update_expr = f"SET {', '.join(set_clauses)} REMOVE verification_code, code_ttl"
 
             table.update_item(
                 Key={"PK": f"USER#{email}", "SK": "PROFILE"},
@@ -1741,6 +1743,10 @@ def handler(event, context):
         return create_response(404, {"error": f"Path '{path}' with method '{method}' not found"})
 
     except ClientError as err:
+        print(f"ClientError in handler [{method} {path}]: {err}")
         return create_response(500, {"error": err.response["Error"]["Message"]})
     except Exception as err:
+        import traceback
+        traceback.print_exc()
+        print(f"Exception in handler [{method} {path}]: {err}")
         return create_response(500, {"error": str(err)})
