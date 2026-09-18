@@ -644,7 +644,7 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
               📋 Matriz de Precedencias y Tiempos de Red (PERT / CPM)
             </h3>
             <span style="font-size: 11px; color: var(--text-muted);">
-              Trazabilidad formal de tareas para la evaluación del TP
+              Trazabilidad formal de tareas y precedencias del proyecto
             </span>
           </div>
 
