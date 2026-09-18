@@ -216,6 +216,7 @@ export const handleDragStart = (e, taskId) => {
 };
 
 export const handleDragEnd = (e) => {
+  draggedTaskId = null;
   e.target.classList.remove("dragging");
   document.querySelectorAll(".kanban-col").forEach((col) => col.classList.remove("drag-over"));
 };
@@ -243,6 +244,9 @@ export const handleDrop = async (e, targetStatus) => {
 export const moveTaskStatus = async (taskId, nextStatus) => {
   const project = document.getElementById("boardProject")?.value || state.activeProject;
   if (!project) return;
+  // Free the board first: renderKanban and the background sync both pause
+  // while a drag is flagged, so a stale flag would freeze the UI silently.
+  draggedTaskId = null;
   const tasks = await api.getTasks(project);
   const task = tasks.find((t) => t.id === taskId);
   if (!task) return;
@@ -251,6 +255,7 @@ export const moveTaskStatus = async (taskId, nextStatus) => {
   const canManage = isAdmin() || isSelf || !task.assignee;
   if (!canManage) {
     showToast(`Solo podés mover tus propias tareas (Asignada a ${task.assignee})`, "error");
+    await renderKanban();
     return;
   }
 
@@ -259,16 +264,45 @@ export const moveTaskStatus = async (taskId, nextStatus) => {
     return;
   }
 
+  const prevStatus = task.status;
+  const prevBlocker = task.blocker || "";
   if (task.status === "BLOCKED" && nextStatus !== "BLOCKED") {
     task.blocker = "";
   }
 
+  // Optimistic paint: move the card now so the board reacts instantly.
+  const cardEl = document.querySelector(".kanban-card.dragging");
+  const targetCol = document.getElementById(`col${nextStatus}`);
+  if (cardEl && targetCol) targetCol.appendChild(cardEl);
+
   task.status = nextStatus;
-  await api.saveTask(task);
-  if (task.assignee) {
-    await syncKanbanToDaily(project, task.assignee);
+  try {
+    await api.saveTask(task);
+    if (task.assignee) {
+      await syncKanbanToDaily(project, task.assignee);
+    }
+  } catch (err) {
+    // Rollback visual: re-fetch authoritative state and show the failure.
+    task.status = prevStatus;
+    task.blocker = prevBlocker;
+    await renderKanban();
+    showToast(err.message || "No se pudo mover la tarea. Se revirtió el cambio.", "error");
+    return;
   }
-  showToast(`Tarea movida a ${getStatusLabel(nextStatus)} y sincronizada con Daily (${getCurrentDayName()}).`);
+  pushHistory({
+    label: `tarea movida a ${getStatusLabel(nextStatus)}`,
+    undo: async () => {
+      const t = { ...task, status: prevStatus, blocker: prevBlocker };
+      await api.saveTask(t);
+      await renderKanban();
+    },
+    redo: async () => {
+      const t = { ...task, status: nextStatus };
+      await api.saveTask(t);
+      await renderKanban();
+    },
+    toast: `Tarea movida a ${getStatusLabel(nextStatus)} y sincronizada con Daily (${getCurrentDayName()}).`,
+  });
   await renderKanban();
 };
 
