@@ -8,6 +8,7 @@ import { AUTH_STORAGE_KEY } from "../config.js";
 import { state, setCurrentUser } from "../state.js";
 import { api } from "../services/api.js";
 import { showToast } from "./uiFeedback.js";
+import { clearHistory } from "../services/undoService.js";
 import { updateHeaderUI } from "./header.js";
 import { stopSyncService } from "../services/syncService.js";
 
@@ -107,6 +108,7 @@ const unlockApp = (res, welcomeMsg) => {
 
 export const handleSessionExpired = () => {
   clearStoredAuth();
+  clearHistory();
   setCurrentUser(null);
   const authGateEl = document.getElementById("authGate");
   const appShellEl = document.getElementById("appShell");
@@ -405,6 +407,7 @@ export const initAuthGateListeners = () => {
     btnLogout.addEventListener("click", () => {
       stopSyncService();
       clearStoredAuth();
+      clearHistory();
       setCurrentUser(null);
 
       // Lock App Shell

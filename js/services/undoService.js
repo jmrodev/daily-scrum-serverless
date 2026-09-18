@@ -9,9 +9,32 @@ import { showToast } from "../components/uiFeedback.js";
 const MAX_HISTORY = 20;
 const undoStack = [];
 const redoStack = [];
+const listeners = new Set();
 
 export const canUndo = () => undoStack.length > 0;
 export const canRedo = () => redoStack.length > 0;
+
+export const subscribeUndoState = (listener) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
+
+const notify = () => {
+  const snapshot = { canUndo: canUndo(), canRedo: canRedo() };
+  listeners.forEach((fn) => {
+    try {
+      fn(snapshot);
+    } catch {
+      // Listener errors must never break undo/redo
+    }
+  });
+};
+
+export const clearHistory = () => {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  notify();
+};
 
 const isTypingTarget = () => {
   const el = document.activeElement;
@@ -27,6 +50,7 @@ export const pushHistory = (action) => {
   undoStack.push(action);
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack.length = 0;
+  notify();
   if (action.toast !== null) {
     showToast(action.toast || `${action.label}.`, "success", {
       label: "Deshacer",
@@ -44,6 +68,7 @@ export const undoLast = async () => {
   try {
     await action.undo();
     redoStack.push(action);
+    notify();
     showToast(`Deshecho: ${action.label}.`, "success", {
       label: "Rehacer",
       onClick: () => redoLast(),
@@ -62,6 +87,7 @@ export const redoLast = async () => {
   try {
     await action.redo();
     undoStack.push(action);
+    notify();
     showToast(`Rehecho: ${action.label}.`);
   } catch (err) {
     showToast(err.message || "No se pudo rehacer.", "error");

@@ -3,6 +3,7 @@
  */
 import { THEME_STORAGE_KEY } from "../config.js";
 import { state, isAdmin } from "../state.js";
+import { redoLast, subscribeUndoState, undoLast } from "../services/undoService.js";
 
 export const getPreferredTheme = () => {
   const saved = localStorage.getItem(THEME_STORAGE_KEY);
@@ -31,6 +32,24 @@ export const initTheme = () => {
       applyTheme(current === "dark" ? "light" : "dark");
     });
   });
+};
+
+export const initUndoButtons = () => {
+  const btnUndo = document.getElementById("btnUndo");
+  const btnRedo = document.getElementById("btnRedo");
+  if (!btnUndo || !btnRedo || btnUndo.dataset.bound) return;
+  btnUndo.dataset.bound = "true";
+
+  const paint = ({ canUndo, canRedo }) => {
+    btnUndo.disabled = !canUndo;
+    btnUndo.style.opacity = canUndo ? "1" : "0.45";
+    btnRedo.disabled = !canRedo;
+    btnRedo.style.opacity = canRedo ? "1" : "0.45";
+  };
+  btnUndo.addEventListener("click", () => undoLast());
+  btnRedo.addEventListener("click", () => redoLast());
+  subscribeUndoState(paint);
+  paint({ canUndo: false, canRedo: false });
 };
 
 export const updateHeaderUI = () => {

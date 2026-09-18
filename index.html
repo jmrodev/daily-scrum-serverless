@@ -112,6 +112,15 @@
       <div class="top-controls">
         <span id="authUserBadge" class="user-badge" style="display: none;"></span>
 
+        <span style="display: inline-flex; gap: 4px;" role="group" aria-label="Deshacer y rehacer">
+          <button type="button" id="btnUndo" class="btn btn-secondary btn-sm" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled style="opacity: 0.45;">
+            ↩
+          </button>
+          <button type="button" id="btnRedo" class="btn btn-secondary btn-sm" title="Rehacer (Ctrl+Shift+Z)" aria-label="Rehacer" disabled style="opacity: 0.45;">
+            ↪
+          </button>
+        </span>
+
         <!-- Admin Management Button (Gated to Admins) -->
         <button type="button" id="btnOpenManageModal" class="btn btn-secondary btn-sm" style="display: none;">
           👥 Administrar Equipo

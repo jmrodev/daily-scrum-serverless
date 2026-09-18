@@ -4,7 +4,7 @@
  */
 import { state, isAdmin } from "./state.js";
 import { api } from "./services/api.js";
-import { initTheme, updateHeaderUI } from "./components/header.js";
+import { initTheme, initUndoButtons, updateHeaderUI } from "./components/header.js";
 import { showToast } from "./components/uiFeedback.js";
 import { enforceAuthGate, initAuthGateListeners } from "./components/authGate.js";
 import { initWeekSelector, initWeekSelectorListeners } from "./components/weekSelector.js";
@@ -118,6 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 3. Attach UI Component Listeners
   initUndoShortcuts();
+  initUndoButtons();
   initAuthGateListeners();
   initDailyMatrixListeners();
   initKanbanListeners();
