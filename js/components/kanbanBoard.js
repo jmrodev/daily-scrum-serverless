@@ -8,6 +8,7 @@ import { api } from "../services/api.js";
 import { getStatusLabel, getCurrentDayName } from "../services/dateUtils.js";
 import { escapeHtml, createModalController } from "../services/domUtils.js";
 import { showToast, showPrompt, showConfirm } from "./uiFeedback.js";
+import { pushHistory } from "../services/undoService.js";
 import { syncKanbanToDaily } from "./dailyMatrix.js";
 
 let taskModalController = null;
@@ -430,14 +431,51 @@ export const initKanbanListeners = () => {
       btnSaveTask.disabled = true;
       btnSaveTask.textContent = "Guardando...";
 
+      // Before-image for undo (currentLoadedTasks still holds pre-save values here)
+      const beforeSnap = id
+        ? { ...((state.currentLoadedTasks || []).find((t) => t.id === id) || {}), project, id }
+        : null;
+
       try {
-        await api.saveTask(task);
+        const saved = await api.saveTask(task);
+        const savedId = (saved && saved.id) || id;
         if (assignee) {
           await syncKanbanToDaily(project, assignee);
         }
         taskModalController.close();
         await renderKanban();
-        showToast(id ? "Tarea actualizada." : "Tarea creada.");
+        if (id) {
+          // Update: undo restores the before-image, redo re-applies the edit
+          const afterSnap = { ...task, project, id };
+          pushHistory({
+            label: "tarea actualizada",
+            undo: async () => {
+              if (beforeSnap && beforeSnap.title) await api.saveTask(beforeSnap);
+              await renderKanban();
+            },
+            redo: async () => {
+              await api.saveTask(afterSnap);
+              await renderKanban();
+            },
+            toast: "Tarea actualizada.",
+          });
+        } else if (savedId) {
+          // Create: undo trashes it, redo restores it
+          pushHistory({
+            label: "tarea creada",
+            undo: async () => {
+              await api.deleteTask(project, savedId);
+              await renderKanban();
+            },
+            redo: async () => {
+              await api.restoreTask(project, savedId);
+              await renderKanban();
+            },
+            toast: "Tarea creada.",
+          });
+        } else {
+          showToast("Tarea creada.");
+        }
       } catch (err) {
         showToast(err.message, "error");
       } finally {
@@ -468,7 +506,18 @@ export const initKanbanListeners = () => {
         }
         taskModalController.close();
         await renderKanban();
-        showToast("Tarea eliminada.");
+        pushHistory({
+          label: "tarea eliminada",
+          undo: async () => {
+            await api.restoreTask(project, id);
+            await renderKanban();
+          },
+          redo: async () => {
+            await api.deleteTask(project, id);
+            await renderKanban();
+          },
+          toast: "Tarea a papelera (30 días).",
+        });
       } catch (err) {
         showToast(err.message, "error");
       }

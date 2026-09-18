@@ -1,5 +1,6 @@
-"""Kanban tasks: list, create, update, delete (assignee must be a member)."""
+"""Kanban tasks: list, create, update, trash/restore (assignee must be a member)."""
 import datetime
+import time
 import uuid
 from boto3.dynamodb.conditions import Key
 
@@ -21,6 +22,8 @@ def route(path, method, event, params, user_claims):
         response = table.query(
             KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
             & Key("SK").begins_with("TASK#"),
+            FilterExpression="attribute_not_exists(#del)",
+            ExpressionAttributeNames={"#del": "deleted"},
             ConsistentRead=True,
         )
         tasks = response.get("Items", [])
@@ -48,8 +51,8 @@ def route(path, method, event, params, user_claims):
             return create_response(400, {"error": "Missing 'project' or 'title'"})
 
         if assignee:
-            mem_chk = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{assignee}"})
-            if not mem_chk.get("Item"):
+            mem_chk = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{assignee}"}).get("Item")
+            if not mem_chk or mem_chk.get("deleted"):
                 return create_response(400, {"error": f"'{assignee}' no es un integrante asignado al proyecto '{project}'."})
 
         task_id = body.get("id") or str(uuid.uuid4())[:8]
@@ -90,8 +93,8 @@ def route(path, method, event, params, user_claims):
 
         new_assignee = body.get("assignee")
         if new_assignee and str(new_assignee).strip():
-            mem_chk = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{str(new_assignee).strip()}"})
-            if not mem_chk.get("Item"):
+            mem_chk = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{str(new_assignee).strip()}"}).get("Item")
+            if not mem_chk or mem_chk.get("deleted"):
                 return create_response(400, {"error": f"'{new_assignee}' no es un integrante asignado al proyecto '{project}'."})
 
         update_parts = ["updated_at = :up"]
@@ -149,7 +152,7 @@ def route(path, method, event, params, user_claims):
         table.update_item(**kwargs)
         return create_response(200, {"message": "Task updated successfully"})
 
-    # DELETE /tasks -> Delete a task
+    # DELETE /tasks -> Move a task to trash (soft-delete, restorable 30d)
     elif path == "/tasks" and method == "DELETE":
         _, err = require_auth(event)
         if err:
@@ -161,9 +164,43 @@ def route(path, method, event, params, user_claims):
         if not project or not task_id:
             return create_response(400, {"error": "Missing 'project' or 'id'"})
 
-        table.delete_item(
-            Key={"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"}
+        now_iso = datetime.datetime.utcnow().isoformat()
+        table.update_item(
+            Key={"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"},
+            UpdateExpression="SET deleted = :t, deleted_at = :d, #ttl = :e, updated_by = :u",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+            ExpressionAttributeValues={
+                ":t": True,
+                ":d": now_iso,
+                ":e": int(time.time()) + (86400 * 30),
+                ":u": (user_claims.get("email") or "").strip().lower(),
+            },
         )
-        return create_response(200, {"message": "Task deleted successfully"})
+        log_data_event(project, "TASK_TRASH", {"id": task_id}, (user_claims.get("email") or ""))
+        return create_response(200, {"message": "Task moved to trash (restorable for 30 days)"})
+
+    # POST /tasks/restore -> Restore a trashed task
+    elif path == "/tasks/restore" and method == "POST":
+        _, err = require_auth(event)
+        if err:
+            return err
+        body = parse_body(event)
+        project = body.get("project")
+        task_id = body.get("id")
+
+        if not project or not task_id:
+            return create_response(400, {"error": "Missing 'project' or 'id'"})
+
+        existing = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"}).get("Item")
+        if not existing or not existing.get("deleted"):
+            return create_response(404, {"error": "No trashed task found with that id"})
+
+        table.update_item(
+            Key={"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"},
+            UpdateExpression="REMOVE deleted, deleted_at, #ttl",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+        )
+        log_data_event(project, "TASK_RESTORE", {"id": task_id}, (user_claims.get("email") or ""))
+        return create_response(200, {"message": "Task restored from trash"})
 
     return None

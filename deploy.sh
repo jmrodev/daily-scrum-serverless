@@ -30,6 +30,13 @@ else
     echo "Table $TABLE_NAME already exists."
 fi
 
+echo "==> 1b. Enabling DynamoDB TTL on 'ttl' (free auto-purge for trash/audit/OTP)..."
+aws dynamodb update-time-to-live \
+    --table-name "$TABLE_NAME" \
+    --time-to-live-specification "Enabled=true, AttributeName=ttl" \
+    --region "$REGION" >/dev/null
+echo "TTL enabled on attribute 'ttl'."
+
 echo "==> 2. Setting up Amazon Cognito User Pool (50,000 MAUs Always Free)..."
 USER_POOL_ID=$(aws cognito-idp list-user-pools --max-results 60 --region "$REGION" --query "UserPools[?Name=='$USER_POOL_NAME'].Id" --output text 2>/dev/null || true)
 

@@ -1,10 +1,20 @@
 """Projects CRUD: rename migrates members+scrums+tasks, delete purges cascade."""
+import datetime
 import re
+import time
 import urllib.parse
 from boto3.dynamodb.conditions import Key
 
-from .store import create_response, parse_body, table
+from .activity import log_data_event
+from .store import _query_all, create_response, parse_body, table
 from .tokens import require_auth
+
+TRASH_TTL_SECONDS = 86400 * 30  # 30 days in trash, auto-purged free via DynamoDB TTL
+
+
+def _query_all_project(name):
+    """All items of a project (members, scrums, tasks), paginated."""
+    return _query_all(KeyConditionExpression=Key("PK").eq(f"PROJECT#{name}"))
 
 
 def route(path, method, event, params, user_claims):
@@ -13,7 +23,11 @@ def route(path, method, event, params, user_claims):
         _, err = require_auth(event)
         if err:
             return err
-        resp = table.query(KeyConditionExpression=Key("PK").eq("META#PROJECTS"))
+        resp = table.query(
+            KeyConditionExpression=Key("PK").eq("META#PROJECTS"),
+            FilterExpression="attribute_not_exists(#del)",
+            ExpressionAttributeNames={"#del": "deleted"},
+        )
         projects = [
             {
                 "name": item.get("name"),
@@ -35,6 +49,32 @@ def route(path, method, event, params, user_claims):
         allow_self = bool(body.get("allow_self_assignment", False))
         if not name:
             return create_response(400, {"error": "Project name is required"})
+
+        # Restore trashed project (META + all its items) instead of duplicating
+        existing_meta = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{name}"}).get("Item")
+        if existing_meta and existing_meta.get("deleted"):
+            table.update_item(
+                Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{name}"},
+                UpdateExpression="SET allow_self_assignment = :a REMOVE deleted, deleted_at, #ttl",
+                ExpressionAttributeNames={"#ttl": "ttl"},
+                ExpressionAttributeValues={":a": allow_self},
+            )
+            restored = 0
+            for it in _query_all_project(name):
+                table.update_item(
+                    Key={"PK": it["PK"], "SK": it["SK"]},
+                    UpdateExpression="REMOVE deleted, deleted_at, #ttl",
+                    ExpressionAttributeNames={"#ttl": "ttl"},
+                )
+                restored += 1
+            log_data_event(name, "PROJECT_RESTORE", {"items": restored}, "")
+            item = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{name}"}).get("Item") or {}
+            return create_response(200, {
+                "message": f"Project '{name}' restored from trash",
+                "project": item,
+                "restored": True,
+                "restored_items": restored,
+            })
 
         item = {
             "PK": "META#PROJECTS",
@@ -58,6 +98,8 @@ def route(path, method, event, params, user_claims):
 
         old_item_resp = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{old_name}"})
         old_item = old_item_resp.get("Item") or {}
+        if old_item.get("deleted"):
+            return create_response(404, {"error": f"Project '{old_name}' is in trash. Restore it first."})
         allow_self = bool(body.get("allow_self_assignment", old_item.get("allow_self_assignment", False)))
 
         if not new_name:
@@ -68,11 +110,15 @@ def route(path, method, event, params, user_claims):
             existing_new = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{new_name}"}).get("Item")
             if existing_new:
                 return create_response(400, {"error": f"Project '{new_name}' already exists"})
-            # Migrar todos los items PROJECT#{old} -> PROJECT#{new} (members, scrums, tasks)
+            # Migrar todos los items vivos PROJECT#{old} -> PROJECT#{new} (la papelera no migra)
             last_key = None
             moved = 0
             while True:
-                q_kwargs = {"KeyConditionExpression": Key("PK").eq(f"PROJECT#{old_name}")}
+                q_kwargs = {
+                    "KeyConditionExpression": Key("PK").eq(f"PROJECT#{old_name}"),
+                    "FilterExpression": "attribute_not_exists(#del)",
+                    "ExpressionAttributeNames": {"#del": "deleted"},
+                }
                 if last_key:
                     q_kwargs["ExclusiveStartKey"] = last_key
                 resp = table.query(**q_kwargs)
@@ -114,21 +160,32 @@ def route(path, method, event, params, user_claims):
         if not name:
             return create_response(400, {"error": "Project name is required"})
 
-        # Purga en cascada: members + scrums + tasks del proyecto
-        purged = 0
-        last_key = None
-        while True:
-            q_kwargs = {"KeyConditionExpression": Key("PK").eq(f"PROJECT#{name}")}
-            if last_key:
-                q_kwargs["ExclusiveStartKey"] = last_key
-            resp = table.query(**q_kwargs)
-            for it in resp.get("Items", []):
-                table.delete_item(Key={"PK": it["PK"], "SK": it["SK"]})
-                purged += 1
-            last_key = resp.get("LastEvaluatedKey")
-            if not last_key:
-                break
-        table.delete_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{name}"})
-        return create_response(200, {"message": f"Project '{name}' deleted", "purged_items": purged})
+        # Soft cascade to trash: members + scrums + tasks get flags (restorable
+        # 30d, auto-purged free via TTL). The META record goes to trash too.
+        trashed = 0
+        for it in _query_all_project(name):
+            table.update_item(
+                Key={"PK": it["PK"], "SK": it["SK"]},
+                UpdateExpression="SET deleted = :t, deleted_at = :d, #ttl = :e",
+                ExpressionAttributeNames={"#ttl": "ttl"},
+                ExpressionAttributeValues={
+                    ":t": True,
+                    ":d": datetime.datetime.utcnow().isoformat(),
+                    ":e": int(time.time()) + TRASH_TTL_SECONDS,
+                },
+            )
+            trashed += 1
+        table.update_item(
+            Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{name}"},
+            UpdateExpression="SET deleted = :t, deleted_at = :d, #ttl = :e",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+            ExpressionAttributeValues={
+                ":t": True,
+                ":d": datetime.datetime.utcnow().isoformat(),
+                ":e": int(time.time()) + TRASH_TTL_SECONDS,
+            },
+        )
+        log_data_event(name, "PROJECT_TRASH", {"items": trashed}, "")
+        return create_response(200, {"message": f"Project '{name}' moved to trash", "trashed_items": trashed})
 
     return None

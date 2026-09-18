@@ -4,12 +4,12 @@ import re
 import secrets
 import time
 import urllib.parse
-from boto3.dynamodb.conditions import Attr, Key
+from boto3.dynamodb.conditions import Key
 
-from .activity import delete_user_account_completely
+from .activity import log_data_event
+from .activity import log_data_event
 from .mail import get_email_config, send_email
-from .store import _scan_all, create_response, parse_body, table
-from .templates import invite_html
+from .store import create_response, parse_body, table
 from .tokens import require_auth
 
 
@@ -31,6 +31,8 @@ def route(path, method, event, params, user_claims):
         resp = table.query(
             KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
             & Key("SK").begins_with("MEMBER#"),
+            FilterExpression="attribute_not_exists(#del)",
+            ExpressionAttributeNames={"#del": "deleted"},
             ConsistentRead=True,
         )
         members = [
@@ -89,6 +91,32 @@ def route(path, method, event, params, user_claims):
                     },
                 )
             is_admin = False
+
+        # Restore trashed membership instead of re-inviting from scratch
+        existing_member = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"}).get("Item")
+        if existing_member and existing_member.get("deleted"):
+            table.update_item(
+                Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"},
+                UpdateExpression="SET #n = :n, project = :p, #r = :r, email = :e, is_admin = :a, updated_at = :u REMOVE deleted, deleted_at, #ttl",
+                ExpressionAttributeNames={"#n": "name", "#r": "role", "#ttl": "ttl"},
+                ExpressionAttributeValues={
+                    ":n": name,
+                    ":p": project,
+                    ":r": role,
+                    ":e": email,
+                    ":a": is_admin,
+                    ":u": datetime.datetime.utcnow().isoformat(),
+                },
+            )
+            restored = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"}).get("Item") or {}
+            account_missing = not table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"}).get("Item")
+            log_data_event(project, "MEMBER_RESTORE", {"member": name}, (user_claims.get("email") or "") if user_claims else "")
+            return create_response(200, {
+                "message": f"Member '{name}' restored to '{project}' from trash",
+                "member": restored,
+                "restored": True,
+                "account_missing": account_missing,
+            })
 
         # Check if user already exists in USER#{email}
         user_resp = table.get_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
@@ -236,20 +264,6 @@ def route(path, method, event, params, user_claims):
         if not project or not name:
             return create_response(400, {"error": "Project and member name are required"})
 
-        # Look up member item first to obtain associated email
-        mem_resp = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"})
-        mem_item = mem_resp.get("Item") or {}
-        member_email = (mem_item.get("email") or body.get("email") or params.get("email") or "").strip().lower()
-        if not member_email:
-            if "@" in name:
-                member_email = name.strip().lower()
-            else:
-                scan_u = _scan_all(
-                    FilterExpression=Key("PK").begins_with("USER#") & Attr("SK").eq("PROFILE") & Attr("name").eq(name)
-                )
-                if scan_u:
-                    member_email = scan_u[0].get("email", "").strip().lower()
-
         if user_claims and not user_claims["is_admin"]:
             proj_resp = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{project}"})
             proj_item = proj_resp.get("Item") or {}
@@ -269,22 +283,35 @@ def route(path, method, event, params, user_claims):
                     403,
                     {"error": "Forbidden: Only administrators can remove other members from projects."},
                 )
-            # Self unassignment: only drop membership from this project
-            table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"})
-            return create_response(200, {"message": f"Member '{name}' removed from '{project}'"})
+            # Self unassignment: move membership to trash (restorable, account kept)
+            table.update_item(
+                Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"},
+                UpdateExpression="SET deleted = :t, deleted_at = :d, #ttl = :e, updated_by = :u",
+                ExpressionAttributeNames={"#ttl": "ttl"},
+                ExpressionAttributeValues={
+                    ":t": True,
+                    ":d": datetime.datetime.utcnow().isoformat(),
+                    ":e": int(time.time()) + (86400 * 30),
+                    ":u": (user_claims.get("email") or "").strip().lower(),
+                },
+            )
+            return create_response(200, {"message": f"Member '{name}' moved to trash from '{project}' (restorable)"})
 
-        # Admin deletion: check if admin is deleting their own account as sole admin
-        if user_claims and user_claims.get("email") and member_email and member_email == user_claims.get("email").strip().lower():
-            scan_admins = _scan_all(FilterExpression=Key("PK").begins_with("USER#") & Attr("SK").eq("PROFILE"))
-            admin_count = 0
-            for u in scan_admins:
-                if "Admins" in (u.get("groups") or []) and u.get("email") != member_email:
-                    admin_count += 1
-            if admin_count == 0:
-                return create_response(400, {"error": "No podés eliminar tu propia cuenta siendo el único administrador del sistema."})
-
-        # Admin deletes member: purge account completely so re-adding starts from scratch
-        delete_user_account_completely(member_email, project=project, member_name=name)
-        return create_response(200, {"message": f"Member '{name}' and user account deleted completely."})
+        # Admin removal: move membership to trash. The user account is NEVER
+        # touched here — deleting work data must never kill drivers. Full
+        # account purge lives only in DELETE /admin/users/{email}.
+        table.update_item(
+            Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"},
+            UpdateExpression="SET deleted = :t, deleted_at = :d, #ttl = :e, updated_by = :u",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+            ExpressionAttributeValues={
+                ":t": True,
+                ":d": datetime.datetime.utcnow().isoformat(),
+                ":e": int(time.time()) + (86400 * 30),
+                ":u": (user_claims.get("email") or "").strip().lower(),
+            },
+        )
+        log_data_event(project, "MEMBER_TRASH", {"member": name}, (user_claims.get("email") or ""))
+        return create_response(200, {"message": f"Member '{name}' moved to trash from '{project}' (account preserved)"})
 
     return None

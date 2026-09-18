@@ -8,6 +8,7 @@ import { api } from "../services/api.js";
 import { getCurrentDayName, getStatusLabel } from "../services/dateUtils.js";
 import { escapeHtml, createModalController } from "../services/domUtils.js";
 import { showToast, showConfirm } from "./uiFeedback.js";
+import { pushHistory } from "../services/undoService.js";
 
 let scrumModalController = null;
 let activeScrumContext = null;
@@ -826,13 +827,38 @@ export const initDailyMatrixListeners = () => {
           document.getElementById("modalAns2")?.value.trim() || "Sin respuesta",
           finalBlockerAns,
         ];
+        // Before-image for undo (null when creating)
+        let beforeScrum = null;
+        try {
+          const weekly = await api.getWeeklyScrums(project, week);
+          beforeScrum = (weekly || []).find((s) => s.day === day && s.member === member) || null;
+        } catch {
+          beforeScrum = null;
+        }
         await api.saveScrum(project, week, day, member, answers, blockingTaskId, blockingTaskTitle);
         // Scrumban unificado: Daily y Kanban siempre sincronizados.
         await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, inputBlockerReason);
         scrumModalController.close();
         await renderBoard();
         if (requestKanbanRender) await requestKanbanRender();
-        showToast(`Daily guardada para ${member} (${day}).`);
+        pushHistory({
+          label: `daily de ${member} (${day})`,
+          undo: async () => {
+            if (beforeScrum) {
+              await api.saveScrum(project, week, day, member,
+                beforeScrum.answers || answers,
+                beforeScrum.blocking_task_id || "", beforeScrum.blocking_task_title || "");
+            } else {
+              await api.deleteScrum(project, week, day, member);
+            }
+            await renderBoard();
+          },
+          redo: async () => {
+            await api.saveScrum(project, week, day, member, answers, blockingTaskId, blockingTaskTitle);
+            await renderBoard();
+          },
+          toast: `Daily guardada para ${member} (${day}).`,
+        });
       } catch (err) {
         showToast(err.message, "error");
       } finally {
@@ -854,7 +880,18 @@ export const initDailyMatrixListeners = () => {
         await api.deleteScrum(project, week, day, member);
         scrumModalController.close();
         await renderBoard();
-        showToast(`Daily eliminada.`);
+        pushHistory({
+          label: `daily de ${member} (${day}) eliminada`,
+          undo: async () => {
+            await api.restoreScrum(project, week, day, member);
+            await renderBoard();
+          },
+          redo: async () => {
+            await api.deleteScrum(project, week, day, member);
+            await renderBoard();
+          },
+          toast: "Daily a papelera (30 días).",
+        });
       } catch (err) {
         showToast(err.message, "error");
       }

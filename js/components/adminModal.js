@@ -7,6 +7,7 @@ import { state, isAdmin } from "../state.js";
 import { api } from "../services/api.js";
 import { escapeHtml, createModalController } from "../services/domUtils.js";
 import { showToast, showPrompt, showConfirm } from "./uiFeedback.js";
+import { pushHistory } from "../services/undoService.js";
 
 let adminModalController = null;
 let onRequestRefreshBoard = null;
@@ -34,7 +35,7 @@ export const loadEmailConfig = async () => {
 };
 
 export const switchAdminTab = (tab) => {
-  const tabs = ["projects", "members", "email", "endpoint"];
+  const tabs = ["projects", "members", "email", "endpoint", "trash"];
   tabs.forEach((t) => {
     const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
     const content = document.getElementById(`adminTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
@@ -50,9 +51,108 @@ export const switchAdminTab = (tab) => {
     populateRegisteredUsersSelect();
   }
 
+  if (tab === "trash") {
+    loadTrashProjects();
+  }
+
   if (tab === "endpoint") {
     const input = document.getElementById("adminApiUrlInput");
     if (input) input.value = getCleanUrl();
+  }
+};
+
+export const loadTrashProjects = async () => {
+  const select = document.getElementById("trashProjectSelect");
+  if (!select) return;
+  try {
+    const projects = await api.getProjects();
+    const prev = select.value;
+    select.innerHTML = "";
+    projects.forEach((p) => {
+      const opt = document.createElement("option");
+      opt.value = p.name;
+      opt.textContent = p.name;
+      if (p.name === prev) opt.selected = true;
+      select.appendChild(opt);
+    });
+    if (!select.value && projects.length > 0) select.value = projects[0].name;
+    if (state.activeProject && projects.some((p) => p.name === state.activeProject)) {
+      select.value = state.activeProject;
+    }
+    await loadTrashList();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+};
+
+export const loadTrashList = async (silent = false) => {
+  const select = document.getElementById("trashProjectSelect");
+  const container = document.getElementById("trashChipList");
+  if (!select || !container) return;
+  const project = select.value;
+  if (!project) {
+    container.innerHTML = `<span style="font-size:12px;color:var(--text-muted);">Seleccioná un proyecto.</span>`;
+    return;
+  }
+  try {
+    const items = await api.getTrash(project);
+    container.innerHTML = "";
+    if (!items.length) {
+      container.innerHTML = `<span style="font-size:12px;color:var(--text-muted);">Papelera vacía. Nada que restaurar.</span>`;
+      return;
+    }
+    const kindIcon = { member: "👤", task: "📋", scrum: "📊", other: "📦" };
+    const fragment = document.createDocumentFragment();
+    items.forEach((it) => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;";
+      row.innerHTML = `
+        <span>${kindIcon[it.kind] || "📦"}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(it.sk)}">
+          <strong>${escapeHtml(it.title)}</strong>
+          <small style="color:var(--text-muted);"> · ${escapeHtml(it.kind)}${it.deleted_at ? ` · ${escapeHtml(it.deleted_at.slice(0, 10))}` : ""}</small>
+        </span>`;
+      const btnRestore = document.createElement("button");
+      btnRestore.type = "button";
+      btnRestore.className = "btn btn-primary btn-sm";
+      btnRestore.textContent = "↩ Restaurar";
+      btnRestore.addEventListener("click", async () => {
+        try {
+          await api.restoreTrashItem(project, it.pk, it.sk);
+          showToast("Restaurado.");
+          await loadTrashList(true);
+          if (onRequestRefreshBoard) await onRequestRefreshBoard();
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      });
+      const btnPurge = document.createElement("button");
+      btnPurge.type = "button";
+      btnPurge.className = "btn btn-danger btn-sm";
+      btnPurge.textContent = "🗑️";
+      btnPurge.title = "Eliminar definitivamente (no se puede deshacer)";
+      btnPurge.addEventListener("click", async () => {
+        const ok = await showConfirm(
+          "Eliminar Definitivamente",
+          `¿Borrar para siempre '${it.title}'? Esto NO se puede deshacer.`
+        );
+        if (!ok) return;
+        try {
+          await api.purgeTrashItem(project, it.pk, it.sk);
+          showToast("Eliminado definitivamente.");
+          await loadTrashList(true);
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      });
+      row.appendChild(btnRestore);
+      row.appendChild(btnPurge);
+      fragment.appendChild(row);
+    });
+    container.innerHTML = "";
+    container.appendChild(fragment);
+  } catch (err) {
+    if (!silent) showToast(err.message, "error");
   }
 };
 
@@ -162,7 +262,7 @@ export const loadMembersChipList = async (silent = false) => {
     `;
 
     chip.querySelector(".btn-edit-member")?.addEventListener("click", () => editMemberAction(project, m.name, m.role, m.email, m.is_admin));
-    chip.querySelector(".btn-delete-member")?.addEventListener("click", () => deleteMemberAction(project, m.name));
+    chip.querySelector(".btn-delete-member")?.addEventListener("click", () => deleteMemberAction(project, m));
 
     fragment.appendChild(chip);
   });
@@ -234,17 +334,30 @@ const editMemberAction = async (project, oldName, oldRole, oldEmail, oldIsAdmin 
   }
 };
 
-const deleteMemberAction = async (project, name) => {
+const deleteMemberAction = async (project, m) => {
+  const name = typeof m === "string" ? m : m.name;
   const ok = await showConfirm(
-    "Eliminar Integrante y Cuenta",
-    `¿Eliminar a '${name}' y dar de baja definitivamente su cuenta de usuario? Si vuelve a agregarse con el mismo correo, se creará de cero con una nueva invitación.`
+    "Quitar Integrante del Proyecto",
+    `¿Quitar a '${name}' del proyecto? Solo pierde la membresía: su cuenta de usuario se conserva intacta.`
   );
   if (!ok) return;
   try {
     await api.deleteMember(project, name);
     await loadMembersChipList();
     if (onRequestRefreshBoard) await onRequestRefreshBoard();
-    showToast(`Integrante '${name}' y su cuenta fueron eliminados de cero.`);
+    const snapshot = typeof m === "object" ? m : { name, role: "Developer", email: "", is_admin: false };
+    pushHistory({
+      label: `integrante '${name}' quitado`,
+      undo: async () => {
+        await api.createMember(project, snapshot.name, snapshot.role || "Developer", snapshot.email || "", !!snapshot.is_admin);
+        await loadMembersChipList();
+      },
+      redo: async () => {
+        await api.deleteMember(project, name);
+        await loadMembersChipList();
+      },
+      toast: `Integrante '${name}' a papelera (cuenta conservada).`,
+    });
   } catch (err) {
     showToast(err.message, "error");
   }
@@ -272,6 +385,12 @@ export const initAdminModalListeners = () => {
   document.getElementById("tabBtnMembers")?.addEventListener("click", () => switchAdminTab("members"));
   document.getElementById("tabBtnEmail")?.addEventListener("click", () => switchAdminTab("email"));
   document.getElementById("tabBtnEndpoint")?.addEventListener("click", () => switchAdminTab("endpoint"));
+  document.getElementById("tabBtnTrash")?.addEventListener("click", () => switchAdminTab("trash"));
+
+  // Trash project selector
+  document.getElementById("trashProjectSelect")?.addEventListener("change", () => {
+    loadTrashList();
+  });
 
   // Add Project
   document.getElementById("btnAddProject")?.addEventListener("click", async () => {

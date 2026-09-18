@@ -22,7 +22,9 @@ def route(path, method, event, params, user_claims):
         if project:
             resp = table.query(
                 KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
-                & Key("SK").begins_with("MEMBER#")
+                & Key("SK").begins_with("MEMBER#"),
+                FilterExpression="attribute_not_exists(#del)",
+                ExpressionAttributeNames={"#del": "deleted"},
             )
             for item in resp.get("Items", []):
                 em = (item.get("email") or "").strip().lower()

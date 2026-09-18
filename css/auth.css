@@ -52,34 +52,41 @@
   right: 16px;
 }
 
-.auth-nav-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
+.auth-step-pill {
+  padding: 3px 10px;
+  border-radius: 12px;
   background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
-.auth-tab-btn {
-  flex: 1;
-  padding: 10px 8px;
+.auth-step-pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.auth-step-pill.done {
+  background: var(--success-bg);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.auth-who-chip {
   font-size: 12px;
   font-weight: 700;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s ease;
-  text-align: center;
+  color: var(--info-text);
+  background: var(--info-bg);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.auth-tab-btn:hover {
-  color: var(--text);
-}
-
-.auth-tab-btn.active {
-  color: var(--primary);
-  background: var(--surface);
-  border-bottom: 2px solid var(--primary);
+.auth-who-chip:empty {
+  display: none;
 }
 
 .auth-card-body {

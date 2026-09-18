@@ -25,89 +25,96 @@
           🌙 Oscuro
         </button>
         <h2>📊 Daily Scrum</h2>
-        <p>Matriz Semanal de Equipo &bull; Acceso Obligatorio</p>
-      </div>
-
-      <!-- Auth Gate Tabs -->
-      <div class="auth-nav-tabs">
-        <button type="button" id="authTabBtnLogin" class="auth-tab-btn active">🔑 Iniciar Sesión</button>
-        <button type="button" id="authTabBtnSignup" class="auth-tab-btn">📝 Crear Cuenta</button>
-        <button type="button" id="authTabBtnConfirm" class="auth-tab-btn">✉️ Activar Cuenta</button>
+        <p id="authStepTitle">Matriz Semanal de Equipo &bull; Acceso Obligatorio</p>
+        <div class="auth-steps" id="authStepsBar" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font-size: 11px; font-weight: 700;">
+          <span class="auth-step-pill" data-step="email">1. Correo</span>
+          <span style="color: var(--text-muted);">➔</span>
+          <span class="auth-step-pill" data-step="verify">2. Verificación</span>
+          <span style="color: var(--text-muted);">➔</span>
+          <span class="auth-step-pill" data-step="done">3. Entrar</span>
+        </div>
       </div>
 
       <div class="auth-card-body">
-        <!-- Form: Login -->
-        <form id="loginForm" onsubmit="return false;">
+        <!-- Paso 1: Correo -->
+        <form id="stepEmail" onsubmit="return false;">
           <p class="auth-help-text">
-            Ingresá tus credenciales registradas para desbloquear el tablero del equipo.
+            Ingresá tu correo y te llevamos al paso que corresponda: entrar, crear tu cuenta o activarla.
           </p>
-          <div style="margin-bottom: 14px;">
-            <label for="loginEmail">Correo Electrónico</label>
-            <input type="email" id="loginEmail" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="username email" required />
-          </div>
           <div style="margin-bottom: 18px;">
-            <label for="loginPassword">Contraseña</label>
-            <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%;" autocomplete="current-password" required />
+            <label for="stepEmailInput">Correo Electrónico</label>
+            <input type="email" id="stepEmailInput" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="username email" required />
           </div>
-          <button type="button" id="btnSubmitLogin" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+          <button type="button" id="btnEmailContinue" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+            Continuar ➔
+          </button>
+          <div style="text-align: center;">
+            <button type="button" id="linkHaveCode" class="btn-link">Tengo un código de invitación</button>
+          </div>
+        </form>
+
+        <!-- Paso 2a: Contraseña (cuenta existente) -->
+        <form id="stepPassword" style="display: none;" onsubmit="return false;">
+          <div id="stepPassWho" class="auth-who-chip"></div>
+          <p class="auth-help-text">Ingresá tu contraseña para entrar.</p>
+          <div style="margin-bottom: 18px;">
+            <label for="stepPassInput">Contraseña</label>
+            <input type="password" id="stepPassInput" placeholder="••••••••" style="width: 100%;" autocomplete="current-password" required />
+          </div>
+          <div id="loginUnknownBox" style="display: none; margin-bottom: 12px; padding: 10px 12px; background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; font-size: 12px;">
+            Ese correo no tiene cuenta todavía.
+            <button type="button" id="btnGoRegister" class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;">Crear cuenta con este correo</button>
+          </div>
+          <button type="button" id="btnLoginSubmit" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
             Ingresar
           </button>
           <div style="text-align: center;">
-            <button type="button" id="authLinkToSignup" class="btn-link">¿No tenés cuenta? Registrate aquí</button>
+            <button type="button" id="btnBackToEmailPass" class="btn-link">← Usar otro correo</button>
           </div>
         </form>
 
-        <!-- Form: Signup -->
-        <form id="signupForm" style="display: none;" onsubmit="return false;">
+        <!-- Paso 2b: Crear cuenta (correo nuevo) -->
+        <form id="stepRegister" style="display: none;" onsubmit="return false;">
+          <div id="stepRegWho" class="auth-who-chip"></div>
           <p class="auth-help-text">
-            Registrá tus datos. Recibirás un código de 6 dígitos en tu email para activar la cuenta.
+            Ese correo no está registrado. Creá tu cuenta y te enviamos un código de 6 dígitos.
           </p>
           <div style="margin-bottom: 12px;">
-            <label for="signupName">Nombre y Apellido</label>
-            <input type="text" id="signupName" placeholder="Ej: Juan Pérez" style="width: 100%;" autocomplete="name" required />
-          </div>
-          <div style="margin-bottom: 12px;">
-            <label for="signupEmail">Correo Electrónico</label>
-            <input type="email" id="signupEmail" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="username email" required />
+            <label for="stepRegName">Nombre y Apellido</label>
+            <input type="text" id="stepRegName" placeholder="Ej: Juan Pérez" style="width: 100%;" autocomplete="name" required />
           </div>
           <div style="margin-bottom: 18px;">
-            <label for="signupPassword">Contraseña (Mínimo 8 caracteres)</label>
-            <input type="password" id="signupPassword" placeholder="••••••••" style="width: 100%;" autocomplete="new-password" required />
+            <label for="stepRegPassword">Contraseña (Mínimo 8 caracteres)</label>
+            <input type="password" id="stepRegPassword" placeholder="••••••••" style="width: 100%;" autocomplete="new-password" required />
           </div>
-          <button type="button" id="btnSubmitSignup" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+          <button type="button" id="btnRegisterSubmit" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
             Crear Cuenta
           </button>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-            <button type="button" id="authLinkToLogin" class="btn-link">¿Ya tenés cuenta? Ingresá</button>
-            <button type="button" id="authLinkToConfirm" class="btn-link">Tengo código de activación</button>
+          <div style="text-align: center;">
+            <button type="button" id="btnBackToEmailReg" class="btn-link">← Usar otro correo</button>
           </div>
         </form>
 
-        <!-- Form: Confirm Account -->
-        <form id="confirmForm" style="display: none;" onsubmit="return false;">
+        <!-- Paso 2c: Activar con código (invitación o pendiente) -->
+        <form id="stepCode" style="display: none;" onsubmit="return false;">
+          <div id="stepCodeWho" class="auth-who-chip"></div>
           <p class="auth-help-text">
-            Ingresá el código de 6 dígitos enviado a tu correo electrónico y definí tu contraseña.
+            Ingresá el código de 6 dígitos que te enviamos por correo.
           </p>
           <div style="margin-bottom: 12px;">
-            <label for="confirmEmail">Correo Electrónico</label>
-            <input type="email" id="confirmEmail" placeholder="usuario@empresa.com" style="width: 100%;" autocomplete="username email" required />
+            <label for="stepCodeInput">Código de Activación (6 dígitos)</label>
+            <input type="text" id="stepCodeInput" placeholder="123456" maxlength="6" style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 6px; font-weight: 800;" autocomplete="one-time-code" required />
           </div>
-          <div style="margin-bottom: 12px;">
-            <label for="confirmCode">Código de Activación (6 dígitos)</label>
-            <input type="text" id="confirmCode" placeholder="123456" maxlength="6" style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 6px; font-weight: 800;" autocomplete="one-time-code" required />
+          <div id="stepCodePassWrap" style="margin-bottom: 18px;">
+            <label for="stepCodePassword">Definí tu Contraseña (Mínimo 8 caracteres)</label>
+            <input type="password" id="stepCodePassword" placeholder="••••••••" style="width: 100%;" autocomplete="new-password" />
           </div>
-          <div style="margin-bottom: 18px;">
-            <label for="confirmPassword">Nueva Contraseña (Mínimo 8 caracteres)</label>
-            <input type="password" id="confirmPassword" placeholder="••••••••" style="width: 100%;" autocomplete="new-password" />
-            <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 4px;">
-              Obligatorio para cuentas nuevas invitadas por un administrador.
-            </small>
-          </div>
-          <button type="button" id="btnSubmitConfirm" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
-            Activar Cuenta y Entrar
+          <button type="button" id="btnConfirmSubmit" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+            Activar y Entrar
           </button>
-          <div style="text-align: center;">
-            <button type="button" id="authLinkConfirmBackToLogin" class="btn-link">Volver a Iniciar Sesión</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <button type="button" id="btnBackToEmailCode" class="btn-link">← Usar otro correo</button>
+            <button type="button" id="btnResendCode" class="btn-link">Reenviar código</button>
           </div>
         </form>
       </div>
@@ -425,6 +432,7 @@
           <button type="button" class="tab-btn" id="tabBtnMembers">👤 Integrantes</button>
           <button type="button" class="tab-btn" id="tabBtnEmail">📧 Email (Gmail SMTP)</button>
           <button type="button" class="tab-btn" id="tabBtnEndpoint">⚙️ Endpoint Lambda</button>
+          <button type="button" class="tab-btn" id="tabBtnTrash">🗑️ Papelera</button>
         </div>
 
         <!-- Tab 1: Projects Section -->
@@ -532,6 +540,19 @@
               <button type="button" id="btnSaveApiUrl" class="btn btn-primary btn-sm">💾 Guardar Endpoint</button>
               <button type="button" id="btnResetApiUrl" class="btn btn-secondary btn-sm">↺ Restablecer Default</button>
             </div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Trash -->
+        <div id="adminTabTrash" class="admin-tab-content" style="display: none;">
+          <div class="sub-section">
+            <h4>🗑️ Papelera (30 días, restaurable, gratis)</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+              Todo lo borrado cae acá y se purga solo a los 30 días. Restaurar es gratis e instantáneo.
+            </p>
+            <label style="margin-bottom: 4px;">Proyecto:</label>
+            <select id="trashProjectSelect" style="margin-bottom: 8px; width: 100%;"></select>
+            <div id="trashChipList" class="chip-list"></div>
           </div>
         </div>
       </div>

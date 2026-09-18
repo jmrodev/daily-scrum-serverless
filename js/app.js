@@ -13,6 +13,7 @@ import { renderKanban, initKanbanListeners } from "./components/kanbanBoard.js";
 import { renderDiagnosticsView } from "./components/diagnosticsView.js";
 import { initAdminModalListeners, setAdminModalRefreshCallback, loadManageModal } from "./components/adminModal.js";
 import { startSyncService, stopSyncService } from "./services/syncService.js";
+import { initUndoShortcuts } from "./services/undoService.js";
 
 export const switchMainView = async (view) => {
   if (view === "diagnostics" && !isAdmin()) {
@@ -116,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setAdminModalRefreshCallback(refreshCurrentView);
 
   // 3. Attach UI Component Listeners
+  initUndoShortcuts();
   initAuthGateListeners();
   initDailyMatrixListeners();
   initKanbanListeners();

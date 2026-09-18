@@ -1,7 +1,7 @@
 """Thin router: parses the Function URL event and dispatches to domain modules."""
 from botocore.exceptions import ClientError
 
-from . import admin_users, confirm, email_config, login, members, otp, projects, scrums, signup, tasks
+from . import admin_users, confirm, email_config, identify, login, members, otp, projects, scrums, signup, tasks, trash
 from .store import RESPONSE_HEADERS, create_response
 from .tokens import extract_user_claims
 
@@ -25,6 +25,7 @@ def handler(event, context):
             signup.route,
             confirm.route,
             login.route,
+            identify.route,
             otp.route,
             email_config.route,
             admin_users.route,
@@ -32,6 +33,7 @@ def handler(event, context):
             members.route,
             scrums.route,
             tasks.route,
+            trash.route,
         ):
             response = route(path, method, event, params, user_claims)
             if response is not None:

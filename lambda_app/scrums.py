@@ -1,6 +1,7 @@
 """Daily scrums: weekly matrix + single daily, self-scoped for members."""
 import datetime
 import re
+import time
 from boto3.dynamodb.conditions import Key
 
 from .activity import log_data_event
@@ -108,8 +109,9 @@ def route(path, method, event, params, user_claims):
             resp = table.query(
                 KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
                 & Key("SK").begins_with("WEEK#"),
+                FilterExpression="attribute_not_exists(#del)",
                 ProjectionExpression="#w",
-                ExpressionAttributeNames={"#w": "week"},
+                ExpressionAttributeNames={"#w": "week", "#del": "deleted"},
                 ConsistentRead=True,
             )
             items = resp.get("Items", [])
@@ -129,6 +131,8 @@ def route(path, method, event, params, user_claims):
             resp = table.query(
                 KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}")
                 & Key("SK").begins_with(f"WEEK#{week}#"),
+                FilterExpression="attribute_not_exists(#del)",
+                ExpressionAttributeNames={"#del": "deleted"},
                 ConsistentRead=True,
             )
             items = resp.get("Items", [])
@@ -153,7 +157,7 @@ def route(path, method, event, params, user_claims):
             }
         )
         item = response.get("Item")
-        if not item:
+        if not item or item.get("deleted"):
             return create_response(404, {"error": "Daily Scrum not found"})
 
         return create_response(
@@ -165,7 +169,7 @@ def route(path, method, event, params, user_claims):
             },
         )
 
-    # DELETE /scrums -> Delete a Daily Scrum entry
+    # DELETE /scrums -> Move a Daily Scrum entry to trash (soft-delete, restorable 30d)
     elif (path == "/scrums" or path == "/") and method == "DELETE":
         _, err = require_auth(event)
         if err:
@@ -197,20 +201,66 @@ def route(path, method, event, params, user_claims):
                     },
                 )
 
-        table.delete_item(
+        table.update_item(
             Key={
                 "PK": f"PROJECT#{project}",
                 "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
-            }
+            },
+            UpdateExpression="SET deleted = :t, deleted_at = :d, #ttl = :e, updated_by = :u",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+            ExpressionAttributeValues={
+                ":t": True,
+                ":d": datetime.datetime.utcnow().isoformat(),
+                ":e": int(time.time()) + (86400 * 30),
+                ":u": (user_claims.get("email") or "").strip().lower(),
+            },
         )
         log_data_event(
-            project, "SCRUM_DELETE",
+            project, "SCRUM_TRASH",
             {"member": member, "week": week, "day": day},
             (user_claims.get("email") or ""),
         )
         return create_response(
             200,
-            {"message": f"Daily Scrum deleted for {member} ({week} - {day})"},
+            {"message": f"Daily Scrum moved to trash for {member} ({week} - {day})"},
         )
+
+    # POST /scrums/restore -> Restore a trashed Daily Scrum entry
+    elif path == "/scrums/restore" and method == "POST":
+        _, err = require_auth(event)
+        if err:
+            return err
+        body = parse_body(event)
+        project = body.get("project")
+        week = body.get("week")
+        day = _norm_day(body.get("day"))
+        member = body.get("member")
+
+        if not all([project, week, day, member]):
+            return create_response(400, {"error": "Missing params: project, week, day, member"})
+
+        existing = table.get_item(
+            Key={
+                "PK": f"PROJECT#{project}",
+                "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
+            }
+        ).get("Item")
+        if not existing or not existing.get("deleted"):
+            return create_response(404, {"error": "No trashed Daily Scrum found with those params"})
+
+        table.update_item(
+            Key={
+                "PK": f"PROJECT#{project}",
+                "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
+            },
+            UpdateExpression="REMOVE deleted, deleted_at, #ttl",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+        )
+        log_data_event(
+            project, "SCRUM_RESTORE",
+            {"member": member, "week": week, "day": day},
+            (user_claims.get("email") or ""),
+        )
+        return create_response(200, {"message": "Daily Scrum restored from trash"})
 
     return None

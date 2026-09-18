@@ -1,13 +1,30 @@
 /**
  * Non-intrusive UI Feedback (Toast, Confirm, Prompt Modals)
  */
-export const showToast = (message, type = "success") => {
+export const showToast = (message, type = "success", action = null) => {
   const container = document.getElementById("toastContainer");
   if (!container) return;
 
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
   toast.textContent = message;
+
+  let timeoutMs = 4000;
+  if (action && action.label) {
+    timeoutMs = 10000;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = action.label;
+    btn.style.cssText = "margin-left:10px;font-weight:800;text-decoration:underline;background:none;border:none;color:inherit;cursor:pointer;font-size:12px;";
+    btn.addEventListener("click", async () => {
+      try {
+        await action.onClick();
+      } finally {
+        toast.remove();
+      }
+    });
+    toast.appendChild(btn);
+  }
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -15,7 +32,7 @@ export const showToast = (message, type = "success") => {
     toast.style.transform = "translateY(10px)";
     toast.style.transition = "all 0.2s ease";
     setTimeout(() => toast.remove(), 200);
-  }, 4000);
+  }, timeoutMs);
 };
 
 export const showConfirm = (title, message) => {

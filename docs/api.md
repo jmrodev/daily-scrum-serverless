@@ -88,6 +88,12 @@ Retrieves the active user session claims based on the Bearer token.
   }
   ```
 
+### `POST /auth/identify`
+Email-first routing for the stepped gate (public, pre-auth).
+* **Request Body:** `{ "email": "juan@empresa.com" }`
+* **Response `200 OK`:** `{ "status": "login" | "confirm" | "signup", "email": "...", "name": "..." }`
+* Anti-enumeration: 10 req/min por IP (`429` si se excede, contadores con TTL gratis) y una sola lectura en todos los caminos para no filtrar por timing. Nunca exponer listas de usuarios.
+
 ### `POST /auth/otp/request`
 Passwordless OTP por email (Gmail SMTP).
 * Throttle: 1 envío/minuto por email (`429`); bloqueo 5 min tras 5 fallos.
@@ -144,8 +150,26 @@ Renames an existing project or toggles `allow_self_assignment`.
 * **Response `200 OK`:** `{ "message": "Project 'MobileApp' updated" }`
 
 ### `DELETE /projects/{name}` (Admin Only)
-Deletes a project record **con purga en cascada** (members + scrums + tasks).
-* **Response `200 OK`:** `{ "message": "Project 'Mobile' deleted", "purged_items": 12 }`
+Moves the project + all its items to trash (soft cascade, restorable 30 días, TTL gratis). Re-crear el proyecto lo restaura con todo su contenido.
+* **Response `200 OK`:** `{ "message": "Project 'Mobile' moved to trash", "trashed_items": 12 }`
+
+### `GET /admin/trash?project={name}` (Admin Only)
+Lists trashed items of a project (members, tasks, scrums) with restore keys.
+* **Response `200 OK`:** `{ "project": "Sabato", "count": 3, "trash": [{ "pk": "...", "sk": "...", "kind": "task", "title": "...", "deleted_at": "..." }] }`
+
+### `POST /admin/trash/restore` (Admin Only)
+Restores one trashed item.
+* **Request Body:** `{ "project": "Sabato", "pk": "PROJECT#Sabato", "sk": "TASK#abc123" }`
+* **Response `200 OK`:** `{ "message": "Item restored from trash" }`
+
+### `DELETE /admin/trash` (Admin Only)
+Purges one trashed item forever (no hay deshacer).
+* **Request Body:** `{ "project": "Sabato", "pk": "PROJECT#Sabato", "sk": "TASK#abc123" }`
+* **Response `200 OK`:** `{ "message": "Item purged forever" }`
+
+### `POST /tasks/restore` / `POST /scrums/restore`
+Restore one trashed task / daily (los usa el botón Deshacer).
+* **Response `200 OK`:** `{ "message": "Task restored from trash" }`
 
 ---
 
@@ -173,9 +197,9 @@ Updates a member's name, role, or email.
 * **Request Body:** `{ "newName": "Sofia R.", "role": "QA Lead", "email": "sofia.r@empresa.com" }`
 * **Response `200 OK`:** `{ "message": "Member 'Sofia' updated in 'Sabato'" }`
 
-### `DELETE /projects/{project}/members/{name}` (Admin Only)
-Removes a member from a project.
-* **Response `200 OK`:** `{ "message": "Member 'Sofia' removed from 'Sabato'" }`
+### `DELETE /projects/{project}/members/{name}` (Admin or self un-assignment)
+Removes the membership from THIS project only — the user account is always preserved. Full account purge lives only in `DELETE /admin/users/{email}`.
+* **Response `200 OK`:** `{ "message": "Member 'Sofia' removed from 'Sabato' (account preserved)" }`
 
 ---
 
@@ -216,8 +240,8 @@ Records or updates a member's daily scrum.
 * **Response `200 OK` / `201 Created`:** `{ "message": "Daily Scrum recorded for Juan (WEEK 9 - Lunes)" }`
 * **Response `403 Forbidden`:** `{ "error": "Forbidden: You can only record or modify your own Daily Scrum (logged in as Juan)." }`
 
-### `DELETE /scrums` (Delete Daily)
-Deletes a single daily scrum record.
+### `DELETE /scrums` (Move Daily to Trash)
+Moves a single daily scrum record to trash (restorable 30 días).
 * **Request Body (or query params):**
   ```json
   {
@@ -227,4 +251,4 @@ Deletes a single daily scrum record.
     "member": "Juan"
   }
   ```
-* **Response `200 OK`:** `{ "message": "Daily Scrum deleted for Juan (WEEK 9 - Lunes)" }`
+* **Response `200 OK`:** `{ "message": "Daily Scrum moved to trash for Juan (WEEK 9 - Lunes)" }`

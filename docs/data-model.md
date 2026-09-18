@@ -45,3 +45,14 @@ The database leverages a **Single-Table Design** pattern using a compound primar
 * **Record daily scrum:** `PutItem(PK = "PROJECT#{project}", SK = "WEEK#{week}#DAY#{day}#MEMBER#{name}")`
 * **Retrieve daily scrum:** `GetItem(PK = "PROJECT#{project}", SK = "WEEK#{week}#DAY#{day}#MEMBER#{name}")`
 * **Query all daily scrums for a day (Future):** `Query(PK == "PROJECT#{project}" AND SK begins_with "WEEK#{week}#DAY#{day}")`
+
+---
+
+## 4. Soft-Delete / Trash (100% Always Free)
+
+Nothing is hard-deleted except explicit account purges (`DELETE /admin/users`) and trash purges (`DELETE /admin/trash`). Deletes set `deleted = true` + `deleted_at` + `ttl` (+30d, auto-purged free via DynamoDB TTL on `ttl`).
+
+* All list queries filter `attribute_not_exists(#del)` (`#del` → `deleted`, aliased: reserved-word safe).
+* Single-item reads treat flagged items as not found.
+* Restore = `REMOVE deleted, deleted_at, ttl`. Re-adding a trashed member / re-creating a trashed project restores it with its content.
+* Trash audit events live under `PK = AUDIT#PROJECT#{project}` (`TRASH` / `RESTORE` / `PURGE` actions, 90d TTL).

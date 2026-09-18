@@ -45,7 +45,24 @@ export const api = {
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Credenciales inválidas");
+    if (!res.ok) {
+      const err = new Error(data.error || "Credenciales inválidas");
+      err.code = res.status;
+      err.payload = data;
+      throw err;
+    }
+    return data;
+  },
+
+  async identify(email) {
+    const url = getCleanUrl();
+    const res = await fetch(`${url}/auth/identify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No pudimos verificar ese correo");
     return data;
   },
 
@@ -295,6 +312,58 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al eliminar tarea");
+    return data;
+  },
+
+  async restoreTask(project, taskId) {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/tasks/restore`, {
+      method: "POST",
+      body: JSON.stringify({ project, id: taskId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al restaurar tarea");
+    return data;
+  },
+
+  async restoreScrum(project, week, day, member) {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/scrums/restore`, {
+      method: "POST",
+      body: JSON.stringify({ project, week, day, member }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al restaurar Daily");
+    return data;
+  },
+
+  // Trash (papelera, admin)
+  async getTrash(project) {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/admin/trash?project=${encodeURIComponent(project)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al obtener papelera");
+    return data.trash || [];
+  },
+
+  async restoreTrashItem(project, pk, sk) {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/admin/trash/restore`, {
+      method: "POST",
+      body: JSON.stringify({ project, pk, sk }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al restaurar");
+    return data;
+  },
+
+  async purgeTrashItem(project, pk, sk) {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/admin/trash?project=${encodeURIComponent(project)}&pk=${encodeURIComponent(pk)}&sk=${encodeURIComponent(sk)}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al eliminar definitivamente");
     return data;
   },
 
