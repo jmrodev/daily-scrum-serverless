@@ -697,15 +697,53 @@ export const syncKanbanToDaily = async (project, member) => {
     (s) => s.member && s.member.toLowerCase() === member.toLowerCase() && s.day === today
   );
 
+  // Reconcile: drop auto-generated bullet lines whose task no longer lives in
+  // that bucket (moved in kanban); keep manual text we cannot judge.
+  const statusByTitle = new Map();
+  memberTasks.forEach((t) => statusByTitle.set((t.title || "").toLowerCase(), t.status));
+  const dropStaleBullets = (prevText, bucket) => {
+    if (!prevText) return "";
+    const kept = [];
+    for (const rawLine of prevText.split("\n")) {
+      const line = rawLine.trim();
+      let title = null;
+      if (bucket === "BLOCKED") {
+        const m = line.match(/^•\s*\[(.+?)\]/);
+        if (m) title = m[1];
+      } else {
+        const m = line.match(/^•\s*(.+?)\s*$/);
+        if (m && !m[1].startsWith("[")) title = m[1];
+      }
+      if (title) {
+        const live = statusByTitle.get(title.toLowerCase());
+        if (live && live !== bucket) continue; // stale: task changed state
+      }
+      kept.push(rawLine);
+    }
+    return kept.join("\n").trim();
+  };
+  const isPlaceholder = (t) => !t || ["ninguno", "sin respuesta"].includes(t.toLowerCase());
+
   let ans1 = doneTitles.length > 0 ? doneTitles.map((t) => `• ${t}`).join("\n") : "";
-  let ans2 = doingTitles.length > 0 ? doingTitles.map((t) => `• ${t}`).join("\n") : "";
+  let ans2 = doingTitles.length > 0 ? doingTasks.map((t) => `• ${t}`).join("\n") : "";
   let ans3 = blockedTitles.length > 0 ? blockedTitles.map((t) => `• ${t}`).join("\n") : "Ninguno";
 
   if (existingScrum && existingScrum.answers) {
-    const prev1 = existingScrum.answers[0] || "";
-    const prev2 = existingScrum.answers[1] || "";
-    if (prev1 && !ans1) ans1 = prev1;
-    if (prev2 && !ans2) ans2 = prev2;
+    if (!ans1) {
+      const kept = dropStaleBullets(existingScrum.answers[0] || "", "DONE");
+      ans1 = isPlaceholder(kept) ? "" : kept;
+    }
+    if (!ans2) {
+      const kept = dropStaleBullets(existingScrum.answers[1] || "", "DOING");
+      ans2 = isPlaceholder(kept) ? "" : kept;
+    }
+    if (blockedTitles.length === 0) {
+      const prev3 = existingScrum.answers[2] || "";
+      if (!isPlaceholder(prev3)) {
+        const kept = dropStaleBullets(prev3, "BLOCKED");
+        ans3 = isPlaceholder(kept) ? "Ninguno" : kept;
+      }
+    }
   }
 
   const finalAns1 = ans1 || "Sin respuesta";
