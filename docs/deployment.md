@@ -62,7 +62,7 @@ aws logs put-retention-policy --log-group-name "/aws/lambda/DailyScrumService" -
    Strictly confines DynamoDB permissions to the `DailyScrum` table resource ARN.
 
 ### Step 5: Packaging & Lambda Deployment
-* Compresses `lambda_function.py` into a temporary zip.
+* Compresses `lambda_function.py` + the `lambda_app/` package into a temporary zip.
 * Creates the function if new, or runs `aws lambda update-function-code` if it already exists.
 
 ### Step 6: Public Function URL & CORS

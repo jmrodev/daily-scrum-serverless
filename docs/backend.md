@@ -1,6 +1,8 @@
 # Backend Lambda Function Reference
 
-This document explains the implementation details of [`lambda_function.py`](../lambda_function.py).
+This document explains the implementation details of the backend package [`lambda_app/`](../lambda_app/) (entry point [`lambda_function.py`](../lambda_function.py), a thin shim re-exporting `lambda_app.handler.handler`).
+
+Module layout (all small, focused modules): `store.py` (AWS clients, responses, pagination), `tokens.py` (HMAC auth, gates, passwords), `mail.py` + `templates.py` (SMTP + HTML), `activity.py` (log + purge), `signup.py` / `confirm.py` / `login.py` / `otp.py` (auth endpoints), `email_config.py` / `admin_users.py` (admin), `projects.py` / `members.py`, `scrums.py` / `tasks.py`. Each domain module exposes `route(path, method, event, params, user_claims)` returning a response or `None`.
 
 ---
 

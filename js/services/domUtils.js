@@ -18,7 +18,13 @@ export const createModalController = (modalId, closeBtnId) => {
   const controller = {
     el,
     open: () => {
-      if (el) el.classList.add("open");
+      if (el) {
+        el.classList.add("open");
+        el.setAttribute("role", "dialog");
+        el.setAttribute("aria-modal", "true");
+        const firstInput = el.querySelector("input, select, textarea, button:not(.modal-close)");
+        if (firstInput) firstInput.focus();
+      }
     },
     close: () => {
       if (el) el.classList.remove("open");
@@ -34,6 +40,10 @@ export const createModalController = (modalId, closeBtnId) => {
       if (e.target === el) controller.close();
     });
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && el && el.classList.contains("open")) controller.close();
+  });
 
   return controller;
 };

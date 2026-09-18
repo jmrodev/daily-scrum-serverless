@@ -44,7 +44,6 @@ This document details the client-side architecture, atomic directory structure, 
 │       ├── diagnosticsView.js # Flow diagnostics, bottleneck graph & "who blocks whom"
 │       ├── adminModal.js      # Admin management modal (projects, members, email, endpoint)
 │       └── uiFeedback.js      # Non-intrusive toasts, async confirm and prompt modals
-└── frontend/                  # Synchronized mirror directory for hosting parity
 ```
 
 ---

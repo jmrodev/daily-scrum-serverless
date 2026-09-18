@@ -7,7 +7,7 @@ export const STORAGE_KEY = "daily_scrum_api_url";
 export const AUTH_STORAGE_KEY = "daily_scrum_auth_session";
 export const THEME_STORAGE_KEY = "daily_scrum_theme";
 
-export const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
+export const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 export const KANBAN_STATUSES = ["TODO", "DOING", "BLOCKED", "DONE"];
 
 export const getCleanUrl = () => {

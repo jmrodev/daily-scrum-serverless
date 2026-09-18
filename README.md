@@ -54,7 +54,18 @@ Many serverless architectures incur unexpected charges once initial 12-month pro
 ```
 .
 ├── deploy.sh              # Automated, idempotent AWS CLI deployment script
-├── lambda_function.py     # Clean Python 3.11 handler using native boto3 & REST verbs
+├── lambda_function.py     # Thin shim (re-exports `lambda_app.handler.handler`)
+├── lambda_app/              # Backend package (small modules, all <300 lines)
+│   ├── handler.py           # Thin router dispatching to domain modules
+│   ├── store.py             # AWS clients, responses, pagination helpers
+│   ├── tokens.py            # HMAC tokens, claims, gates, passwords
+│   ├── mail.py              # Gmail SMTP config + sending
+│   ├── templates.py         # HTML email templates
+│   ├── activity.py          # Activity log + full account purge
+│   ├── signup.py / confirm.py / login.py / otp.py  # Auth endpoints
+│   ├── email_config.py / admin_users.py            # Admin endpoints
+│   ├── projects.py / members.py                    # Projects + members
+│   └── scrums.py / tasks.py                        # Daily scrums + kanban
 ├── index.html             # HTML5 Shell with mandatory Auth Gate (GitHub Pages)
 ├── css/                   # Atomic Modular CSS
 │   ├── variables.css      # Design tokens & Light/Dark theme custom properties
@@ -80,7 +91,6 @@ Many serverless architectures incur unexpected charges once initial 12-month pro
 │       ├── diagnosticsView.js # Flow diagnostics, bottleneck graph & "who blocks whom"
 │       ├── adminModal.js  # Admin management modal (projects, members, email, endpoint)
 │       └── uiFeedback.js  # Non-intrusive toasts, async confirm and prompt modals
-├── frontend/              # Synchronized mirror directory
 ├── docs/                  # Detailed architectural and technical specifications
 │   ├── architecture.md    # In-depth architectural trade-offs and zero-cost design
 │   ├── data-model.md      # DynamoDB single-table design and access patterns

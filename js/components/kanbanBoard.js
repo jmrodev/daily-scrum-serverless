@@ -114,7 +114,7 @@ export const renderKanban = async (silent = false) => {
     if (!colList) return;
 
     if (list.length === 0) {
-      colList.innerHTML = `<div style="text-align:center; padding:24px 8px; color:var(--text-muted); font-size:11px; border: 1px dashed var(--border); border-radius: 6px;">Sin tareas</div>`;
+      colList.innerHTML = `<div style="text-align:center; padding:24px 8px; color:var(--text-muted); font-size:11px; border: 1px dashed var(--border); border-radius: 6px;">Sin tareas — creá la primera con ➕ Nueva Tarea</div>`;
       return;
     }
 

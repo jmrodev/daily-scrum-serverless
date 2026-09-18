@@ -128,7 +128,7 @@ export const api = {
     const url = getCleanUrl();
     const res = await authFetch(`${url}/projects/${encodeURIComponent(oldName)}`, {
       method: "PUT",
-      body: JSON.stringify({ name: newName, allow_self_assignment }),
+      body: JSON.stringify({ newName, allow_self_assignment }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al actualizar proyecto");
@@ -181,7 +181,7 @@ export const api = {
     const res = await authFetch(`${url}/projects/${encodeURIComponent(project)}/members/${encodeURIComponent(oldName)}`, {
       method: "PUT",
       body: JSON.stringify({
-        name: newName,
+        newName,
         role,
         email,
         is_admin: isAdmin,

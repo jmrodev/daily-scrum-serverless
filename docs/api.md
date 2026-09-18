@@ -9,10 +9,10 @@ This document details all endpoints exposed by the Lambda Function URL.
 
 ---
 
-## 0. Authentication Endpoints (Amazon Cognito)
+## 0. Authentication (HMAC server tokens — canónico)
 
-Authentication is handled with Amazon Cognito User Pools (`50,000 MAUs Always Free`).
-When authenticated, pass `Authorization: Bearer <idToken>` on all API calls.
+Auth canónica: tokens HMAC-SHA256 propios (`mint_token`/`verify_token` con `TOKEN_SECRET`, TTL 7 días) sobre usuarios en DynamoDB (`USER#{email}` con PBKDF2). Cognito User Pool + App Client se siguen provisionando en `deploy.sh` solo como fallback/legado: `extract_user_claims` acepta un Id token Cognito cuando `CLIENT_ID` está configurado, y el borrado de cuenta también purga Cognito. Todo el flujo signup/confirm/login/OTP es custom, no Cognito.
+Cuando estés autenticado, pasá `Authorization: Bearer <token>` en todas las llamadas.
 
 ### `POST /auth/signup`
 Registers a new team member account.
@@ -75,7 +75,7 @@ Authenticates user with username/password and issues JWT tokens.
 
 ### `GET /auth/me`
 Retrieves the active user session claims based on the Bearer token.
-* **Headers:** `Authorization: Bearer <idToken>`
+* **Headers:** `Authorization: Bearer <token>`
 * **Response `200 OK`:**
   ```json
   {
@@ -88,22 +88,33 @@ Retrieves the active user session claims based on the Bearer token.
   }
   ```
 
+### `POST /auth/otp/request`
+Passwordless OTP por email (Gmail SMTP).
+* Throttle: 1 envío/minuto por email (`429`); bloqueo 5 min tras 5 fallos.
+* **Response `200 OK`:** `{ "message": "Código enviado con éxito a ...", "sent": true }`
+
+### `POST /auth/otp/verify`
+Valida el código de 6 dígitos (10 min) y emite sesión HMAC.
+* Mensajes genéricos anti-enumeración: `Código inválido o expirado. Solicitá uno nuevo.` Al 5º fallo → `429`, se invalida el código.
+
 ---
 
 ## Role-Based Access Control (RBAC) Matrix
 
 | Endpoint | Guest / Unauthenticated | Member (`Members` Group) | Admin (`Admins` Group) |
 |---|---|---|---|
-| `GET /projects` | Allowed (Read-only) | Allowed | Allowed |
+| `GET /projects` | 401 Unauthorized | Allowed | Allowed |
 | `POST /projects` | 403 Forbidden | 403 Forbidden | Allowed |
 | `PUT /projects/{name}` | 403 Forbidden | 403 Forbidden | Allowed |
 | `DELETE /projects/{name}` | 403 Forbidden | 403 Forbidden | Allowed |
-| `GET /projects/{proj}/members` | Allowed (Read-only) | Allowed | Allowed |
+| `GET /projects/{proj}/members` | 401 Unauthorized | Allowed | Allowed |
 | `POST /projects/{proj}/members` | 403 Forbidden | **Self-assignment only** if `allow_self_assignment: true`; otherwise 403 | Any member |
 | `PUT /projects/{proj}/members/{m}` | 403 Forbidden | 403 Forbidden | Allowed |
 | `DELETE /projects/{proj}/members/{m}` | 403 Forbidden | **Self un-assignment only** if `allow_self_assignment: true`; otherwise 403 | Any member |
-| `GET /scrums` | Allowed (Transparent board) | Allowed | Allowed |
-| `POST, PUT, DELETE /scrums` | Open if no auth header; 403 if auth header is present | **Only own daily** (`member == user.name`) | Any member's daily |
+| `GET /scrums` | 401 Unauthorized | Allowed | Allowed |
+| `POST, PUT, DELETE /scrums` | 401 Unauthorized | **Only own daily** (`member == user.name`) | Any member's daily |
+| `GET /tasks` | 401 Unauthorized | Allowed | Allowed |
+| `POST, PUT, DELETE /tasks` | 401 Unauthorized | Allowed | Allowed |
 
 ---
 
@@ -129,11 +140,12 @@ Creates a new project with optional self-assignment toggle.
 ### `PUT /projects/{name}` (Admin Only)
 Renames an existing project or toggles `allow_self_assignment`.
 * **Request Body:** `{ "newName": "MobileApp", "allow_self_assignment": false }`
+* Rename migra members + scrums + tasks de `PROJECT#{old}` a `PROJECT#{new}`. Si el destino ya existe → `400`.
 * **Response `200 OK`:** `{ "message": "Project 'MobileApp' updated" }`
 
 ### `DELETE /projects/{name}` (Admin Only)
-Deletes a project record.
-* **Response `200 OK`:** `{ "message": "Project 'Mobile' deleted" }`
+Deletes a project record **con purga en cascada** (members + scrums + tasks).
+* **Response `200 OK`:** `{ "message": "Project 'Mobile' deleted", "purged_items": 12 }`
 
 ---
 

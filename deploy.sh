@@ -149,7 +149,8 @@ aws iam put-role-policy \
     --policy-document file:///tmp/lambda-app-policy.json
 
 echo "==> 7. Packaging Lambda Function (built-in boto3, 0 external deps)..."
-zip -j /tmp/daily_scrum_function.zip lambda_function.py
+rm -f /tmp/daily_scrum_function.zip
+zip -r /tmp/daily_scrum_function.zip lambda_function.py lambda_app -x '*/__pycache__/*' '*.pyc'
 
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
 

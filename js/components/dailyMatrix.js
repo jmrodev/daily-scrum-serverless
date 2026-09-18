@@ -31,7 +31,7 @@ export const renderBoard = async (silent = false) => {
   }
 
   if (!project) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">No hay proyectos disponibles.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">No hay proyectos disponibles. Pedile a un admin que cree uno desde 👥 Administrar Equipo.</td></tr>`;
     return;
   }
 
@@ -112,7 +112,7 @@ export const renderBoard = async (silent = false) => {
   });
 
   if (members.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">No hay integrantes asignados a este proyecto.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 24px; color:#94a3b8;">No hay integrantes asignados a este proyecto. Un admin puede agregarlos desde 👥 Administrar Equipo.</td></tr>`;
     return;
   }
 
