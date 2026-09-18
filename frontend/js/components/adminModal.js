@@ -198,13 +198,16 @@ const editMemberAction = async (project, oldName, oldRole, oldEmail, oldIsAdmin 
 };
 
 const deleteMemberAction = async (project, name) => {
-  const ok = await showConfirm("Eliminar Integrante", `¿Eliminar a '${name}' del proyecto '${project}'?`);
+  const ok = await showConfirm(
+    "Eliminar Integrante y Cuenta",
+    `¿Eliminar a '${name}' y dar de baja definitivamente su cuenta de usuario? Si vuelve a agregarse con el mismo correo, se creará de cero con una nueva invitación.`
+  );
   if (!ok) return;
   try {
     await api.deleteMember(project, name);
     await loadMembersChipList();
     if (onRequestRefreshBoard) await onRequestRefreshBoard();
-    showToast(`Integrante '${name}' eliminado.`);
+    showToast(`Integrante '${name}' y su cuenta fueron eliminados de cero.`);
   } catch (err) {
     showToast(err.message, "error");
   }

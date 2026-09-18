@@ -203,6 +203,16 @@ export const api = {
     return data;
   },
 
+  async deleteUserAccount(email) {
+    const url = getCleanUrl();
+    const res = await authFetch(`${url}/admin/users/${encodeURIComponent(email)}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al eliminar la cuenta de usuario");
+    return data;
+  },
+
   // Scrums & Dynamic Weeks
   async getWeeks(project) {
     const url = getCleanUrl();

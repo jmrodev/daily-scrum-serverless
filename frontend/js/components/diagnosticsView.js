@@ -10,6 +10,7 @@ import { api } from "../services/api.js";
 import { state, isAdmin } from "../state.js";
 import { escapeHtml } from "../services/domUtils.js";
 import { switchMainView } from "../app.js";
+import { showToast, showConfirm } from "./uiFeedback.js";
 
 let activeSubTab = "pert"; // "pert" | "flow" | "audit" | "report"
 
@@ -1049,9 +1050,14 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
                       <div class="audit-heatmap">${dotsHtml}</div>
                     </div>
 
-                    <!-- Status Pill -->
-                    <div style="text-align: right;">
+                    <!-- Status Pill & Actions -->
+                    <div style="text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
                       ${participationBadge}
+                      ${isAdmin() ? `
+                        <button type="button" class="btn-delete-user-audit" data-email="${escapeHtml(u.email)}" data-name="${escapeHtml(u.name)}" title="Dar de baja cuenta y reiniciar de cero" style="padding: 2px 6px; font-size: 12px; background: transparent; border: 1px solid var(--border); color: var(--danger); border-radius: 4px; cursor: pointer;">
+                          🗑️
+                        </button>
+                      ` : ''}
                     </div>
                   </div>
                 `;
@@ -1059,6 +1065,25 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
             </div>
           </div>
         `;
+
+        subTabContent.querySelectorAll(".btn-delete-user-audit").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const email = btn.dataset.email;
+            const name = btn.dataset.name;
+            const ok = await showConfirm(
+              "Dar de Baja Cuenta",
+              `¿Eliminar definitivamente la cuenta de '${name}' (${email})? Si vuelve a agregarse, se iniciará todo de cero.`
+            );
+            if (!ok) return;
+            try {
+              await api.deleteUserAccount(email);
+              showToast(`Cuenta de '${name}' eliminada correctamente.`);
+              renderDiagnosticsView(currentProject, currentWeek);
+            } catch (err) {
+              showToast(err.message, "error");
+            }
+          });
+        });
       }
     }
 

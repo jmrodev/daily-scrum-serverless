@@ -15,7 +15,7 @@ import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "DailyScrum")
@@ -307,6 +307,149 @@ def log_user_activity(email, action, event=None):
         table.put_item(Item=audit_item)
     except Exception as e:
         print(f"Error recording audit event for {email}: {e}")
+
+
+def delete_user_account_completely(email, project=None, member_name=None):
+    """Purge a user account completely:
+    1. USER#{email} PROFILE (password, status, tokens, codes)
+    2. AUDIT#USER#{email} events
+    3. AUTH#OTP EMAIL#{email}
+    4. Cognito user pool account (if exists)
+    5. PROJECT#{project} MEMBER#{member_name} (and any other MEMBER# with this email)
+    6. Daily Scrums for this member in this project (or all projects)
+    7. Unassign tasks assigned to this member
+    """
+    email = (email or "").strip().lower()
+
+    # 1. Delete USER profile
+    if email:
+        try:
+            table.delete_item(Key={"PK": f"USER#{email}", "SK": "PROFILE"})
+        except Exception as e:
+            print(f"Error deleting USER profile {email}: {e}")
+
+        # 2. Delete all audit records for this user
+        try:
+            a_resp = table.query(KeyConditionExpression=Key("PK").eq(f"AUDIT#USER#{email}"))
+            for item in a_resp.get("Items", []):
+                table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+        except Exception as e:
+            print(f"Error deleting AUDIT records for {email}: {e}")
+
+        # 3. Delete OTP items
+        try:
+            table.delete_item(Key={"PK": "AUTH#OTP", "SK": f"EMAIL#{email}"})
+        except Exception as e:
+            print(f"Error deleting OTP for {email}: {e}")
+
+        # 4. Delete from Cognito User Pool
+        if cognito_idp and USER_POOL_ID:
+            try:
+                cognito_idp.admin_delete_user(
+                    UserPoolId=USER_POOL_ID,
+                    Username=email,
+                )
+            except Exception as e:
+                print(f"Cognito delete user ignored/error for {email}: {e}")
+
+    # 5. Delete member item(s) from project(s)
+    try:
+        if project and member_name:
+            table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{member_name}"})
+
+        # Scan for any project MEMBER# items matching this email or member_name
+        scan_expr = None
+        expr_vals = {}
+        attr_names = None
+        if email and member_name:
+            scan_expr = "begins_with(PK, :p) AND begins_with(SK, :m) AND (email = :em OR #n = :mn)"
+            expr_vals = {":p": "PROJECT#", ":m": "MEMBER#", ":em": email, ":mn": member_name}
+            attr_names = {"#n": "name"}
+        elif email:
+            scan_expr = "begins_with(PK, :p) AND begins_with(SK, :m) AND email = :em"
+            expr_vals = {":p": "PROJECT#", ":m": "MEMBER#", ":em": email}
+        elif member_name:
+            scan_expr = "begins_with(PK, :p) AND SK = :sk"
+            expr_vals = {":p": "PROJECT#", ":sk": f"MEMBER#{member_name}"}
+
+        if scan_expr:
+            kwargs = {
+                "FilterExpression": scan_expr,
+                "ExpressionAttributeValues": expr_vals,
+            }
+            if attr_names:
+                kwargs["ExpressionAttributeNames"] = attr_names
+            m_resp = table.scan(**kwargs)
+            for m_item in m_resp.get("Items", []):
+                table.delete_item(Key={"PK": m_item["PK"], "SK": m_item["SK"]})
+    except Exception as e:
+        print(f"Error purging MEMBER records for {email} / {member_name}: {e}")
+
+    # 6. Delete Daily Scrums for this member
+    try:
+        del_names = set()
+        if member_name:
+            del_names.add(member_name.strip().lower())
+        if email:
+            del_names.add(email)
+            del_names.add(email.split("@")[0].lower())
+
+        if project:
+            s_resp = table.query(
+                KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}") & Key("SK").begins_with("WEEK#")
+            )
+            for s_item in s_resp.get("Items", []):
+                s_mem = (s_item.get("member") or "").strip().lower()
+                if s_mem in del_names:
+                    table.delete_item(Key={"PK": s_item["PK"], "SK": s_item["SK"]})
+        else:
+            s_resp = table.scan(
+                FilterExpression="begins_with(PK, :p) AND begins_with(SK, :w)",
+                ExpressionAttributeValues={":p": "PROJECT#", ":w": "WEEK#"},
+            )
+            for s_item in s_resp.get("Items", []):
+                s_mem = (s_item.get("member") or "").strip().lower()
+                if s_mem in del_names:
+                    table.delete_item(Key={"PK": s_item["PK"], "SK": s_item["SK"]})
+    except Exception as e:
+        print(f"Error purging Daily Scrums for {email} / {member_name}: {e}")
+
+    # 7. Unassign tasks assigned to this member
+    try:
+        del_names = set()
+        if member_name:
+            del_names.add(member_name.strip().lower())
+        if email:
+            del_names.add(email)
+            del_names.add(email.split("@")[0].lower())
+
+        if project:
+            t_resp = table.query(
+                KeyConditionExpression=Key("PK").eq(f"PROJECT#{project}") & Key("SK").begins_with("TASK#")
+            )
+            for t_item in t_resp.get("Items", []):
+                t_assignee = (t_item.get("assignee") or "").strip().lower()
+                if t_assignee in del_names:
+                    table.update_item(
+                        Key={"PK": t_item["PK"], "SK": t_item["SK"]},
+                        UpdateExpression="SET assignee = :unassigned",
+                        ExpressionAttributeValues={":unassigned": ""},
+                    )
+        else:
+            t_resp = table.scan(
+                FilterExpression="begins_with(PK, :p) AND begins_with(SK, :t)",
+                ExpressionAttributeValues={":p": "PROJECT#", ":t": "TASK#"},
+            )
+            for t_item in t_resp.get("Items", []):
+                t_assignee = (t_item.get("assignee") or "").strip().lower()
+                if t_assignee in del_names:
+                    table.update_item(
+                        Key={"PK": t_item["PK"], "SK": t_item["SK"]},
+                        UpdateExpression="SET assignee = :unassigned",
+                        ExpressionAttributeValues={":unassigned": ""},
+                    )
+    except Exception as e:
+        print(f"Error unassigning tasks for {email} / {member_name}: {e}")
 
 
 def handler(event, context):
@@ -895,6 +1038,29 @@ def handler(event, context):
                 "server_time": datetime.datetime.utcnow().isoformat(),
             })
 
+        # DELETE /admin/users/{email} (Admin only) -> Purge user account and start from scratch
+        user_del_match = re.match(r"^/admin/users/([^/]+)$", path)
+        if (user_del_match or path == "/admin/users") and method == "DELETE":
+            _, err = require_admin(event)
+            if err:
+                return err
+            del_email = urllib.parse.unquote(user_del_match.group(1)) if user_del_match else (params.get("email") or parse_body(event).get("email") or "")
+            del_email = del_email.strip().lower()
+            if not del_email:
+                return create_response(400, {"error": "Email is required"})
+
+            # Prevent deleting only remaining admin
+            if user_claims and user_claims.get("email") and del_email == user_claims.get("email").strip().lower():
+                scan_admins = table.scan(FilterExpression=Key("PK").begins_with("USER#") & Attr("SK").eq("PROFILE"))
+                admin_count = 0
+                for u in scan_admins.get("Items", []):
+                    if "Admins" in (u.get("groups") or []) and u.get("email") != del_email:
+                        admin_count += 1
+                if admin_count == 0:
+                    return create_response(400, {"error": "No podés eliminar tu propia cuenta siendo el único administrador del sistema."})
+
+            delete_user_account_completely(del_email)
+            return create_response(200, {"message": f"User account '{del_email}' deleted completely."})
 
         # =====================================================================
         # 2. PROJECTS CRUD (Admin-Gated Modification)
@@ -1222,6 +1388,20 @@ def handler(event, context):
             if not project or not name:
                 return create_response(400, {"error": "Project and member name are required"})
 
+            # Look up member item first to obtain associated email
+            mem_resp = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"})
+            mem_item = mem_resp.get("Item") or {}
+            member_email = (mem_item.get("email") or body.get("email") or params.get("email") or "").strip().lower()
+            if not member_email:
+                if "@" in name:
+                    member_email = name.strip().lower()
+                else:
+                    scan_u = table.scan(
+                        FilterExpression=Key("PK").begins_with("USER#") & Attr("SK").eq("PROFILE") & Attr("name").eq(name)
+                    )
+                    if scan_u.get("Items"):
+                        member_email = scan_u["Items"][0].get("email", "").strip().lower()
+
             if user_claims and not user_claims["is_admin"]:
                 proj_resp = table.get_item(Key={"PK": "META#PROJECTS", "SK": f"PROJECT#{project}"})
                 proj_item = proj_resp.get("Item") or {}
@@ -1241,9 +1421,23 @@ def handler(event, context):
                         403,
                         {"error": "Forbidden: Only administrators can remove other members from projects."},
                     )
+                # Self unassignment: only drop membership from this project
+                table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"})
+                return create_response(200, {"message": f"Member '{name}' removed from '{project}'"})
 
-            table.delete_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{name}"})
-            return create_response(200, {"message": f"Member '{name}' removed from '{project}'"})
+            # Admin deletion: check if admin is deleting their own account as sole admin
+            if user_claims and user_claims.get("email") and member_email and member_email == user_claims.get("email").strip().lower():
+                scan_admins = table.scan(FilterExpression=Key("PK").begins_with("USER#") & Attr("SK").eq("PROFILE"))
+                admin_count = 0
+                for u in scan_admins.get("Items", []):
+                    if "Admins" in (u.get("groups") or []) and u.get("email") != member_email:
+                        admin_count += 1
+                if admin_count == 0:
+                    return create_response(400, {"error": "No podés eliminar tu propia cuenta siendo el único administrador del sistema."})
+
+            # Admin deletes member: purge account completely so re-adding starts from scratch
+            delete_user_account_completely(member_email, project=project, member_name=name)
+            return create_response(200, {"message": f"Member '{name}' and user account deleted completely."})
 
         # =====================================================================
         # 4. DAILY SCRUMS CRUD (Member Self-Protection + Admin Access)
