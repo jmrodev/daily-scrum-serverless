@@ -9,30 +9,35 @@ import { enforceAuthGate, initAuthGateListeners } from "./components/authGate.js
 import { initWeekSelector, initWeekSelectorListeners } from "./components/weekSelector.js";
 import { renderBoard, initDailyMatrixListeners, setDailyMatrixCallbacks } from "./components/dailyMatrix.js";
 import { renderKanban, initKanbanListeners } from "./components/kanbanBoard.js";
+import { renderDiagnosticsView } from "./components/diagnosticsView.js";
 import { initAdminModalListeners, setAdminModalRefreshCallback, loadManageModal } from "./components/adminModal.js";
 
 export const switchMainView = async (view) => {
   state.currentMainView = view;
   const tabDaily = document.getElementById("tabDailyView");
   const tabKanban = document.getElementById("tabKanbanView");
+  const tabDiagnostics = document.getElementById("tabDiagnosticsView");
   const dailyContainer = document.getElementById("dailyViewContainer");
   const kanbanContainer = document.getElementById("kanbanViewContainer");
+  const diagnosticsContainer = document.getElementById("diagnosticsViewContainer");
   const weekGroup = document.getElementById("weekFilterGroup");
 
+  tabDaily?.classList.toggle("active", view === "daily");
+  tabKanban?.classList.toggle("active", view === "kanban");
+  tabDiagnostics?.classList.toggle("active", view === "diagnostics");
+
+  if (dailyContainer) dailyContainer.style.display = view === "daily" ? "block" : "none";
+  if (kanbanContainer) kanbanContainer.style.display = view === "kanban" ? "block" : "none";
+  if (diagnosticsContainer) diagnosticsContainer.style.display = view === "diagnostics" ? "block" : "none";
+
+  if (weekGroup) weekGroup.style.display = view === "kanban" ? "none" : "block";
+
   if (view === "daily") {
-    tabDaily?.classList.add("active");
-    tabKanban?.classList.remove("active");
-    if (dailyContainer) dailyContainer.style.display = "block";
-    if (kanbanContainer) kanbanContainer.style.display = "none";
-    if (weekGroup) weekGroup.style.display = "block";
     await renderBoard();
-  } else {
-    tabDaily?.classList.remove("active");
-    tabKanban?.classList.add("active");
-    if (dailyContainer) dailyContainer.style.display = "none";
-    if (kanbanContainer) kanbanContainer.style.display = "block";
-    if (weekGroup) weekGroup.style.display = "none";
+  } else if (view === "kanban") {
     await renderKanban();
+  } else if (view === "diagnostics") {
+    await renderDiagnosticsView();
   }
 };
 
@@ -63,16 +68,20 @@ export const initProjectSelectors = async () => {
 
   if (state.currentMainView === "daily") {
     await renderBoard();
-  } else {
+  } else if (state.currentMainView === "kanban") {
     await renderKanban();
+  } else if (state.currentMainView === "diagnostics") {
+    await renderDiagnosticsView();
   }
 };
 
 export const refreshCurrentView = async () => {
   if (state.currentMainView === "daily") {
     await renderBoard();
-  } else {
+  } else if (state.currentMainView === "kanban") {
     await renderKanban();
+  } else if (state.currentMainView === "diagnostics") {
+    await renderDiagnosticsView();
   }
 };
 
@@ -105,6 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 4. View Switcher Tabs
   document.getElementById("tabDailyView")?.addEventListener("click", () => switchMainView("daily"));
   document.getElementById("tabKanbanView")?.addEventListener("click", () => switchMainView("kanban"));
+  document.getElementById("tabDiagnosticsView")?.addEventListener("click", () => switchMainView("diagnostics"));
 
   // 5. Board Filter Listeners
   const boardProject = document.getElementById("boardProject");

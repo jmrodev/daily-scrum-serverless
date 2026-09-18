@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="./css/board.css" />
   <link rel="stylesheet" href="./css/kanban.css" />
   <link rel="stylesheet" href="./css/modals.css" />
+  <link rel="stylesheet" href="./css/diagnostics.css" />
 </head>
 <body>
 
@@ -148,6 +149,7 @@
           <div class="view-switcher" style="margin-right: 6px;">
             <button type="button" id="tabDailyView" class="view-tab active">📊 Matriz Daily</button>
             <button type="button" id="tabKanbanView" class="view-tab">📋 Tablero Kanban</button>
+            <button type="button" id="tabDiagnosticsView" class="view-tab">📈 Flujo & Bloqueos</button>
           </div>
 
           <div>
@@ -243,6 +245,9 @@
           </div>
         </div>
       </div>
+
+      <!-- 3. Diagnostics & Flow View -->
+      <div id="diagnosticsViewContainer" style="display: none;"></div>
     </div>
   </div>
 

@@ -41,6 +41,7 @@ This document details the client-side architecture, atomic directory structure, 
 │       ├── weekSelector.js    # Dynamic week detection (DynamoDB + calendar + ➕ button)
 │       ├── dailyMatrix.js     # Weekly Scrum table rendering, cell editing & Daily/Kanban sync
 │       ├── kanbanBoard.js     # Kanban flow (TODO, DOING, BLOCKED, DONE) & drag-and-drop
+│       ├── diagnosticsView.js # Flow diagnostics, bottleneck graph & "who blocks whom"
 │       ├── adminModal.js      # Admin management modal (projects, members, email, endpoint)
 │       └── uiFeedback.js      # Non-intrusive toasts, async confirm and prompt modals
 └── frontend/                  # Synchronized mirror directory for hosting parity
@@ -119,7 +120,13 @@ flowchart TD
 * **Email (Gmail SMTP):** Manage Gmail address, App Password, and sender name for account confirmation codes.
 * **Endpoint Lambda:** Inspect and customize the backend AWS Lambda Function URL for the client.
 
-### E. UI Feedback (`uiFeedback.js`)
+### E. Diagnostics & Flow Map (`diagnosticsView.js`)
+* Real-time bottleneck detection and "who blocks whom" dependency mapping.
+* Executive KPIs: Active Blockers, Average Time Stuck, Fluent Members, Critical Bottleneck.
+* Interactive visual graph depicting flow connections, blocked cards, and cross-member dependencies.
+* Detailed diagnostic table with member, role, status badge, reported date, duration, and jump to Kanban.
+
+### F. UI Feedback (`uiFeedback.js`)
 * `showToast(message, type)`: Animated floating notifications.
 * `showConfirm(title, message)`: Promise-based replacement for `window.confirm`.
 * `showPrompt(options)`: Promise-based replacement for `window.prompt`.

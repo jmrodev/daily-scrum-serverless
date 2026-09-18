@@ -77,6 +77,7 @@ Many serverless architectures incur unexpected charges once initial 12-month pro
 │       ├── weekSelector.js# Dynamic week detection (DynamoDB + calendar + ➕ button)
 │       ├── dailyMatrix.js # Daily Scrum weekly table & bidirectional Kanban sync
 │       ├── kanbanBoard.js # 4-column Kanban flow, cards CRUD & drag-and-drop
+│       ├── diagnosticsView.js # Flow diagnostics, bottleneck graph & "who blocks whom"
 │       ├── adminModal.js  # Admin management modal (projects, members, email, endpoint)
 │       └── uiFeedback.js  # Non-intrusive toasts, async confirm and prompt modals
 ├── frontend/              # Synchronized mirror directory
