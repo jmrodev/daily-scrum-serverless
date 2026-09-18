@@ -269,7 +269,8 @@ export const openEditTaskModal = async (taskId) => {
   document.getElementById("taskPriority").value = task.priority || "MEDIUM";
   document.getElementById("taskBlocker").value = task.blocker || "";
   document.getElementById("taskBlockerGroup").style.display = task.status === "BLOCKED" ? "block" : "none";
-  document.getElementById("btnDeleteTask").style.display = "inline-flex";
+  const isSelf = state.currentUser?.name && task.assignee && (task.assignee.toLowerCase() === state.currentUser.name.toLowerCase());
+  document.getElementById("btnDeleteTask").style.display = (isAdmin() || isSelf) ? "inline-flex" : "none";
 
   await populateAssigneeSelect(project, task.assignee);
   taskModalController.open();
