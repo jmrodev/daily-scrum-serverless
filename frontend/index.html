@@ -373,6 +373,55 @@
     </div>
   </div>
 
+  <!-- Modal: Kanban Blocker & Dependency Registration -->
+  <div id="kanbanBlockerModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 id="kanbanBlockerTitle">🚨 Registrar Bloqueo y Dependencia</h3>
+        <button type="button" id="kanbanBlockerClose" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="kanbanBlockerForm" onsubmit="return false;">
+          <input type="hidden" id="kanbanBlockerTaskId" />
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-weight: 700; font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Tarea que se bloquea:</label>
+            <div id="kanbanBlockerTaskName" style="font-size: 13px; color: var(--primary); font-weight: 700; padding: 8px 12px; background: var(--surface-alt, #f8fafc); border: 1px solid var(--border); border-radius: 6px; margin-top: 4px;"></div>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label for="kanbanBlockerSourceSelect" style="font-weight: 700; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">
+              ¿Quién o qué tarea te bloquea?
+            </label>
+            <select id="kanbanBlockerSourceSelect" style="width: 100%; font-size: 12px; padding: 6px 8px;">
+              <option value="">(Ninguna tarea previa / Impedimento externo)</option>
+              <option value="__NEW__">➕ Crear una nueva tarea requerida en 'Por Hacer' (sin asignar)...</option>
+            </select>
+          </div>
+
+          <div id="kanbanBlockerNewTaskContainer" style="margin-bottom: 12px; display: none;">
+            <label for="kanbanBlockerNewTaskTitle" style="font-size: 11px; font-weight: 700; color: var(--warning, #eab308); text-transform: uppercase; margin-bottom: 4px; display: block;">
+              Título de la tarea requerida (se creará en 'Por Hacer'):
+            </label>
+            <input type="text" id="kanbanBlockerNewTaskTitle" placeholder="Ej: Configurar endpoint de pagos..." style="width: 100%; font-size: 12px;" />
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <label for="kanbanBlockerReason" style="font-weight: 700; font-size: 11px; text-transform: uppercase; color: var(--error); margin-bottom: 4px; display: block;">
+              Motivo o detalle del bloqueo:
+            </label>
+            <textarea id="kanbanBlockerReason" placeholder="¿Qué se necesita para resolverlo o por qué no podés avanzar?..." style="width: 100%; min-height: 70px; border-color: var(--error);" required></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" id="btnCancelKanbanBlocker" class="btn btn-secondary btn-sm">Cancelar</button>
+            <button type="button" id="btnConfirmKanbanBlocker" class="btn btn-danger btn-sm">🚨 Confirmar Bloqueo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Manage Projects & Members (Admin Only) -->
   <div id="manageModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 620px;">

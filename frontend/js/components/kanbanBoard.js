@@ -11,7 +11,54 @@ import { showToast, showPrompt, showConfirm } from "./uiFeedback.js";
 import { syncKanbanToDaily } from "./dailyMatrix.js";
 
 let taskModalController = null;
+let blockerModalController = null;
 let draggedTaskId = null;
+
+export const openKanbanBlockerModal = (task, allTasks = []) => {
+  const taskIdInput = document.getElementById("kanbanBlockerTaskId");
+  const taskNameDiv = document.getElementById("kanbanBlockerTaskName");
+  const sourceSelect = document.getElementById("kanbanBlockerSourceSelect");
+  const newTitleContainer = document.getElementById("kanbanBlockerNewTaskContainer");
+  const newTitleInput = document.getElementById("kanbanBlockerNewTaskTitle");
+  const reasonText = document.getElementById("kanbanBlockerReason");
+
+  if (!taskIdInput || !sourceSelect) return;
+
+  taskIdInput.value = task.id;
+  if (taskNameDiv) taskNameDiv.textContent = task.title;
+  if (newTitleInput) newTitleInput.value = "";
+  if (reasonText) reasonText.value = task.blocker || "";
+  if (newTitleContainer) newTitleContainer.style.display = "none";
+
+  sourceSelect.innerHTML = `
+    <option value="">(Ninguna tarea previa / Impedimento externo)</option>
+    <option value="__NEW__">➕ Crear una nueva tarea requerida en 'Por Hacer' (sin asignar)...</option>
+  `;
+
+  const otherTasks = (allTasks || []).filter(
+    (t) => t.id !== task.id && t.status !== "DONE"
+  );
+
+  if (otherTasks.length > 0) {
+    const optGroup = document.createElement("optgroup");
+    optGroup.label = "⛔ Tareas de otros integrantes que me traban:";
+    otherTasks.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = `BLOCKS_ME#${t.id}`;
+      const assigneeLabel = t.assignee ? `[${t.assignee}] ` : "[Sin asignar] ";
+      opt.textContent = `${assigneeLabel}${t.title} (${getStatusLabel(t.status)})`;
+      if (task.blocked_by_task_id === t.id) {
+        opt.selected = true;
+      }
+      optGroup.appendChild(opt);
+    });
+    sourceSelect.appendChild(optGroup);
+  }
+
+  if (blockerModalController) {
+    blockerModalController.open();
+  }
+};
 
 const getNextStatus = (current) => {
   const idx = KANBAN_STATUSES.indexOf(current);
@@ -206,15 +253,12 @@ export const moveTaskStatus = async (taskId, nextStatus) => {
     return;
   }
 
-  if (nextStatus === "BLOCKED" && !task.blocker) {
-    const res = await showPrompt({
-      title: "🚨 Registrar Bloqueo",
-      label: "Motivo o impedimento que traba la tarea:",
-      initialValue: "Esperando dependencias",
-    });
-    if (res === null) return;
-    task.blocker = res.value.trim() || "Bloqueo no especificado";
-  } else if (nextStatus !== "BLOCKED") {
+  if (nextStatus === "BLOCKED") {
+    openKanbanBlockerModal(task, tasks);
+    return;
+  }
+
+  if (task.status === "BLOCKED" && nextStatus !== "BLOCKED") {
     task.blocker = "";
   }
 
@@ -427,6 +471,105 @@ export const initKanbanListeners = () => {
         showToast("Tarea eliminada.");
       } catch (err) {
         showToast(err.message, "error");
+      }
+    });
+  }
+
+  // Kanban Blocker Modal Controller & Listeners
+  blockerModalController = createModalController("kanbanBlockerModal", "kanbanBlockerClose");
+
+  const btnCancelBlocker = document.getElementById("btnCancelKanbanBlocker");
+  if (btnCancelBlocker) {
+    btnCancelBlocker.addEventListener("click", () => blockerModalController?.close());
+  }
+
+  const blockerSourceSelect = document.getElementById("kanbanBlockerSourceSelect");
+  if (blockerSourceSelect) {
+    blockerSourceSelect.addEventListener("change", (e) => {
+      const newTitleContainer = document.getElementById("kanbanBlockerNewTaskContainer");
+      if (newTitleContainer) {
+        newTitleContainer.style.display = e.target.value === "__NEW__" ? "block" : "none";
+        if (e.target.value === "__NEW__") {
+          setTimeout(() => document.getElementById("kanbanBlockerNewTaskTitle")?.focus(), 150);
+        }
+      }
+    });
+  }
+
+  const btnConfirmBlocker = document.getElementById("btnConfirmKanbanBlocker");
+  if (btnConfirmBlocker) {
+    btnConfirmBlocker.addEventListener("click", async () => {
+      const project = document.getElementById("boardProject")?.value || state.activeProject;
+      const taskId = document.getElementById("kanbanBlockerTaskId")?.value;
+      if (!project || !taskId) return;
+
+      const source = document.getElementById("kanbanBlockerSourceSelect")?.value || "";
+      const newTitle = document.getElementById("kanbanBlockerNewTaskTitle")?.value.trim();
+      const reason = document.getElementById("kanbanBlockerReason")?.value.trim();
+
+      if (source === "__NEW__" && !newTitle) {
+        showToast("Ingresá el título de la tarea requerida", "error");
+        return;
+      }
+      if (!reason) {
+        showToast("Ingresá el motivo o detalle del bloqueo", "error");
+        return;
+      }
+
+      btnConfirmBlocker.disabled = true;
+      btnConfirmBlocker.textContent = "Bloqueando...";
+
+      try {
+        const tasks = await api.getTasks(project);
+        const task = tasks.find((t) => t.id === taskId);
+        if (!task) return;
+
+        if (source === "__NEW__") {
+          const createdTask = await api.saveTask({
+            project,
+            title: newTitle,
+            assignee: "",
+            status: "TODO",
+            priority: "HIGH",
+            blocker: `Bloquea a ${task.assignee || 'tarea'}: ${reason}`,
+          });
+          const createdId = createdTask.id || (createdTask.task && createdTask.task.id);
+          const createdTitle = createdTask.title || (createdTask.task && createdTask.task.title) || newTitle;
+          const deps = task.depends_on || [];
+          if (createdId && !deps.includes(createdId)) deps.push(createdId);
+          task.depends_on = deps;
+          task.blocked_by_task_id = createdId || "";
+          task.blocked_by_task_title = createdTitle;
+        } else if (source.startsWith("BLOCKS_ME#")) {
+          const targetId = source.replace("BLOCKS_ME#", "");
+          const target = tasks.find((t) => t.id === targetId);
+          const deps = task.depends_on || [];
+          if (!deps.includes(targetId)) deps.push(targetId);
+          task.depends_on = deps;
+          task.blocked_by_task_id = targetId;
+          task.blocked_by_task_title = target ? target.title : "";
+          if (target) {
+            target.blocker = `Bloquea a ${task.assignee || 'tarea'}: ${reason}`;
+            await api.saveTask(target);
+          }
+        }
+
+        task.status = "BLOCKED";
+        task.blocker = reason;
+        await api.saveTask(task);
+
+        if (task.assignee) {
+          await syncKanbanToDaily(project, task.assignee);
+        }
+
+        blockerModalController.close();
+        await renderKanban();
+        showToast("Tarea bloqueada y vinculada a la red de dependencias.");
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btnConfirmBlocker.disabled = false;
+        btnConfirmBlocker.textContent = "🚨 Confirmar Bloqueo";
       }
     });
   }
