@@ -604,23 +604,6 @@ export const renderDiagnosticsView = async (project = null, week = null, silent 
           </div>
         </div>
 
-        <!-- Storyline Breadcrumbs -->
-        <div class="pert-story-banner">
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <strong style="font-size: 12px; color: var(--text);">Cadena de Vida y Trazabilidad Operativa:</strong>
-            <span style="font-size: 11px; color: var(--text-muted);">Cómo las actuaciones de los alumnos se proyectan en el grafo (hacé clic en cualquier nodo para ver su vida):</span>
-          </div>
-          <div class="pert-steps-track">
-            <span class="pert-step-pill step-1">1. 🔑 Ingreso Auditado</span>
-            <span class="pert-step-arrow">➔</span>
-            <span class="pert-step-pill step-2">2. 📝 Tarea Creada / Asignada</span>
-            <span class="pert-step-arrow">➔</span>
-            <span class="pert-step-pill step-3">3. 🚨 Declaración de Traba en Daily</span>
-            <span class="pert-step-arrow">➔</span>
-            <span class="pert-step-pill step-4">4. 🕸️ Ruta Crítica en Grafo</span>
-          </div>
-        </div>
-
         <!-- Interactive SVG PERT DAG -->
         <div class="pert-container-card" style="margin-bottom: 20px;">
           <div class="diag-section-header">

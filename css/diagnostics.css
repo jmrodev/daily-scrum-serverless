@@ -503,50 +503,6 @@
   }
 }
 
-/* Storyline Breadcrumb Banner */
-.pert-story-banner {
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.pert-steps-track {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 11px;
-}
-
-.pert-step-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-weight: 600;
-  color: var(--text);
-}
-
-.pert-step-pill.step-1 { border-left: 3px solid #0284c7; }
-.pert-step-pill.step-2 { border-left: 3px solid #8b5cf6; }
-.pert-step-pill.step-3 { border-left: 3px solid #f59e0b; }
-.pert-step-pill.step-4 { border-left: 3px solid #ef4444; }
-
-.pert-step-arrow {
-  color: var(--text-muted);
-  font-weight: 800;
-}
-
 /* Lifecycle Timeline */
 .pert-timeline {
   position: relative;
