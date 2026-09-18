@@ -52,6 +52,31 @@ def log_user_activity(email, action, event=None):
         print(f"Error recording audit event for {email}: {e}")
 
 
+def log_data_event(project, action, detail=None, actor=None):
+    """Audit trail de datos: quién creó/modificó/borró qué dentro de un proyecto.
+
+    Escribe en PK AUDIT#PROJECT#{project} con TTL 90 días. Liviano y best-effort:
+    nunca rompe la operación principal si el log falla.
+    """
+    try:
+        now_iso = datetime.datetime.utcnow().isoformat()
+        event_id = str(uuid.uuid4())[:8]
+        item = {
+            "PK": f"AUDIT#PROJECT#{project}",
+            "SK": f"EVENT#{now_iso}#{event_id}",
+            "action": action,
+            "project": project,
+            "actor": (actor or "").strip().lower(),
+            "timestamp": now_iso,
+            "ttl": int(time.time()) + (86400 * 90),
+        }
+        if detail:
+            item["detail"] = detail
+        table.put_item(Item=item)
+    except Exception as e:
+        print(f"Error recording data audit event {action} for project {project}: {e}")
+
+
 def delete_user_account_completely(email, project=None, member_name=None):
     """Purge a user account completely:
     1. USER#{email} PROFILE (password, status, tokens, codes)

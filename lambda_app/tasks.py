@@ -3,6 +3,7 @@ import datetime
 import uuid
 from boto3.dynamodb.conditions import Key
 
+from .activity import log_data_event
 from .store import create_response, parse_body, table
 from .tokens import require_auth
 
@@ -52,6 +53,8 @@ def route(path, method, event, params, user_claims):
                 return create_response(400, {"error": f"'{assignee}' no es un integrante asignado al proyecto '{project}'."})
 
         task_id = body.get("id") or str(uuid.uuid4())[:8]
+        actor = (user_claims.get("email") or "").strip().lower()
+        now_iso = datetime.datetime.utcnow().isoformat()
         item = {
             "PK": f"PROJECT#{project}",
             "SK": f"TASK#{task_id}",
@@ -65,8 +68,10 @@ def route(path, method, event, params, user_claims):
             "depends_on": depends_on,
             "blocked_by_task_id": blocked_by_task_id,
             "blocked_by_task_title": blocked_by_task_title,
-            "created_at": datetime.datetime.utcnow().isoformat(),
-            "updated_at": datetime.datetime.utcnow().isoformat(),
+            "created_by": actor,
+            "created_at": now_iso,
+            "updated_by": actor,
+            "updated_at": now_iso,
         }
         table.put_item(Item=item)
         return create_response(201, {"message": "Task created successfully", "task": item})
@@ -129,6 +134,9 @@ def route(path, method, event, params, user_claims):
             update_parts.append("blocked_by_task_title = :bbttl")
             expr_values[":bbttl"] = body["blocked_by_task_title"]
 
+        update_expr = "SET " + ", ".join(update_parts)
+        expr_values[":upd_by"] = (user_claims.get("email") or "").strip().lower()
+        update_parts.append("updated_by = :upd_by")
         update_expr = "SET " + ", ".join(update_parts)
         kwargs = {
             "Key": {"PK": f"PROJECT#{project}", "SK": f"TASK#{task_id}"},

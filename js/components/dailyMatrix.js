@@ -313,9 +313,6 @@ export const openScrumModal = async (project, week, day, member, isEdit) => {
     }
   }
 
-  const syncCheckbox = document.getElementById("syncKanbanOnSave");
-  if (syncCheckbox) syncCheckbox.checked = true;
-
   const btnAutofill = document.getElementById("btnAutofillFromKanban");
   if (btnAutofill) {
     btnAutofill.textContent = memberTasks.length > 0
@@ -829,12 +826,9 @@ export const initDailyMatrixListeners = () => {
           document.getElementById("modalAns2")?.value.trim() || "Sin respuesta",
           finalBlockerAns,
         ];
-        const shouldSync = document.getElementById("syncKanbanOnSave")?.checked;
-
         await api.saveScrum(project, week, day, member, answers, blockingTaskId, blockingTaskTitle);
-        if (shouldSync) {
-          await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, inputBlockerReason);
-        }
+        // Scrumban unificado: Daily y Kanban siempre sincronizados.
+        await syncDailyToKanban(project, member, answers, blockedTaskId, newBlockedTitle, inputBlockerReason);
         scrumModalController.close();
         await renderBoard();
         if (requestKanbanRender) await requestKanbanRender();

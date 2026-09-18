@@ -3,6 +3,7 @@ import datetime
 import re
 from boto3.dynamodb.conditions import Key
 
+from .activity import log_data_event
 from .store import create_response, parse_body, table
 from .tokens import require_auth
 
@@ -63,6 +64,7 @@ def route(path, method, event, params, user_claims):
         blocking_task_id = (body.get("blocking_task_id") or "").strip()
         blocking_task_title = (body.get("blocking_task_title") or "").strip()
 
+        actor = (user_claims.get("email") or "").strip().lower()
         item = {
             "PK": f"PROJECT#{project}",
             "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
@@ -73,8 +75,12 @@ def route(path, method, event, params, user_claims):
             "answers": answers,
             "blocking_task_id": blocking_task_id,
             "blocking_task_title": blocking_task_title,
+            "updated_by": actor,
             "updated_at": event.get("requestContext", {}).get("time", "") or datetime.datetime.utcnow().isoformat(),
         }
+        if method == "POST":
+            item["created_by"] = actor
+            item["created_at"] = item["updated_at"]
         table.put_item(Item=item)
         return create_response(
             200 if method == "PUT" else 201,
@@ -196,6 +202,11 @@ def route(path, method, event, params, user_claims):
                 "PK": f"PROJECT#{project}",
                 "SK": f"WEEK#{week}#DAY#{day}#MEMBER#{member}",
             }
+        )
+        log_data_event(
+            project, "SCRUM_DELETE",
+            {"member": member, "week": week, "day": day},
+            (user_claims.get("email") or ""),
         )
         return create_response(
             200,

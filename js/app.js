@@ -137,11 +137,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const btnRefresh = document.getElementById("btnRefreshBoard");
-  if (btnRefresh) {
-    btnRefresh.addEventListener("click", refreshCurrentView);
-  }
-
   // 6. ENFORCE MANDATORY AUTH GATE:
   // If not logged in, NO board data is requested. Only the login screen is displayed!
   enforceAuthGate(startAuthenticatedApp);
