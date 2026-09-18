@@ -82,6 +82,14 @@ def route(path, method, event, params, user_claims):
         if method == "POST":
             item["created_by"] = actor
             item["created_at"] = item["updated_at"]
+        if "kanban_refs" in body:
+            # Caller tracks kanban snapshot explicitly (sync flow)
+            item["kanban_refs"] = body.get("kanban_refs") or []
+        else:
+            # Manual saves preserve the existing snapshot so tracking survives edits
+            prev = table.get_item(Key={"PK": item["PK"], "SK": item["SK"]}).get("Item") or {}
+            if prev.get("kanban_refs"):
+                item["kanban_refs"] = prev["kanban_refs"]
         table.put_item(Item=item)
         return create_response(
             200 if method == "PUT" else 201,

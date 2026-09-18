@@ -245,11 +245,13 @@ export const api = {
     }
   },
 
-  async saveScrum(project, week, day, member, answers, blocking_task_id = "", blocking_task_title = "") {
+  async saveScrum(project, week, day, member, answers, blocking_task_id = "", blocking_task_title = "", kanban_refs = null) {
     const url = getCleanUrl();
+    const payload = { project, week, day, member, answers, blocking_task_id, blocking_task_title };
+    if (kanban_refs != null) payload.kanban_refs = kanban_refs;
     const res = await authFetch(`${url}/scrums`, {
       method: "POST",
-      body: JSON.stringify({ project, week, day, member, answers, blocking_task_id, blocking_task_title }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al guardar Daily Scrum");

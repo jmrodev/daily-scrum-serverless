@@ -689,20 +689,32 @@ export const syncKanbanToDaily = async (project, member) => {
     (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
   );
 
-  const doneTitles = memberTasks.filter((t) => t.status === "DONE").map((t) => t.title);
-  const doingTitles = memberTasks.filter((t) => t.status === "DOING").map((t) => t.title);
-  const blockedTitles = memberTasks.filter((t) => t.status === "BLOCKED").map((t) => t.blocker ? `[${t.title}] ${t.blocker}` : `[${t.title}] Bloqueada`);
+  const doneObjs = memberTasks.filter((t) => t.status === "DONE");
+  const doingObjs = memberTasks.filter((t) => t.status === "DOING");
+  const blockedObjs = memberTasks.filter((t) => t.status === "BLOCKED");
+  const doneTitles = doneObjs.map((t) => t.title);
+  const doingTitles = doingObjs.map((t) => t.title);
+  const blockedTitles = blockedObjs.map((t) => t.blocker ? `[${t.title}] ${t.blocker}` : `[${t.title}] Bloqueada`);
+  const liveById = new Map(memberTasks.map((t) => [t.id, t]));
+  const snapOf = (arr, bucket) => arr.map((t) => ({ id: t.id, title: t.title, bucket }));
+  const refs = { ans1: snapOf(doneObjs, "DONE"), ans2: snapOf(doingObjs, "DOING"), ans3: snapOf(blockedObjs, "BLOCKED") };
 
   const existingScrum = (scrums || []).find(
     (s) => s.member && s.member.toLowerCase() === member.toLowerCase() && s.day === today
   );
 
-  // Reconcile: drop auto-generated bullet lines whose task no longer lives in
-  // that bucket (moved in kanban); keep manual text we cannot judge.
-  const statusByTitle = new Map();
-  memberTasks.forEach((t) => statusByTitle.set((t.title || "").toLowerCase(), t.status));
-  const dropStaleBullets = (prevText, bucket) => {
+  // Reconcile by snapshot id when available (renames included), else by live
+  // title matching (legacy rows). Manual text we cannot judge is preserved.
+  const dropStaleBullets = (prevText, bucket, snapList) => {
     if (!prevText) return "";
+    // Snapshots guardados: sabemos qué id generó cada línea. Si ese id ya no
+    // existe o cambió de casillero (aunque lo hayan renombrado), el título
+    // viejo es basura segura para borrar.
+    const staleTitles = new Set();
+    (snapList || []).forEach((s) => {
+      const live = liveById.get(s.id);
+      if (!live || live.status !== bucket) staleTitles.add((s.title || "").toLowerCase());
+    });
     const kept = [];
     for (const rawLine of prevText.split("\n")) {
       const line = rawLine.trim();
@@ -715,14 +727,18 @@ export const syncKanbanToDaily = async (project, member) => {
         if (m && !m[1].startsWith("[")) title = m[1];
       }
       if (title) {
-        const live = statusByTitle.get(title.toLowerCase());
-        if (live && live !== bucket) continue; // stale: task changed state
+        if (staleTitles.has(title.toLowerCase())) continue; // snapshot: moved/renamed/gone
+        if (!snapList || !snapList.length) {
+          const liveTitle = [...liveById.values()].find((t) => (t.title || "").toLowerCase() === title.toLowerCase());
+          if (liveTitle && liveTitle.status !== bucket) continue; // legacy rows: title match
+        }
       }
       kept.push(rawLine);
     }
     return kept.join("\n").trim();
   };
   const isPlaceholder = (t) => !t || ["ninguno", "sin respuesta"].includes(t.toLowerCase());
+  const prevRefs = (existingScrum && existingScrum.kanban_refs) || null;
 
   let ans1 = doneTitles.length > 0 ? doneTitles.map((t) => `• ${t}`).join("\n") : "";
   let ans2 = doingTitles.length > 0 ? doingTasks.map((t) => `• ${t}`).join("\n") : "";
@@ -730,17 +746,17 @@ export const syncKanbanToDaily = async (project, member) => {
 
   if (existingScrum && existingScrum.answers) {
     if (!ans1) {
-      const kept = dropStaleBullets(existingScrum.answers[0] || "", "DONE");
+      const kept = dropStaleBullets(existingScrum.answers[0] || "", "DONE", prevRefs?.ans1);
       ans1 = isPlaceholder(kept) ? "" : kept;
     }
     if (!ans2) {
-      const kept = dropStaleBullets(existingScrum.answers[1] || "", "DOING");
+      const kept = dropStaleBullets(existingScrum.answers[1] || "", "DOING", prevRefs?.ans2);
       ans2 = isPlaceholder(kept) ? "" : kept;
     }
     if (blockedTitles.length === 0) {
       const prev3 = existingScrum.answers[2] || "";
       if (!isPlaceholder(prev3)) {
-        const kept = dropStaleBullets(prev3, "BLOCKED");
+        const kept = dropStaleBullets(prev3, "BLOCKED", prevRefs?.ans3);
         ans3 = isPlaceholder(kept) ? "Ninguno" : kept;
       }
     }
@@ -750,7 +766,7 @@ export const syncKanbanToDaily = async (project, member) => {
   const finalAns2 = ans2 || "Sin respuesta";
   const finalAns3 = ans3 || "Ninguno";
 
-  await api.saveScrum(project, week, today, member, [finalAns1, finalAns2, finalAns3]);
+  await api.saveScrum(project, week, today, member, [finalAns1, finalAns2, finalAns3], "", "", refs);
   await renderBoard();
 };
 
@@ -879,20 +895,29 @@ export const initDailyMatrixListeners = () => {
         scrumModalController.close();
         await renderBoard();
         if (requestKanbanRender) await requestKanbanRender();
+        // Snapshots for redo (member tasks as they stand right now)
+        const redoMemberTasks = (tasks || []).filter(
+          (t) => t.assignee && t.assignee.toLowerCase() === member.toLowerCase()
+        );
+        const redoSnap = (status, bucket) => redoMemberTasks
+          .filter((t) => t.status === status)
+          .map((t) => ({ id: t.id, title: t.title, bucket }));
+        const redoRefs = { ans1: redoSnap("DONE", "DONE"), ans2: redoSnap("DOING", "DOING"), ans3: redoSnap("BLOCKED", "BLOCKED") };
         pushHistory({
           label: `daily de ${member} (${day})`,
           undo: async () => {
             if (beforeScrum) {
               await api.saveScrum(project, week, day, member,
                 beforeScrum.answers || answers,
-                beforeScrum.blocking_task_id || "", beforeScrum.blocking_task_title || "");
+                beforeScrum.blocking_task_id || "", beforeScrum.blocking_task_title || "",
+                beforeScrum.kanban_refs || null);
             } else {
               await api.deleteScrum(project, week, day, member);
             }
             await renderBoard();
           },
           redo: async () => {
-            await api.saveScrum(project, week, day, member, answers, blockingTaskId, blockingTaskTitle);
+            await api.saveScrum(project, week, day, member, answers, blockingTaskId, blockingTaskTitle, redoRefs);
             await renderBoard();
           },
           toast: `Daily guardada para ${member} (${day}).`,
