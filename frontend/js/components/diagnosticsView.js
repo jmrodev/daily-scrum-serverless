@@ -82,9 +82,14 @@ export const openTaskLifecycleModal = (taskId, taskMap, scrums, activityData, cu
   let loginText = "Sin sesión previa auditada en el sistema.";
   let loginTime = "—";
   if (userAudit) {
-    loginTime = userAudit.last_login ? new Date(userAudit.last_login).toLocaleString() : "Registrado";
-    const ip = userAudit.events && userAudit.events[0] ? userAudit.events[0].ip : "";
-    loginText = `<strong>${escapeHtml(userAudit.name)}</strong> ingresó al sistema (${userAudit.login_count || 1} accesos registrados${ip ? `, IP: ${escapeHtml(ip)}` : ""}).`;
+    if (userAudit.login_count > 0 && userAudit.last_login) {
+      loginTime = new Date(userAudit.last_login).toLocaleString();
+      const ip = userAudit.events && userAudit.events[0] ? userAudit.events[0].ip : "";
+      loginText = `<strong>${escapeHtml(userAudit.name)}</strong> ingresó al sistema (${userAudit.login_count} accesos registrados${ip ? `, IP: ${escapeHtml(ip)}` : ""}).`;
+    } else {
+      loginTime = userAudit.created_at ? new Date(userAudit.created_at).toLocaleString() : "Invitado";
+      loginText = `<strong>${escapeHtml(userAudit.name)}</strong> fue invitado al proyecto pero aún no registra inicios de sesión (0 accesos).`;
+    }
   } else if (t.assignee) {
     loginText = `Integrante <strong>${escapeHtml(t.assignee)}</strong> activo en el proyecto <strong>${escapeHtml(currentProject)}</strong>.`;
   } else {
@@ -988,9 +993,12 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
                 </div>
               ` : activityData.map((u) => {
                 const initial = (u.name || u.email || "?").charAt(0).toUpperCase();
-                const signupFormatted = u.created_at ? new Date(u.created_at).toLocaleDateString() : "Invitado";
-                const lastLoginRelative = formatRelativeTime(u.last_login);
-                const hasLoggedIn = (u.login_count || 0) > 0;
+                const isInvited = u.status === "FORCE_CHANGE_PASSWORD" || !u.last_login || (u.login_count || 0) === 0;
+                const signupFormatted = u.created_at
+                  ? (isInvited ? `Invitado (${new Date(u.created_at).toLocaleDateString()})` : new Date(u.created_at).toLocaleDateString())
+                  : "Invitado";
+                const lastLoginRelative = (u.login_count || 0) > 0 && u.last_login ? formatRelativeTime(u.last_login) : "Nunca";
+                const hasLoggedIn = (u.login_count || 0) > 0 && Boolean(u.last_login);
 
                 let participationBadge = `<span class="diag-status-badge blocked">🔴 Inactivo (0 logins)</span>`;
                 if ((u.login_count || 0) >= 5) {

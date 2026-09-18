@@ -863,8 +863,17 @@ def handler(event, context):
                 ]
 
                 created_at = p_item.get("created_at") or ""
-                last_login = p_item.get("last_login") or (events[0]["timestamp"] if events else created_at)
-                login_count = int(p_item.get("login_count") or (len(events) if events else (1 if last_login else 0)))
+                # Only set last_login if user has actually logged in or has audit events
+                actual_last_login = p_item.get("last_login") or (events[0]["timestamp"] if events else "")
+
+                # Accurately compute login count (never default to 1 for invited users)
+                if p_item.get("login_count") is not None:
+                    login_count = int(p_item.get("login_count"))
+                elif events:
+                    login_count = len(events)
+                else:
+                    login_count = 0
+
                 status = p_item.get("status") or ("CONFIRMED" if p_item.get("password_hash") else "INVITED")
                 info = member_details.get(em, {})
 
@@ -875,7 +884,7 @@ def handler(event, context):
                     "is_admin": bool(info.get("is_admin", False) or "Admins" in (p_item.get("groups") or [])),
                     "status": status,
                     "created_at": created_at,
-                    "last_login": last_login,
+                    "last_login": actual_last_login,
                     "login_count": login_count,
                     "events": events,
                 })
