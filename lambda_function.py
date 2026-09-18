@@ -1653,6 +1653,11 @@ def handler(event, context):
             if not project or not title:
                 return create_response(400, {"error": "Missing 'project' or 'title'"})
 
+            if assignee:
+                mem_chk = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{assignee}"})
+                if not mem_chk.get("Item"):
+                    return create_response(400, {"error": f"'{assignee}' no es un integrante asignado al proyecto '{project}'."})
+
             task_id = body.get("id") or str(uuid.uuid4())[:8]
             item = {
                 "PK": f"PROJECT#{project}",
@@ -1682,6 +1687,12 @@ def handler(event, context):
             if not project or not task_id:
                 return create_response(400, {"error": "Missing 'project' or 'id'"})
 
+            new_assignee = body.get("assignee")
+            if new_assignee and str(new_assignee).strip():
+                mem_chk = table.get_item(Key={"PK": f"PROJECT#{project}", "SK": f"MEMBER#{str(new_assignee).strip()}"})
+                if not mem_chk.get("Item"):
+                    return create_response(400, {"error": f"'{new_assignee}' no es un integrante asignado al proyecto '{project}'."})
+
             update_parts = ["updated_at = :up"]
             expr_names = {}
             expr_values = {":up": datetime.datetime.utcnow().isoformat()}
@@ -1693,7 +1704,7 @@ def handler(event, context):
 
             if "assignee" in body:
                 update_parts.append("assignee = :asgn")
-                expr_values[":asgn"] = body["assignee"]
+                expr_values[":asgn"] = (body["assignee"] or "").strip()
 
             if "title" in body:
                 update_parts.append("title = :ttl")

@@ -41,11 +41,17 @@ export const renderKanban = async (silent = false) => {
     });
   }
 
-  const [tasks, scrums] = await Promise.all([
+  const [tasks, scrums, members] = await Promise.all([
     api.getTasks(project),
     api.getWeeklyScrums(project, week),
+    api.getMembers(project),
   ]);
   state.currentLoadedTasks = tasks || [];
+
+  const isMemberOfProject = (members || []).some(
+    (m) => state.currentUser?.name && m.name.toLowerCase() === state.currentUser.name.toLowerCase()
+  );
+  const canParticipate = isAdmin() || isMemberOfProject;
 
   const statusMap = { TODO: [], DOING: [], BLOCKED: [], DONE: [] };
   tasks.forEach((t) => {
@@ -70,7 +76,7 @@ export const renderKanban = async (silent = false) => {
       const card = document.createElement("div");
       card.className = "kanban-card";
       const isSelf = state.currentUser.name && t.assignee && (t.assignee.toLowerCase() === state.currentUser.name.toLowerCase());
-      const canManageTask = isAdmin() || isSelf || !t.assignee;
+      const canManageTask = canParticipate && (isAdmin() || isSelf || !t.assignee);
       const prevStatus = getPrevStatus(t.status);
       const nextStatus = getNextStatus(t.status);
 
@@ -111,7 +117,7 @@ export const renderKanban = async (silent = false) => {
           <span class="kanban-assignee">
             👤 ${escapeHtml(t.assignee || "Sin Asignar")}
             ${isSelf ? '<span class="member-cell-self" style="font-size:8px;">TÚ</span>' : ''}
-            ${!t.assignee ? `<button type="button" class="btn-claim-task" title="Asignarme esta tarea para resolverla">🙋‍♂️ Tomar</button>` : ''}
+            ${!t.assignee ? (canParticipate ? `<button type="button" class="btn-claim-task" title="Asignarme esta tarea para resolverla">🙋‍♂️ Tomar</button>` : '<span style="font-size:10px; color:var(--text-muted);" title="Solo integrantes de este equipo pueden tomar tareas">🔒 No asignada</span>') : ''}
           </span>
           <div class="kanban-nav-btns">
             ${canManageTask ? `
@@ -224,6 +230,16 @@ export const moveTaskStatus = async (taskId, nextStatus) => {
 export const claimTaskAction = async (taskId) => {
   const project = document.getElementById("boardProject")?.value || state.activeProject;
   if (!project || !state.currentUser.name) return;
+
+  const members = await api.getMembers(project);
+  const isMember = (members || []).some(
+    (m) => state.currentUser.name && m.name.toLowerCase() === state.currentUser.name.toLowerCase()
+  );
+  if (!isAdmin() && !isMember) {
+    showToast(`Debes ser integrante del proyecto '${project}' para poder tomar tareas.`, "error");
+    return;
+  }
+
   try {
     const tasks = await api.getTasks(project);
     const task = tasks.find((t) => t.id === taskId);
@@ -243,6 +259,15 @@ export const claimTaskAction = async (taskId) => {
 export const openNewTaskModal = async () => {
   const project = document.getElementById("boardProject")?.value || state.activeProject;
   if (!project) return;
+
+  const members = await api.getMembers(project);
+  const isMember = (members || []).some(
+    (m) => state.currentUser.name && m.name.toLowerCase() === state.currentUser.name.toLowerCase()
+  );
+  if (!isAdmin() && !isMember) {
+    showToast(`Debes ser integrante del proyecto '${project}' para crear tareas.`, "error");
+    return;
+  }
 
   document.getElementById("taskModalTitle").textContent = "➕ Nueva Tarea de Kanban";
   document.getElementById("taskId").value = "";
