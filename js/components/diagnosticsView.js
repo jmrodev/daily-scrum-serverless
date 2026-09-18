@@ -206,10 +206,12 @@ export const openTaskLifecycleModal = (taskId, taskMap, scrums, activityData, cu
     </div>
   `;
 
-  modal.style.display = "flex";
+  modal.classList.add("open");
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
 
   const closeModal = () => {
-    modal.style.display = "none";
+    modal.classList.remove("open");
   };
 
   document.getElementById("btnCloseLifecycleModal")?.addEventListener("click", closeModal);
