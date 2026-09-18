@@ -37,6 +37,8 @@ export const updateHeaderUI = () => {
   const authUserBadge = document.getElementById("authUserBadge");
   const btnOpenManageModal = document.getElementById("btnOpenManageModal");
   const btnLogout = document.getElementById("btnLogout");
+  const tabDiagnosticsView = document.getElementById("tabDiagnosticsView");
+  const btnAddWeek = document.getElementById("btnAddWeek");
 
   if (!authUserBadge) return;
 
@@ -45,8 +47,15 @@ export const updateHeaderUI = () => {
     const roleLabel = state.currentUser.role === "admin" ? "Admin" : "Dev";
     authUserBadge.textContent = `👤 ${state.currentUser.name} (${roleLabel})`;
 
+    const admin = isAdmin();
     if (btnOpenManageModal) {
-      btnOpenManageModal.style.display = isAdmin() ? "inline-flex" : "none";
+      btnOpenManageModal.style.display = admin ? "inline-flex" : "none";
+    }
+    if (tabDiagnosticsView) {
+      tabDiagnosticsView.style.display = admin ? "inline-block" : "none";
+    }
+    if (btnAddWeek) {
+      btnAddWeek.style.display = admin ? "inline-block" : "none";
     }
     if (btnLogout) {
       btnLogout.style.display = "inline-flex";
@@ -54,6 +63,8 @@ export const updateHeaderUI = () => {
   } else {
     authUserBadge.style.display = "none";
     if (btnOpenManageModal) btnOpenManageModal.style.display = "none";
+    if (tabDiagnosticsView) tabDiagnosticsView.style.display = "none";
+    if (btnAddWeek) btnAddWeek.style.display = "none";
     if (btnLogout) btnLogout.style.display = "none";
   }
 };

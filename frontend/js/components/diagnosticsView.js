@@ -224,6 +224,17 @@ export const renderDiagnosticsView = async (project = null, week = null) => {
   const container = document.getElementById("diagnosticsViewContainer");
   if (!container) return;
 
+  if (!isAdmin()) {
+    container.innerHTML = `
+      <div class="diag-table-card" style="text-align: center; padding: 40px; color: var(--text-muted); background: var(--surface);">
+        <div style="font-size: 36px; margin-bottom: 8px;">🔒</div>
+        <h3 style="color: var(--text); margin-bottom: 6px;">Acceso Exclusivo de Administración</h3>
+        <p>El módulo de PERT/CPM, diagnósticos y auditoría está reservado para el docente y administradores del proyecto.</p>
+      </div>
+    `;
+    return;
+  }
+
   const currentProject = project || document.getElementById("boardProject")?.value || state.activeProject;
   const currentWeek = week || document.getElementById("boardWeek")?.value || state.activeWeek || "WEEK 1";
 

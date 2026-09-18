@@ -2,9 +2,10 @@
  * Application Entry Point & Module Coordinator
  * Enforces mandatory authentication gate before initializing boards or data queries.
  */
-import { state } from "./state.js";
+import { state, isAdmin } from "./state.js";
 import { api } from "./services/api.js";
-import { initTheme } from "./components/header.js";
+import { initTheme, updateHeaderUI } from "./components/header.js";
+import { showToast } from "./components/uiFeedback.js";
 import { enforceAuthGate, initAuthGateListeners } from "./components/authGate.js";
 import { initWeekSelector, initWeekSelectorListeners } from "./components/weekSelector.js";
 import { renderBoard, initDailyMatrixListeners, setDailyMatrixCallbacks } from "./components/dailyMatrix.js";
@@ -13,6 +14,10 @@ import { renderDiagnosticsView } from "./components/diagnosticsView.js";
 import { initAdminModalListeners, setAdminModalRefreshCallback, loadManageModal } from "./components/adminModal.js";
 
 export const switchMainView = async (view) => {
+  if (view === "diagnostics" && !isAdmin()) {
+    showToast("Acceso a PERT/CPM y Diagnóstico exclusivo para administradores.", "error");
+    view = "daily";
+  }
   state.currentMainView = view;
   const tabDaily = document.getElementById("tabDailyView");
   const tabKanban = document.getElementById("tabKanbanView");
@@ -89,6 +94,10 @@ export const refreshCurrentView = async () => {
  * Bootstraps the application once authentication is confirmed.
  */
 const startAuthenticatedApp = async () => {
+  updateHeaderUI();
+  if (!isAdmin() && state.currentMainView === "diagnostics") {
+    state.currentMainView = "daily";
+  }
   await initProjectSelectors();
 };
 
